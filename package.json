@@ -40,6 +40,7 @@
     "babel-preset-metalab": "^1.0.0",
     "mime-types": "^2.1.13",
     "rdflib": ">=0.17.0",
+    "pane-registry": ">1.0.0",
     "pane-registry": "*",
     "solid-ui": ">=0.11.3"
   },
