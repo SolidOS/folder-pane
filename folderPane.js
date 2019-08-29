@@ -120,10 +120,30 @@ module.exports = {
     var me = UI.authn.currentUser()
     var creationContext = {folder: subject, div: creationDiv, dom: dom, statusArea: creationDiv, me: me}
     creationContext.refreshTarget = mainTable
-    UI.create.newThingUI(creationContext, panes) // Have to pass panes down  newUI
+    UI.authn.filterAvailablePanes(panes).then(function (relevantPanes) {
+      UI.create.newThingUI(creationContext, relevantPanes) // Have to pass panes down  newUI
 
-    // /////////// Allow new file to be Uploaded
-    var droppedFileHandler = function (files) {
+      UI.aclControl.preventBrowserDropEvents(dom)
+
+      const explictDropIcon = false
+      var target
+      if (explictDropIcon) {
+        let iconStyleFound = creationDiv.firstChild.style.cssText
+        target = creationDiv.insertBefore(dom.createElement('img'), creationDiv.firstChild)
+        target.style.cssText = iconStyleFound
+        target.setAttribute('src', UI.icons.iconBase + 'noun_748003.svg')
+        target.setAttribute('style', 'width: 2em; height: 2em') // Safari says target.style is read-only
+      } else {
+        target = creationDiv.firstChild // Overload drop target semantics onto the plus sign
+      }
+
+      // /////////// Allow new file to be Uploaded
+      UI.widgets.makeDropTarget(target, null, droppedFileHandler)
+    })
+
+    return div
+
+    function droppedFileHandler (files) {
       UI.widgets.uploadFiles(kb.fetcher, files, subject.uri, subject.uri, function (file, uri) {
         // A file has been uploaded
         let destination = kb.sym(uri)
@@ -132,24 +152,6 @@ module.exports = {
         mainTable.refresh()
       })
     }
-
-    UI.aclControl.preventBrowserDropEvents(dom)
-
-    const explictDropIcon = false
-    var target
-    if (explictDropIcon) {
-      let iconStyleFound = creationDiv.firstChild.style.cssText
-      target = creationDiv.insertBefore(dom.createElement('img'), creationDiv.firstChild)
-      target.style.cssText = iconStyleFound
-      target.setAttribute('src', UI.icons.iconBase + 'noun_748003.svg')
-      target.setAttribute('style', 'width: 2em; height: 2em') // Safari says target.style is read-only
-    } else {
-      target = creationDiv.firstChild // Overload drop target semantics onto the plus sign
-    }
-
-    UI.widgets.makeDropTarget(target, null, droppedFileHandler)
-
-    return div
   }
 }
 // ends
