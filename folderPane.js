@@ -1,7 +1,7 @@
 /*   Folder pane
-**
-**  This outline pane lists the members of a folder
-*/
+ **
+ **  This outline pane lists the members of a folder
+ */
 
 var UI = require('solid-ui')
 var panes = require('pane-registry')
@@ -16,16 +16,18 @@ module.exports = {
   // Create a new folder in a Solid system,
   mintNew: function (newPaneOptions) {
     var kb = UI.store
-    var newInstance = newPaneOptions.newInstance || kb.sym(newPaneOptions.newBase)
+    var newInstance =
+      newPaneOptions.newInstance || kb.sym(newPaneOptions.newBase)
     var u = newInstance.uri
     if (u.endsWith('/')) {
       u = u.slice(0, -1) // chop off trailer
-    }// { throw new Error('URI of new folder must end in "/" :' + u) }
+    } // { throw new Error('URI of new folder must end in "/" :' + u) }
     newPaneOptions.newInstance = kb.sym(u + '/')
 
     // @@@@ kludge until we can get the solid-client version working
     // Force the folder by saving a dummy file inside it
-    return kb.fetcher.webOperation('PUT', newInstance.uri + '.dummy')
+    return kb.fetcher
+      .webOperation('PUT', newInstance.uri + '.dummy')
       .then(function () {
         console.log('New folder created: ' + newInstance.uri)
 
@@ -33,7 +35,7 @@ module.exports = {
       })
       .then(function () {
         console.log('Dummy file deleted : ' + newInstance.uri + '.dummy')
-/*
+        /*
         return kb.fetcher.createContainer(parentURI, folderName) // Not BOTH ways
       })
       .then(function () {
@@ -49,7 +51,8 @@ module.exports = {
     if (n > 0) {
       return 'Contents (' + n + ')' // Show how many in hover text
     }
-    if (kb.holds(subject, ns.rdf('type'), ns.ldp('Container'))) { // It is declared as being a container
+    if (kb.holds(subject, ns.rdf('type'), ns.ldp('Container'))) {
+      // It is declared as being a container
       return 'Container (0)'
     }
     return null // Suppress pane otherwise
@@ -61,7 +64,7 @@ module.exports = {
     var outliner = panes.getOutliner(dom)
     var kb = UI.store
     var mainTable // This is a live synced table
-/*
+    /*
     var complain = function complain (message, color) {
       var pre = dom.createElement('pre')
       console.log(message)
@@ -72,23 +75,35 @@ module.exports = {
 */
     var div = dom.createElement('div')
     div.setAttribute('class', 'instancePane')
-    div.setAttribute('style', '  border-top: solid 1px #777; border-bottom: solid 1px #777; margin-top: 0.5em; margin-bottom: 0.5em ')
+    div.setAttribute(
+      'style',
+      '  border-top: solid 1px #777; border-bottom: solid 1px #777; margin-top: 0.5em; margin-bottom: 0.5em '
+    )
 
     // If this is an LDP container just list the directory
 
-    var noHiddenFiles = function (obj) { // @@ This hiddenness should actually be server defined
+    var noHiddenFiles = function (obj) {
+      // @@ This hiddenness should actually be server defined
       var pathEnd = obj.uri.slice(obj.dir().uri.length)
-      return !(pathEnd.startsWith('.') || pathEnd.endsWith('.acl') || pathEnd.endsWith('~'))
+      return !(
+        pathEnd.startsWith('.') ||
+        pathEnd.endsWith('.acl') ||
+        pathEnd.endsWith('~')
+      )
     }
-    let thisDir = subject.uri.endsWith('/') ? subject.uri : subject.uri + '/'
-    let indexThing = kb.sym(thisDir + 'index.ttl#this')
+    const thisDir = subject.uri.endsWith('/') ? subject.uri : subject.uri + '/'
+    const indexThing = kb.sym(thisDir + 'index.ttl#this')
     if (kb.holds(subject, ns.ldp('contains'), indexThing.doc())) {
-      console.log('View of folder with be view of indexThing. Loading ' + indexThing)
-      let packageDiv = div.appendChild(dom.createElement('div'))
+      console.log(
+        'View of folder with be view of indexThing. Loading ' + indexThing
+      )
+      const packageDiv = div.appendChild(dom.createElement('div'))
       packageDiv.style.cssText = 'border-top: 0.2em solid #ccc;' // Separate folder views above from package views below
       kb.fetcher.load(indexThing.doc()).then(function () {
         mainTable = packageDiv.appendChild(dom.createElement('table'))
-        panes.getOutliner(dom).GotoSubject(indexThing, true, undefined, false, undefined, mainTable)
+        panes
+          .getOutliner(dom)
+          .GotoSubject(indexThing, true, undefined, false, undefined, mainTable)
       })
 
       return div
@@ -96,17 +111,18 @@ module.exports = {
       mainTable = div.appendChild(dom.createElement('table'))
       var refresh = function () {
         var objs = kb.each(subject, ns.ldp('contains')).filter(noHiddenFiles)
-        objs = objs.map(obj => [ UI.utils.label(obj).toLowerCase(), obj ])
+        objs = objs.map(obj => [UI.utils.label(obj).toLowerCase(), obj])
         objs.sort() // Sort by label case-insensitive
         objs = objs.map(pair => pair[1])
         UI.utils.syncTableToArray(mainTable, objs, function (obj) {
-          let st = kb.statementsMatching(subject, ns.ldp('contains'), obj)[0]
-          let defaultpropview = outliner.VIEWAS_boring_default
-          let tr = outliner.propertyTR(dom,
-            st, false)
+          const st = kb.statementsMatching(subject, ns.ldp('contains'), obj)[0]
+          const defaultpropview = outliner.VIEWAS_boring_default
+          const tr = outliner.propertyTR(dom, st, false)
           tr.firstChild.textContent = '' // Was initialized to 'Contains'
           tr.firstChild.style.cssText += 'min-width: 3em;'
-          tr.appendChild(outliner.outlineObjectTD(obj, defaultpropview, undefined, st))
+          tr.appendChild(
+            outliner.outlineObjectTD(obj, defaultpropview, undefined, st)
+          )
           // UI.widgets.makeDraggable(tr, obj)
           return tr
         })
@@ -118,7 +134,13 @@ module.exports = {
     // Allow user to create new things within the folder
     var creationDiv = div.appendChild(dom.createElement('div'))
     var me = UI.authn.currentUser()
-    var creationContext = {folder: subject, div: creationDiv, dom: dom, statusArea: creationDiv, me: me}
+    var creationContext = {
+      folder: subject,
+      div: creationDiv,
+      dom: dom,
+      statusArea: creationDiv,
+      me: me
+    }
     creationContext.refreshTarget = mainTable
     UI.authn.filterAvailablePanes(panes).then(function (relevantPanes) {
       UI.create.newThingUI(creationContext, relevantPanes) // Have to pass panes down  newUI
@@ -128,8 +150,11 @@ module.exports = {
       const explictDropIcon = false
       var target
       if (explictDropIcon) {
-        let iconStyleFound = creationDiv.firstChild.style.cssText
-        target = creationDiv.insertBefore(dom.createElement('img'), creationDiv.firstChild)
+        const iconStyleFound = creationDiv.firstChild.style.cssText
+        target = creationDiv.insertBefore(
+          dom.createElement('img'),
+          creationDiv.firstChild
+        )
         target.style.cssText = iconStyleFound
         target.setAttribute('src', UI.icons.iconBase + 'noun_748003.svg')
         target.setAttribute('style', 'width: 2em; height: 2em') // Safari says target.style is read-only
@@ -144,13 +169,19 @@ module.exports = {
     return div
 
     function droppedFileHandler (files) {
-      UI.widgets.uploadFiles(kb.fetcher, files, subject.uri, subject.uri, function (file, uri) {
-        // A file has been uploaded
-        let destination = kb.sym(uri)
-        console.log(' Upload: put OK: ' + destination)
-        kb.add(subject, ns.ldp('contains'), destination, subject.doc())
-        mainTable.refresh()
-      })
+      UI.widgets.uploadFiles(
+        kb.fetcher,
+        files,
+        subject.uri,
+        subject.uri,
+        function (file, uri) {
+          // A file has been uploaded
+          const destination = kb.sym(uri)
+          console.log(' Upload: put OK: ' + destination)
+          kb.add(subject, ns.ldp('contains'), destination, subject.doc())
+          mainTable.refresh()
+        }
+      )
     }
   }
 }
