@@ -4,8 +4,6 @@
  */
 
 var UI = require('solid-ui')
-var panes = require('pane-registry')
-
 var ns = UI.ns
 
 module.exports = {
@@ -14,8 +12,8 @@ module.exports = {
   name: 'folder',
 
   // Create a new folder in a Solid system,
-  mintNew: function (newPaneOptions) {
-    var kb = UI.store
+  mintNew: function (context, newPaneOptions) {
+    var kb = context.session.store
     var newInstance =
       newPaneOptions.newInstance || kb.sym(newPaneOptions.newBase)
     var u = newInstance.uri
@@ -45,8 +43,8 @@ module.exports = {
       })
   },
 
-  label: function (subject) {
-    var kb = UI.store
+  label: function (subject, context) {
+    var kb = context.session.store
     var n = kb.each(subject, ns.ldp('contains')).length
     if (n > 0) {
       return 'Contents (' + n + ')' // Show how many in hover text
@@ -60,9 +58,10 @@ module.exports = {
 
   // Render a file folder in a LDP/solid system
 
-  render: function (subject, dom) {
-    var outliner = panes.getOutliner(dom)
-    var kb = UI.store
+  render: function (subject, context) {
+    var dom = context.dom
+    var outliner = context.getOutliner(dom)
+    var kb = context.session.store
     var mainTable // This is a live synced table
     /*
     var complain = function complain (message, color) {
@@ -101,7 +100,7 @@ module.exports = {
       packageDiv.style.cssText = 'border-top: 0.2em solid #ccc;' // Separate folder views above from package views below
       kb.fetcher.load(indexThing.doc()).then(function () {
         mainTable = packageDiv.appendChild(dom.createElement('table'))
-        panes
+        context
           .getOutliner(dom)
           .GotoSubject(indexThing, true, undefined, false, undefined, mainTable)
       })
@@ -142,29 +141,31 @@ module.exports = {
       me: me
     }
     creationContext.refreshTarget = mainTable
-    UI.authn.filterAvailablePanes(panes).then(function (relevantPanes) {
-      UI.create.newThingUI(creationContext, relevantPanes) // Have to pass panes down  newUI
+    UI.authn
+      .filterAvailablePanes(context.session.paneRegistry.list)
+      .then(function (relevantPanes) {
+        UI.create.newThingUI(creationContext, relevantPanes) // Have to pass panes down  newUI
 
-      UI.aclControl.preventBrowserDropEvents(dom)
+        UI.aclControl.preventBrowserDropEvents(dom)
 
-      const explictDropIcon = false
-      var target
-      if (explictDropIcon) {
-        const iconStyleFound = creationDiv.firstChild.style.cssText
-        target = creationDiv.insertBefore(
-          dom.createElement('img'),
-          creationDiv.firstChild
-        )
-        target.style.cssText = iconStyleFound
-        target.setAttribute('src', UI.icons.iconBase + 'noun_748003.svg')
-        target.setAttribute('style', 'width: 2em; height: 2em') // Safari says target.style is read-only
-      } else {
-        target = creationDiv.firstChild // Overload drop target semantics onto the plus sign
-      }
+        const explictDropIcon = false
+        var target
+        if (explictDropIcon) {
+          const iconStyleFound = creationDiv.firstChild.style.cssText
+          target = creationDiv.insertBefore(
+            dom.createElement('img'),
+            creationDiv.firstChild
+          )
+          target.style.cssText = iconStyleFound
+          target.setAttribute('src', UI.icons.iconBase + 'noun_748003.svg')
+          target.setAttribute('style', 'width: 2em; height: 2em') // Safari says target.style is read-only
+        } else {
+          target = creationDiv.firstChild // Overload drop target semantics onto the plus sign
+        }
 
-      // /////////// Allow new file to be Uploaded
-      UI.widgets.makeDropTarget(target, null, droppedFileHandler)
-    })
+        // /////////// Allow new file to be Uploaded
+        UI.widgets.makeDropTarget(target, null, droppedFileHandler)
+      })
 
     return div
 
