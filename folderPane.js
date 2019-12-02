@@ -144,7 +144,7 @@ module.exports = {
     UI.authn
       .filterAvailablePanes(context.session.paneRegistry.list)
       .then(function (relevantPanes) {
-        UI.create.newThingUI(creationContext, relevantPanes) // Have to pass panes down  newUI
+        UI.create.newThingUI(creationContext, context, relevantPanes) // Have to pass panes down  newUI
 
         UI.aclControl.preventBrowserDropEvents(dom)
 
