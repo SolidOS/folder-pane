@@ -33,13 +33,13 @@
   },
   "homepage": "https://github.com/solid/folder-pane",
   "dependencies": {
-    "solid-ui": "^2.0.1"
+    "solid-ui": "^2.0.6"
   },
   "devDependencies": {
-    "eslint": "^6.6.0",
-    "husky": "^3.0.8",
-    "lint-staged": "^10.0.0-0",
-    "standard": "^14.3.1"
+    "eslint": "^6.8.0",
+    "husky": "^3.1.0",
+    "lint-staged": "^10.2.11",
+    "standard": "^14.3.4"
   },
   "husky": {
     "hooks": {
