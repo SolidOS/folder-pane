@@ -34,7 +34,7 @@
   },
   "homepage": "https://github.com/solid/folder-pane",
   "dependencies": {
-    "solid-ui": "^2.3.0"
+    "solid-ui": "^2.3.2"
   },
   "devDependencies": {
     "eslint": "^7.12.0",
