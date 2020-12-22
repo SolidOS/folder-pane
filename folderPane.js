@@ -25,7 +25,7 @@ module.exports = {
     // @@@@ kludge until we can get the solid-client version working
     // Force the folder by saving a dummy file inside it
     return kb.fetcher
-      .webOperation('PUT', newInstance.uri + '.dummy')
+      .webOperation('PUT', newInstance.uri + '.dummy', { contentType: 'application/octet-stream' })
       .then(function () {
         console.log('New folder created: ' + newInstance.uri)
 
