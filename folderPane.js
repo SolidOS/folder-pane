@@ -6,6 +6,8 @@
 var UI = require('solid-ui')
 var ns = UI.ns
 
+const $rdf = UI.rdf
+
 module.exports = {
   icon: UI.icons.iconBase + 'noun_973694_expanded.svg',
 
@@ -94,7 +96,7 @@ module.exports = {
     const indexThing = kb.sym(thisDir + 'index.ttl#this')
     if (kb.holds(subject, ns.ldp('contains'), indexThing.doc())) {
       console.log(
-        'View of folder with be view of indexThing. Loading ' + indexThing
+        'View of folder will be view of indexThing. Loading ' + indexThing
       )
       const packageDiv = div.appendChild(dom.createElement('div'))
       packageDiv.style.cssText = 'border-top: 0.2em solid #ccc;' // Separate folder views above from package views below
@@ -107,8 +109,19 @@ module.exports = {
 
       return div
     } else {
+      // check folder text/turtle has been loaded
+      async function loadFolder () {
+        if (!kb.anyStatementMatching(subject, ns.rdf('type'), ns.ldp('Container'), subject.doc())) {
+          return kb.fetcher
+            .webOperation('GET', subject.uri, kb.fetcher.initFetchOptions(subject.uri, { headers: { accept: 'text/turtle' } }))
+            .then(response => {
+              $rdf.parse(response.responseText, kb, subject.uri, 'text/turtle')
+            })
+        }
+      }
       mainTable = div.appendChild(dom.createElement('table'))
-      var refresh = function () {
+      var refresh = async function () {
+        await loadFolder()
         var objs = kb.each(subject, ns.ldp('contains')).filter(noHiddenFiles)
         objs = objs.map(obj => [UI.utils.label(obj).toLowerCase(), obj])
         objs.sort() // Sort by label case-insensitive
