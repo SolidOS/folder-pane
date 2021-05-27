@@ -73,7 +73,7 @@ module.exports = {
       div.appendChild(pre)
       pre.appendChild(dom.createTextNode(message))
     }
-*/
+    */
     var div = dom.createElement('div')
     div.setAttribute('class', 'instancePane')
     div.setAttribute(
@@ -106,7 +106,6 @@ module.exports = {
           .getOutliner(dom)
           .GotoSubject(indexThing, true, undefined, false, undefined, mainTable)
       })
-
       return div
     } else {
       // check folder text/turtle has been loaded
