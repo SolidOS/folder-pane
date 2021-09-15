@@ -4,6 +4,7 @@
   "description": "Solid-compatible Panes: File browser",
   "main": "./folderPane.js",
   "scripts": {
+    "start": "webpack serve --config webpack.dev.config.js",
     "build": "echo nothing to build",
     "lint": "eslint '*.js'",
     "lint-fix": "eslint '*.js' --fix",
@@ -37,10 +38,18 @@
     "solid-ui": "^2.4.5"
   },
   "devDependencies": {
+    "@babel/preset-env": "^7.12.11",
+    "@babel/preset-typescript": "^7.12.7",
+    "babel-loader": "^8.2.2",
     "eslint": "^7.28.0",
+    "html-webpack-plugin": "^4.5.1",
     "husky": "^6.0.0",
     "lint-staged": "^11.0.0",
-    "standard": "^16.0.3"
+    "standard": "^16.0.3",
+    "typescript-transpile-only": "^0.0.4",
+    "webpack": "^4.46.0",
+    "webpack-cli": "^4.3.1",
+    "webpack-dev-server": "^3.11.2"
   },
   "husky": {
     "hooks": {
