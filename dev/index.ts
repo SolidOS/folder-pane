@@ -44,9 +44,7 @@ trackSession((session) => {
 const webIdToShow = "https://sstratsianis.solidcommunity.net/profile/card#me"
 const addressBookToShow = "https://sstratsianis.solidcommunity.net/private/Friends/index.ttl#this"
 fetcher.load(webIdToShow).then(() => {
-
     const app = pane.render(sym(webIdToShow), context);
-    document.getElementById("app").replaceWith(app)
-
+    document.getElementById("app").replaceWith(app);
 })
 
