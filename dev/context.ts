@@ -9,7 +9,8 @@ export const context: DataBrowserContext = {
     paneRegistry: {
       byName: (name: string) => {
         return folderPane
-      }
+      },
+      list: []
     } as PaneRegistry,
     logic: solidLogicSingleton
   },
