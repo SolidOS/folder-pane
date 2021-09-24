@@ -110,6 +110,8 @@ module.exports = {
     } else {
       // check folder text/turtle has been loaded
       async function loadFolder () {
+        kb.fetcher.refresh(subject)
+        await kb.fetcher.load(subject.uri)
         if (!kb.anyStatementMatching(subject, ns.rdf('type'), ns.ldp('Container'), subject.doc())) {
           return kb.fetcher
             .webOperation('GET', subject.uri, kb.fetcher.initFetchOptions(subject.uri, { headers: { accept: 'text/turtle' } }))
