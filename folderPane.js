@@ -3,10 +3,9 @@
  **  This outline pane lists the members of a folder
  */
 
-var UI = require('solid-ui')
-var ns = UI.ns
-
-const $rdf = UI.rdf
+const UI = require('solid-ui')
+const style = UI.style
+const ns = UI.ns
 
 module.exports = {
   icon: UI.icons.iconBase + 'noun_973694_expanded.svg',
@@ -15,10 +14,10 @@ module.exports = {
 
   // Create a new folder in a Solid system,
   mintNew: function (context, newPaneOptions) {
-    var kb = context.session.store
-    var newInstance =
+    const kb = context.session.store
+    const newInstance =
       newPaneOptions.newInstance || kb.sym(newPaneOptions.newBase)
-    var u = newInstance.uri
+    let u = newInstance.uri
     if (u.endsWith('/')) {
       u = u.slice(0, -1) // chop off trailer
     } // { throw new Error('URI of new folder must end in "/" :' + u) }
@@ -46,8 +45,8 @@ module.exports = {
   },
 
   label: function (subject, context) {
-    var kb = context.session.store
-    var n = kb.each(subject, ns.ldp('contains')).length
+    const kb = context.session.store
+    const n = kb.each(subject, ns.ldp('contains')).length
     if (n > 0) {
       return 'Contents (' + n + ')' // Show how many in hover text
     }
@@ -61,37 +60,46 @@ module.exports = {
   // Render a file folder in a LDP/solid system
 
   render: function (subject, context) {
-    var dom = context.dom
-    var outliner = context.getOutliner(dom)
-    var kb = context.session.store
-    var mainTable // This is a live synced table
-    /*
-    var complain = function complain (message, color) {
-      var pre = dom.createElement('pre')
-      console.log(message)
-      pre.setAttribute('style', 'background-color: ' + color || '#eed' + ';')
-      div.appendChild(pre)
-      pre.appendChild(dom.createTextNode(message))
-    }
-    */
-    var div = dom.createElement('div')
-    div.setAttribute('class', 'instancePane')
-    div.setAttribute(
-      'style',
-      '  border-top: solid 1px #777; border-bottom: solid 1px #777; margin-top: 0.5em; margin-bottom: 0.5em '
-    )
-
-    // If this is an LDP container just list the directory
-
-    var noHiddenFiles = function (obj) {
+    function noHiddenFiles (obj) {
       // @@ This hiddenness should actually be server defined
-      var pathEnd = obj.uri.slice(obj.dir().uri.length)
+      const pathEnd = obj.uri.slice(obj.dir().uri.length)
       return !(
         pathEnd.startsWith('.') ||
         pathEnd.endsWith('.acl') ||
         pathEnd.endsWith('~')
       )
     }
+
+    function refresh () {
+      var objs = kb.each(subject, ns.ldp('contains')).filter(noHiddenFiles)
+      objs = objs.map(obj => [UI.utils.label(obj).toLowerCase(), obj])
+      objs.sort() // Sort by label case-insensitive
+      objs = objs.map(pair => pair[1])
+      UI.utils.syncTableToArray(mainTable, objs, function (obj) {
+        const st = kb.statementsMatching(subject, ns.ldp('contains'), obj)[0]
+        const defaultpropview = outliner.VIEWAS_boring_default
+        const tr = outliner.propertyTR(dom, st, false)
+        tr.firstChild.textContent = '' // Was initialized to 'Contains'
+        tr.firstChild.style.cssText += 'min-width: 3em;'
+        tr.appendChild(
+          outliner.outlineObjectTD(obj, defaultpropview, undefined, st)
+        )
+        // UI.widgets.makeDraggable(tr, obj)
+        return tr
+      })
+    }
+
+    const dom = context.dom
+    const outliner = context.getOutliner(dom)
+    const kb = context.session.store
+    var mainTable // This is a live synced table
+    const div = dom.createElement('div')
+    div.setAttribute('class', 'instancePane')
+    const paneStyle = style.folderPaneStyle || 'border-top: solid 1px #777; border-bottom: solid 1px #777; margin-top: 0.5em; margin-bottom: 0.5em;'
+    div.setAttribute('style', paneStyle)
+
+    // If this is an LDP container just list the directory
+
     const thisDir = subject.uri.endsWith('/') ? subject.uri : subject.uri + '/'
     const indexThing = kb.sym(thisDir + 'index.ttl#this')
     if (kb.holds(subject, ns.ldp('contains'), indexThing.doc())) {
@@ -108,44 +116,18 @@ module.exports = {
       })
       return div
     } else {
-      // check folder text/turtle has been loaded
-      async function loadFolder () {
-        if (!kb.anyStatementMatching(subject, ns.rdf('type'), ns.ldp('Container'), subject.doc())) {
-          return kb.fetcher
-            .webOperation('GET', subject.uri, kb.fetcher.initFetchOptions(subject.uri, { headers: { accept: 'text/turtle' } }))
-            .then(response => {
-              $rdf.parse(response.responseText, kb, subject.uri, 'text/turtle')
-            })
-        }
-      }
       mainTable = div.appendChild(dom.createElement('table'))
-      var refresh = async function () {
-        await loadFolder()
-        var objs = kb.each(subject, ns.ldp('contains')).filter(noHiddenFiles)
-        objs = objs.map(obj => [UI.utils.label(obj).toLowerCase(), obj])
-        objs.sort() // Sort by label case-insensitive
-        objs = objs.map(pair => pair[1])
-        UI.utils.syncTableToArray(mainTable, objs, function (obj) {
-          const st = kb.statementsMatching(subject, ns.ldp('contains'), obj)[0]
-          const defaultpropview = outliner.VIEWAS_boring_default
-          const tr = outliner.propertyTR(dom, st, false)
-          tr.firstChild.textContent = '' // Was initialized to 'Contains'
-          tr.firstChild.style.cssText += 'min-width: 3em;'
-          tr.appendChild(
-            outliner.outlineObjectTD(obj, defaultpropview, undefined, st)
-          )
-          // UI.widgets.makeDraggable(tr, obj)
-          return tr
-        })
-      }
       mainTable.refresh = refresh
       refresh()
+      // addDownstreamChangeListener is a high level function which when oneone else changes the resource
+      // reloads it into the kb, and then calls us to be able to update the folder pane.
+      kb.updater.addDownstreamChangeListener(subject, refresh) // Update store and call me if folder changes
     }
 
     // Allow user to create new things within the folder
-    var creationDiv = div.appendChild(dom.createElement('div'))
-    var me = UI.authn.currentUser()
-    var creationContext = {
+    const creationDiv = div.appendChild(dom.createElement('div'))
+    const me = UI.authn.currentUser() // @@ respond to login events
+    const creationContext = {
       folder: subject,
       div: creationDiv,
       dom: dom,
@@ -161,7 +143,7 @@ module.exports = {
         UI.aclControl.preventBrowserDropEvents(dom)
 
         const explictDropIcon = false
-        var target
+        let target
         if (explictDropIcon) {
           const iconStyleFound = creationDiv.firstChild.style.cssText
           target = creationDiv.insertBefore(
