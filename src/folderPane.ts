@@ -57,29 +57,7 @@ module.exports = {
 
   // Render a file folder in a LDP/solid system
   render: function (subject, context) {
-    const dom = context.dom
-    const outliner = context.getOutliner(dom)
-    const kb = context.session.store
-    let mainTable // This is a live synced table
-    /*
-    var complain = function complain (message, color) {
-      var pre = dom.createElement('pre')
-      console.log(message)
-      pre.setAttribute('style', 'background-color: ' + color || '#eed' + ';')
-      div.appendChild(pre)
-      pre.appendChild(dom.createTextNode(message))
-    }
-    */
-    const div = dom.createElement('div')
-    div.setAttribute('class', 'instancePane')
-    div.setAttribute(
-      'style',
-      '  border-top: solid 1px #777; border-bottom: solid 1px #777; margin-top: 0.5em; margin-bottom: 0.5em '
-    )
-
-    // If this is an LDP container just list the directory
-
-    const noHiddenFiles = function (obj) {
+    function noHiddenFiles (obj) {
       // @@ This hiddenness should actually be server defined
       const pathEnd = obj.uri.slice(obj.dir().uri.length)
       return !(
@@ -89,16 +67,34 @@ module.exports = {
       )
     }
 
-    async function loadFolder () {
-      if (!kb.anyStatementMatching(subject, UI.ns.rdf('type'), UI.ns.ldp('Container'), subject.doc())) {
-        return kb.fetcher
-          .webOperation('GET', subject.uri, kb.fetcher.initFetchOptions(subject.uri, { headers: { accept: 'text/turtle' } }))
-          .then(response => {
-            UI.rdf.parse(response.responseText, kb, subject.uri, 'text/turtle')
-          })
-      }
+    function refresh () {
+      let objs = kb.each(subject, UI.ns.ldp('contains')).filter(noHiddenFiles)
+      objs = objs.map(obj => [UI.utils.label(obj).toLowerCase(), obj])
+      objs.sort() // Sort by label case-insensitive
+      objs = objs.map(pair => pair[1])
+      UI.utils.syncTableToArray(mainTable, objs, function (obj) {
+        const st = kb.statementsMatching(subject, UI.ns.ldp('contains'), obj)[0]
+        const defaultpropview = outliner.VIEWAS_boring_default
+        const tr = outliner.propertyTR(dom, st, false)
+        tr.firstChild.textContent = '' // Was initialized to 'Contains'
+        tr.firstChild.style.cssText += 'min-width: 3em;'
+        tr.appendChild(
+          outliner.outlineObjectTD(obj, defaultpropview, undefined, st)
+        )
+        // UI.widgets.makeDraggable(tr, obj)
+        return tr
+      })
     }
 
+    const dom = context.dom
+    const outliner = context.getOutliner(dom)
+    const kb = context.session.store
+    let mainTable // This is a live synced table
+    const div = dom.createElement('div')
+    div.setAttribute('class', 'instancePane')
+    const paneStyle = UI.style.folderPaneStyle || 'border-top: solid 1px #777; border-bottom: solid 1px #777; margin-top: 0.5em; margin-bottom: 0.5em;'
+    div.setAttribute('style', paneStyle)
+    
     const thisDir = subject.uri.endsWith('/') ? subject.uri : subject.uri + '/'
     const indexThing = kb.sym(thisDir + 'index.ttl#this')
     if (kb.holds(subject, UI.ns.ldp('contains'), indexThing.doc())) {
@@ -115,35 +111,17 @@ module.exports = {
       })
       return div
     } else {
-      // check folder text/turtle has been loaded
-      
       mainTable = div.appendChild(dom.createElement('table'))
-      const refresh = async function () {
-        await loadFolder()
-        let objs = kb.each(subject, UI.ns.ldp('contains')).filter(noHiddenFiles)
-        objs = objs.map(obj => [UI.utils.label(obj).toLowerCase(), obj])
-        objs.sort() // Sort by label case-insensitive
-        objs = objs.map(pair => pair[1])
-        UI.utils.syncTableToArray(mainTable, objs, function (obj) {
-          const st = kb.statementsMatching(subject, UI.ns.ldp('contains'), obj)[0]
-          const defaultpropview = outliner.VIEWAS_boring_default
-          const tr = outliner.propertyTR(dom, st, false)
-          tr.firstChild.textContent = '' // Was initialized to 'Contains'
-          tr.firstChild.style.cssText += 'min-width: 3em;'
-          tr.appendChild(
-            outliner.outlineObjectTD(obj, defaultpropview, undefined, st)
-          )
-          // UI.widgets.makeDraggable(tr, obj)
-          return tr
-        })
-      }
       mainTable.refresh = refresh
       refresh()
+      // addDownstreamChangeListener is a high level function which when someone else changes the resource,
+      // reloads it into the kb, then must call addDownstreamChangeListener to be able to update the folder pane.
+      kb.updater.addDownstreamChangeListener(subject, refresh) // Update store and call me if folder changes
     }
 
     // Allow user to create new things within the folder
     const creationDiv = div.appendChild(dom.createElement('div'))
-    const me = UI.authn.currentUser()
+    const me = UI.authn.currentUser() // @@ respond to login events
     const creationContext: CreateContext = {
       folder: subject,
       div: creationDiv,
