@@ -1,6 +1,6 @@
 {
   "name": "folder-pane",
-  "version": "2.4.9-beta",
+  "version": "2.4.9-beta.0",
   "description": "Solid-compatible Panes: File browser",
   "main": "./folderPane.js",
   "scripts": {
