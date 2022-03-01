@@ -2,8 +2,8 @@
  **
  **  This outline pane lists the members of a folder
  */
-
-const UI = require('solid-ui')
+import { authn } from 'solid-logic'
+import * as UI from 'solid-ui'
 const style = UI.style
 const ns = UI.ns
 
@@ -126,7 +126,7 @@ module.exports = {
 
     // Allow user to create new things within the folder
     const creationDiv = div.appendChild(dom.createElement('div'))
-    const me = UI.authn.currentUser() // @@ respond to login events
+    const me = authn.currentUser() // @@ respond to login events
     const creationContext = {
       folder: subject,
       div: creationDiv,
@@ -135,7 +135,7 @@ module.exports = {
       me: me
     }
     creationContext.refreshTarget = mainTable
-    UI.authn
+    UI.login
       .filterAvailablePanes(context.session.paneRegistry.list)
       .then(function (relevantPanes) {
         UI.create.newThingUI(creationContext, context, relevantPanes) // Have to pass panes down  newUI
