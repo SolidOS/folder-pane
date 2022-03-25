@@ -4,7 +4,6 @@
     "es6": true,
     "node": true
   },
-  "extends": "standard",
   "globals": {
     "Atomics": "readonly",
     "SharedArrayBuffer": "readonly"
@@ -14,5 +13,8 @@
       "argsIgnorePattern": "^_",
       "varsIgnorePattern": "^_"
     }]
-  }
+  }, 
+  "parser": "@typescript-eslint/parser",
+  "plugins": ["@typescript-eslint"],
+  "extends": ["eslint:recommended", "plugin:@typescript-eslint/recommended"]
 }
