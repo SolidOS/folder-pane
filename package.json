@@ -10,7 +10,7 @@
     "clean": "rm -rf lib",
     "test": "npm run lint",
     "check": "npm run lint && npm run build && npm run test",
-    "prepublishOnly": "npm test",
+    "prepublishOnly": "npm run build && npm run test",
     "postpublish": "git push origin main --follow-tags"
   },
   "files": [
