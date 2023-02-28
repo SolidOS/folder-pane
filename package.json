@@ -39,7 +39,6 @@
   },
   "homepage": "https://github.com/solid/folder-pane",
   "dependencies": {
-    "solid-logic": "^2.1.2",
     "solid-ui": "2.4.26"
   },
   "devDependencies": {
