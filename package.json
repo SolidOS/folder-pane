@@ -1,6 +1,6 @@
 {
   "name": "folder-pane",
-  "version": "2.4.21",
+  "version": "2.4.22",
   "description": "Solid-compatible Panes: File browser",
   "main": "./lib/folderPane.js",
   "scripts": {
