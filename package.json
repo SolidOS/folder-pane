@@ -39,18 +39,18 @@
   },
   "homepage": "https://github.com/solid/folder-pane",
   "dependencies": {
-    "solid-logic": "^3.0.1",
-    "solid-ui": "2.4.26"
+    "solid-logic": "^3.0.2",
+    "solid-ui": "2.4.27"
   },
   "devDependencies": {
-    "@babel/core": "^7.21.0",
+    "@babel/core": "^7.21.3",
     "@babel/preset-env": "^7.20.2",
     "@babel/preset-typescript": "^7.21.0",
-    "@typescript-eslint/eslint-plugin": "^5.54.0",
-    "@typescript-eslint/parser": "^5.54.0",
-    "eslint": "^8.35.0",
+    "@typescript-eslint/eslint-plugin": "^5.55.0",
+    "@typescript-eslint/parser": "^5.55.0",
+    "eslint": "^8.36.0",
     "husky": "^8.0.3",
-    "lint-staged": "^13.1.2",
+    "lint-staged": "^13.2.0",
     "typescript": "^4.9.5"
   },
   "husky": {
