@@ -21,22 +21,9 @@ module.exports = {
     } // { throw new Error('URI of new folder must end in "/" :' + u) }
     newPaneOptions.newInstance = kb.sym(u + '/')
 
-    // @@@@ kludge until we can get the solid-client version working
-    // Force the folder by saving a dummy file inside it
     return kb.fetcher
-      .webOperation('PUT', newInstance.uri + '.dummy', { contentType: 'application/octet-stream' })
+      .webOperation('PUT', newInstance.uri)
       .then(function () {
-        console.log('New folder created: ' + newInstance.uri)
-
-        return kb.fetcher.delete(newInstance.uri + '.dummy')
-      })
-      .then(function () {
-        console.log('Dummy file deleted : ' + newInstance.uri + '.dummy')
-        /*
-        return kb.fetcher.createContainer(parentURI, folderName) // Not BOTH ways
-      })
-      .then(function () {
-*/
         console.log('New container created: ' + newInstance.uri)
         return newPaneOptions
       })
