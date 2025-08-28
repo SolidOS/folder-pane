@@ -1,6 +1,6 @@
 {
   "name": "folder-pane",
-  "version": "2.4.28",
+  "version": "2.5.0",
   "description": "Solid-compatible Panes: File browser",
   "main": "./lib/folderPane.js",
   "scripts": {
@@ -39,8 +39,8 @@
   },
   "homepage": "https://github.com/solid/folder-pane",
   "dependencies": {
-    "solid-logic": "^3.0.8",
-    "solid-ui": "^2.5.1"
+    "solid-logic": "^3.0.9",
+    "solid-ui": "^2.6.0"
   },
   "devDependencies": {
     "@babel/core": "^7.28.0",
