@@ -109,6 +109,9 @@ module.exports = {
     // Allow user to create new things within the folder
     const creationDiv = div.appendChild(dom.createElement('div'))
     const me = authn.currentUser() // @@ respond to login events
+    if (!me) {
+      return div // Cannot create new things without being logged in
+    }
     const creationContext: UI.createTypes.CreateContext = {
       folder: subject,
       div: creationDiv,
