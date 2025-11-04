@@ -6,7 +6,7 @@
 import { authn } from 'solid-logic'
 import * as UI from 'solid-ui'
 
-module.exports = {
+export default {
   icon: UI.icons.iconBase + 'noun_973694_expanded.svg',
   name: 'folder',
 
