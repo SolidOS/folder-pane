@@ -41,8 +41,8 @@
   },
   "homepage": "https://github.com/solid/folder-pane",
   "peerDependencies": {
-    "solid-logic": "^3.1.1-d167ace",
-    "solid-ui": "^2.6.1-6458d4e"
+    "solid-logic": "3.1.1-3343cc7",
+    "solid-ui": "^2.6.1-c6fc7fe"
   },
   "devDependencies": {
     "@babel/core": "^7.28.0",
