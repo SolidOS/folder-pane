@@ -1,42 +1,32 @@
-import { defineConfig } from "eslint/config";
-import typescriptEslint from "@typescript-eslint/eslint-plugin";
-import globals from "globals";
-import tsParser from "@typescript-eslint/parser";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import js from "@eslint/js";
-import { FlatCompat } from "@eslint/eslintrc";
+import tsParser from '@typescript-eslint/parser'
+import tseslintPlugin from '@typescript-eslint/eslint-plugin'
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const compat = new FlatCompat({
-    baseDirectory: __dirname,
-    recommendedConfig: js.configs.recommended,
-    allConfig: js.configs.all
-});
-
-export default defineConfig([{
-    extends: compat.extends("eslint:recommended", "plugin:@typescript-eslint/recommended"),
-
-    plugins: {
-        "@typescript-eslint": typescriptEslint,
-    },
-
+export default [
+  {
+    ignores: [
+      'lib/**',
+      'node_modules/**',
+      'coverage/**'
+    ],
+  },
+  {
+    files: ['src/**/*.ts'],
     languageOptions: {
-        globals: {
-            ...globals.browser,
-            ...globals.node,
-            Atomics: "readonly",
-            SharedArrayBuffer: "readonly",
-        },
-
-        parser: tsParser,
+      parser: tsParser,
+      parserOptions: {
+        project: ['./tsconfig.json'],
+        sourceType: 'module',
+      },
     },
-
+    plugins: {
+      '@typescript-eslint': tseslintPlugin
+    },
     rules: {
-        "no-unused-vars": ["warn", {
-            argsIgnorePattern: "^_",
-            varsIgnorePattern: "^_",
-        }],
+      semi: ['error', 'never'],
+      quotes: ['error', 'single'],
+      'no-unused-vars': 'off', // handled by TS
+      '@typescript-eslint/no-unused-vars': ['warn'],
+      '@typescript-eslint/no-explicit-any': 'warn',
     },
-}]);
+  }
+]
