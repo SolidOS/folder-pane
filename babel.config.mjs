@@ -3,8 +3,8 @@ export default {
     [
       "@babel/preset-env",
       {
-        targets: {
-          node: "current",
+        targets: { 
+          browsers: ['> 1%', 'last 3 versions', 'not dead']
         },
       },
     ],

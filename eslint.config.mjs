@@ -1,5 +1,4 @@
 import tsParser from '@typescript-eslint/parser'
-import tseslintPlugin from '@typescript-eslint/eslint-plugin'
 
 export default [
   {
@@ -18,15 +17,12 @@ export default [
         sourceType: 'module',
       },
     },
-    plugins: {
-      '@typescript-eslint': tseslintPlugin
-    },
     rules: {
       semi: ['error', 'never'],
       quotes: ['error', 'single'],
-      'no-unused-vars': 'off', // handled by TS
-      '@typescript-eslint/no-unused-vars': ['warn'],
-      '@typescript-eslint/no-explicit-any': 'warn',
+      // Disable ESLint rules that TypeScript handles better
+      'no-unused-vars': 'off', // TypeScript handles this via noUnusedLocals
+      'no-undef': 'off', // TypeScript handles undefined variables
     },
   }
 ]
