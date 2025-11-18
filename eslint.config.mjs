@@ -1,42 +1,28 @@
-import { defineConfig } from "eslint/config";
-import typescriptEslint from "@typescript-eslint/eslint-plugin";
-import globals from "globals";
-import tsParser from "@typescript-eslint/parser";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import js from "@eslint/js";
-import { FlatCompat } from "@eslint/eslintrc";
+import tsParser from '@typescript-eslint/parser'
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const compat = new FlatCompat({
-    baseDirectory: __dirname,
-    recommendedConfig: js.configs.recommended,
-    allConfig: js.configs.all
-});
-
-export default defineConfig([{
-    extends: compat.extends("eslint:recommended", "plugin:@typescript-eslint/recommended"),
-
-    plugins: {
-        "@typescript-eslint": typescriptEslint,
-    },
-
+export default [
+  {
+    ignores: [
+      'lib/**',
+      'node_modules/**',
+      'coverage/**'
+    ],
+  },
+  {
+    files: ['src/**/*.ts'],
     languageOptions: {
-        globals: {
-            ...globals.browser,
-            ...globals.node,
-            Atomics: "readonly",
-            SharedArrayBuffer: "readonly",
-        },
-
-        parser: tsParser,
+      parser: tsParser,
+      parserOptions: {
+        project: ['./tsconfig.json'],
+        sourceType: 'module',
+      },
     },
-
     rules: {
-        "no-unused-vars": ["warn", {
-            argsIgnorePattern: "^_",
-            varsIgnorePattern: "^_",
-        }],
+      semi: ['error', 'never'],
+      quotes: ['error', 'single'],
+      // Disable ESLint rules that TypeScript handles better
+      'no-unused-vars': 'off', // TypeScript handles this via noUnusedLocals
+      'no-undef': 'off', // TypeScript handles undefined variables
     },
-}]);
+  }
+]
