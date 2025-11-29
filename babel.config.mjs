@@ -1,13 +1,13 @@
-module.exports = {
+export default {
   presets: [
     [
       "@babel/preset-env",
       {
-        targets: {
-          node: "current",
+        targets: { 
+          browsers: ['> 1%', 'last 3 versions', 'not dead']
         },
       },
     ],
     "@babel/preset-typescript",
   ],
-};
+}

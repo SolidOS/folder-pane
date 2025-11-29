@@ -1,24 +1,27 @@
 {
   "name": "folder-pane",
-  "version": "2.5.1",
+  "version": "3.0.0",
   "description": "Solid-compatible Panes: File browser",
-  "main": "./lib/folderPane.js",
+  "main": "lib/folderPane.js",
   "scripts": {
-    "build": "npm run clean && tsc",
-    "lint": "eslint './src'",
-    "lint-fix": "eslint './src' --fix",
     "clean": "rm -rf lib",
-    "test": "npm run lint",
-    "check": "npm run lint && npm run build && npm run test",
-    "prepublishOnly": "npm run build && npm run test",
+    "build": "npm run clean && npm run typecheck && tsc",
+    "lint": "eslint",
+    "lint-fix": "eslint --fix",
+    "typecheck": "tsc --noEmit",
+    "test": "echo \"No tests specified\" && exit 0",
+    "prepublishOnly": "npm run build && npm run lint",
+    "preversion": "npm run typecheck && npm run lint",
     "postpublish": "git push origin main --follow-tags"
   },
   "files": [
-    "/lib"
+    "lib/",
+    "README.md",
+    "LICENSE"
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/solid/folder-pane"
+    "url": "git+https://github.com/solid/folder-pane.git"
   },
   "keywords": [
     "solid",
@@ -38,10 +41,9 @@
     "url": "https://github.com/solid/folder-pane/issues"
   },
   "homepage": "https://github.com/solid/folder-pane",
-  "dependencies": {
-    "lint-staged": "^16.2.0",
-    "solid-logic": "^3.1.1",
-    "solid-ui": "^2.6.1"
+  "peerDependencies": {
+    "solid-logic": "^4.0.0",
+    "solid-ui": "^3.0.0"
   },
   "devDependencies": {
     "@babel/core": "^7.28.0",
@@ -50,22 +52,9 @@
     "@eslint/eslintrc": "^3.3.1",
     "@eslint/js": "^9.33.0",
     "@types/node": "^24.5.2",
-    "@typescript-eslint/eslint-plugin": "^8.39.0",
     "@typescript-eslint/parser": "^8.39.0",
     "eslint": "^9.33.0",
     "globals": "^16.3.0",
-    "husky": "^9.1.7",
     "typescript": "^5.9.2"
-  },
-  "husky": {
-    "hooks": {
-      "pre-commit": "lint-staged",
-      "pre-push": "npm test"
-    }
-  },
-  "lint-staged": {
-    "*.js": [
-      "eslint"
-    ]
   }
 }
