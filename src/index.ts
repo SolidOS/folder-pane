@@ -64,8 +64,9 @@ export default {
         const st = kb.statementsMatching(subject, UI.ns.ldp('contains'), obj)[0]
         const defaultpropview = outliner.VIEWAS_boring_default
         const tr = outliner.propertyTR(dom, st, false)
-        tr.firstChild.textContent = '' // Was initialized to 'Contains'
-        tr.firstChild.style.cssText += 'min-width: 3em;'
+        const predicateCell = tr.firstChild as HTMLElement
+        predicateCell.textContent = '' // Was initialized to 'Contains'
+        predicateCell.classList.add('folderPanePredicateCell')
         tr.appendChild(
           outliner.outlineObjectTD(obj, defaultpropview, undefined, st)
         )
@@ -79,9 +80,10 @@ export default {
     const kb = context.session.store
     let mainTable // This is a live synced table
     const div = dom.createElement('div')
-    div.setAttribute('class', 'instancePane')
-    const paneStyle = UI.style.folderPaneStyle || 'border-top: solid 1px #777; border-bottom: solid 1px #777; margin-top: 0.5em; margin-bottom: 0.5em;'
-    div.setAttribute('style', paneStyle)
+    div.classList.add('instancePane', 'folderPaneinstancePane')
+    if (UI.style.folderPaneStyle) {
+      div.setAttribute('style', UI.style.folderPaneStyle)
+    }
     
     const thisDir = subject.uri.endsWith('/') ? subject.uri : subject.uri + '/'
     const indexThing = kb.sym(thisDir + 'index.ttl#this')
@@ -90,7 +92,7 @@ export default {
         'View of folder will be view of indexThing. Loading ' + indexThing
       )
       const packageDiv = div.appendChild(dom.createElement('div'))
-      packageDiv.style.cssText = 'border-top: 0.2em solid #ccc;' // Separate folder views above from package views below
+      packageDiv.classList.add('folderPanePackageDiv')
       kb.fetcher.load(indexThing.doc()).then(function () {
         mainTable = packageDiv.appendChild(dom.createElement('table'))
         context
@@ -131,14 +133,12 @@ export default {
         const explictDropIcon = false
         let target
         if (explictDropIcon) {
-          const iconStyleFound = creationDiv.firstChild.style.cssText
           target = creationDiv.insertBefore(
             dom.createElement('img'),
             creationDiv.firstChild
           )
-          target.style.cssText = iconStyleFound
+          target.classList.add('folderPaneExplicitDropIcon')
           target.setAttribute('src', UI.icons.iconBase + 'noun_748003.svg')
-          target.setAttribute('style', 'width: 2em; height: 2em') // Safari says target.style is read-only
         } else {
           target = creationDiv.firstChild // Overload drop target semantics onto the plus sign
         }
