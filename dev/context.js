@@ -4,6 +4,7 @@ export const context = {
   session: {
     store,
     paneRegistry: {
+      list: [],
       byName: (name) => {
         // longChatPane
         return null

@@ -15,9 +15,9 @@ async function finishLogin () {
   const session = authSession
   if (session.info.isLoggedIn) {
     // Update the page with the status.
-    webId.innerHTML = 'Logged in as: ' + authn.currentUser().uri
+    webId.textContent = 'Logged in as: ' + authn.currentUser().uri
   } else {
-    webId.innerHTML = ''
+    webId.textContent = ''
   }
 }
 
@@ -60,4 +60,10 @@ context.getOutliner = () => ({
 fetcher.load(targetURIToShow).then(() => {
   const app = pane.render(sym(targetURIToShow), context)
   document.getElementById('app').replaceWith(app)
+}).catch(error => {
+  console.error('Error loading target URI:', error)
+  const appElement = document.getElementById('app')
+  if (appElement) {
+    appElement.textContent = 'Error loading data. Please check the console for details.'
+  }
 })

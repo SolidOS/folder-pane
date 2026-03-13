@@ -26,7 +26,7 @@ export default [
     },
 
     devServer: {
-      static: ['./dev', './test']
+      static: ['./dev']
     },
     devtool: 'source-map',
   },
