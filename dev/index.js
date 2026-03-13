@@ -60,4 +60,10 @@ context.getOutliner = () => ({
 fetcher.load(targetURIToShow).then(() => {
   const app = pane.render(sym(targetURIToShow), context)
   document.getElementById('app').replaceWith(app)
+}).catch(error => {
+  console.error('Error loading target URI:', error)
+  const appElement = document.getElementById('app')
+  if (appElement) {
+    appElement.textContent = 'Error loading data. Please check the console for details.'
+  }
 })
