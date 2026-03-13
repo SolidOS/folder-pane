@@ -2,7 +2,11 @@
   "name": "folder-pane",
   "version": "3.0.1",
   "description": "Solid-compatible Panes: File browser",
-  "main": "lib/folderPane.js",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "sideEffects": [
+    "**/*.css"
+  ],
   "scripts": {
     "clean": "rm -rf lib",
     "build": "npm run clean && npm run typecheck && tsc",
@@ -12,7 +16,8 @@
     "test": "echo \"No tests specified\" && exit 0",
     "prepublishOnly": "npm run build && npm run lint",
     "preversion": "npm run typecheck && npm run lint",
-    "postpublish": "git push origin main --follow-tags"
+    "postpublish": "git push origin main --follow-tags",
+    "start": "webpack serve --config webpack.dev.config.mjs --open"
   },
   "files": [
     "lib/",
@@ -53,8 +58,18 @@
     "@eslint/js": "^10.0.1",
     "@types/node": "^25.0.10",
     "@typescript-eslint/parser": "^8.53.1",
+    "babel-loader": "^10.1.1",
+    "copy-webpack-plugin": "^14.0.0",
+    "css-loader": "^7.1.4",
     "eslint": "^10.0.1",
     "globals": "^17.1.0",
-    "typescript": "^5.9.3"
+    "html-webpack-plugin": "^5.6.6",
+    "node-polyfill-webpack-plugin": "^4.1.0",
+    "style-loader": "^4.0.0",
+    "terser-webpack-plugin": "^5.4.0",
+    "typescript": "^5.9.3",
+    "webpack": "^5.96.1",
+    "webpack-cli": "^6.0.1",
+    "webpack-dev-server": "^5.2.3"
   }
 }
