@@ -15,9 +15,9 @@ async function finishLogin () {
   const session = authSession
   if (session.info.isLoggedIn) {
     // Update the page with the status.
-    webId.innerHTML = 'Logged in as: ' + authn.currentUser().uri
+    webId.textContent = 'Logged in as: ' + authn.currentUser().uri
   } else {
-    webId.innerHTML = ''
+    webId.textContent = ''
   }
 }
 
