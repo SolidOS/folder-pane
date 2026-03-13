@@ -2,7 +2,11 @@
   "name": "folder-pane",
   "version": "3.0.1",
   "description": "Solid-compatible Panes: File browser",
-  "main": "lib/folderPane.js",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "sideEffects": [
+    "**/*.css"
+  ],
   "scripts": {
     "clean": "rm -rf lib",
     "build": "npm run clean && npm run typecheck && tsc",
