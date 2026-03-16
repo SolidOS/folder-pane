@@ -6,6 +6,7 @@
 import { authn } from 'solid-logic'
 import * as UI from 'solid-ui'
 import './styles/folderPane.css'
+import './styles/utilities.css'
 
 export default {
   icon: UI.icons.iconBase + 'noun_973694_expanded.svg',

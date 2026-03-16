@@ -13,6 +13,6 @@
 }
 
 .folderPaneExplicitDropIcon {
-	width: 2em;
-	height: 2em;
+	width: var(--icon-base, 2em);
+	height: var(--icon-base, 2em);
 }
