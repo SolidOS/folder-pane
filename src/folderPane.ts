@@ -3,7 +3,7 @@
  **  This outline pane lists the members of a folder
  */
 
-import { authn, authSession } from 'solid-logic'
+import { authn } from 'solid-logic'
 import * as UI from 'solid-ui'
 
 export default {
@@ -44,17 +44,6 @@ export default {
 
   // Render a file folder in a LDP/solid system
   render: function (subject, context) {
-    let accessNoticeArea
-
-    function showAccessNotice (message) {
-      if (!accessNoticeArea) return
-      accessNoticeArea.textContent = ''
-      const note = accessNoticeArea.appendChild(dom.createElement('div'))
-      note.style.cssText =
-        'margin: 0.4em 0; padding: 0.55em 0.7em; border: 1px solid #d6c176; background: #fff9df; color: #5f4b00; border-radius: 0.3em; font-size: 95%;'
-      note.textContent = message
-    }
-
     function accessErrorMessage (error) {
       const text = String(error && (error.message || error))
       if (/\b401\b/.test(text)) {
@@ -81,122 +70,34 @@ export default {
     }
 
     function refresh () {
-      function bindLinkNavigationByUri (linkEl, uri) {
-        linkEl.addEventListener(
-          'click',
-          function (event) {
-            // Stop row-level handlers from hijacking the click.
-            event.stopPropagation()
-            event.stopImmediatePropagation()
-
-            const manager =
-              (window as any).document?.outlineManager ||
-              (window as any).panes?.getOutliner?.()
-
-            if (manager && typeof manager.GotoSubject === 'function') {
-              try {
-                event.preventDefault()
-                manager.GotoSubject(
-                  kb.sym(uri),
-                  true,
-                  undefined,
-                  true,
-                  undefined,
-                  mainTable || div
-                )
-                return
-              } catch (error) {
-                console.warn('GotoSubject failed for ' + uri, error)
-              }
-            }
-
-            // No outline manager available in this host. Fall back to an
-            // authenticated fetch and display the content in a new tab.
-            event.preventDefault()
-            const popup = window.open('', '_blank', 'noopener,noreferrer')
-            authSession
-              .fetch(uri)
-              .then(function (response) {
-                if (!response.ok) {
-                  throw new Error('HTTP ' + response.status)
-                }
-                return response.blob().then(function (blob) {
-                  const blobUrl = URL.createObjectURL(blob)
-                  if (popup) {
-                    popup.location.href = blobUrl
-                    setTimeout(function () {
-                      URL.revokeObjectURL(blobUrl)
-                    }, 60000)
-                  } else {
-                    window.open(blobUrl, '_blank', 'noopener,noreferrer')
-                  }
-                })
-              })
-              .catch(function (error) {
-                if (popup) {
-                  popup.close()
-                }
-                console.warn('Authenticated open failed for ' + uri, error)
-                showAccessNotice(
-                  'Could not open this resource. Please confirm this WebID has read access.'
-                )
-              })
-          },
-          true
-        )
-      }
-
-      let statements = kb.statementsMatching(subject, UI.ns.ldp('contains'))
-      statements = statements.filter(st => noHiddenFiles(st.object))
-      statements.sort(function (a, b) {
+      let plist = kb.statementsMatching(subject, UI.ns.ldp('contains'))
+      plist = plist.filter(st => noHiddenFiles(st.object))
+      plist.sort(function (a, b) {
         return UI.utils
           .label(a.object)
           .toLowerCase()
           .localeCompare(UI.utils.label(b.object).toLowerCase())
       })
 
-      if (typeof outliner.appendPropertyTRs === 'function') {
-        console.log('Using outliner.appendPropertyTRs to render folder contents')
+      if (
+        typeof outliner.appendPropertyTRs !== 'function'
+      ) {
         while (mainTable.firstChild) {
           mainTable.removeChild(mainTable.firstChild)
         }
-        outliner.appendPropertyTRs(mainTable, statements, false, null)
-
-        const links = mainTable.querySelectorAll('a[href]')
-        links.forEach(linkEl => {
-          const link = linkEl as HTMLAnchorElement
-          if (link.dataset.folderPaneBound === 'true') {
-            return
-          }
-          link.dataset.folderPaneBound = 'true'
-          const uri = link.getAttribute('href')
-          if (uri) {
-            bindLinkNavigationByUri(link, uri)
-          }
-        })
+        const tr = mainTable.appendChild(dom.createElement('tr'))
+        const td = tr.appendChild(dom.createElement('td'))
+        td.textContent =
+          'Folder pane requires outliner.appendPropertyTRs in this host.'
         return
       }
 
-      const objs = statements.map(st => st.object)
+      while (mainTable.firstChild) {
+        mainTable.removeChild(mainTable.firstChild)
+      }
 
-      UI.utils.syncTableToArray(mainTable, objs, function (obj) {
-        const tr = dom.createElement('tr')
-        const predicateTd = tr.appendChild(dom.createElement('td'))
-        predicateTd.textContent = ''
-        predicateTd.style.cssText = 'min-width: 3em;'
-
-        const objectTd = tr.appendChild(dom.createElement('td'))
-        const iconLink = objectTd.appendChild(UI.widgets.linkIcon(dom, obj))
-        bindLinkNavigationByUri(iconLink, obj.uri)
-
-        const textLink = objectTd.appendChild(dom.createElement('a'))
-        textLink.setAttribute('href', obj.uri)
-        textLink.setAttribute('target', '_blank')
-        textLink.setAttribute('rel', 'noopener noreferrer')
-        textLink.textContent = UI.utils.label(obj)
-        bindLinkNavigationByUri(textLink, obj.uri)
-        return tr
-      })
+      const filter = st => noHiddenFiles(st.object)
+      outliner.appendPropertyTRs(mainTable, plist, true, filter)
     }
 
     const dom = context.dom
@@ -207,7 +108,6 @@ export default {
     div.setAttribute('class', 'instancePane')
     const paneStyle = UI.style.folderPaneStyle || 'border-top: solid 1px #777; border-bottom: solid 1px #777; margin-top: 0.5em; margin-bottom: 0.5em;'
     div.setAttribute('style', paneStyle)
-    accessNoticeArea = div.appendChild(dom.createElement('div'))
     
     const thisDir = subject.uri.endsWith('/') ? subject.uri : subject.uri + '/'
     const indexThing = kb.sym(thisDir + 'index.ttl#this')
