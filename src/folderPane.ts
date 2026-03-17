@@ -107,7 +107,7 @@ export default {
       }
 
       const filter = item => noHiddenFiles(item.object || item)
-      outliner.appendPropertyTRs(mainTable, plist, true, filter)
+      outliner.appendPropertyTRs(mainTable, plist, false, filter)
     }
 
     const dom = context.dom
