@@ -60,8 +60,15 @@ export default {
     }
 
     function noHiddenFiles (obj) {
+      if (!obj || !obj.uri || typeof obj.dir !== 'function') {
+        return false
+      }
+      const parent = obj.dir()
+      if (!parent || !parent.uri) {
+        return false
+      }
       // @@ This hiddenness should actually be server defined
-      const pathEnd = obj.uri.slice(obj.dir().uri.length)
+      const pathEnd = obj.uri.slice(parent.uri.length)
       return !(
         pathEnd.startsWith('.') ||
         pathEnd.endsWith('.acl') ||
