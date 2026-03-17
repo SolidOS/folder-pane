@@ -60,12 +60,15 @@ export default {
     }
 
     function noHiddenFiles (obj) {
-      if (!obj || !obj.uri || typeof obj.dir !== 'function') {
-        return false
+      if (!obj || !obj.uri) {
+        return true
+      }
+      if (typeof obj.dir !== 'function') {
+        return true
       }
       const parent = obj.dir()
       if (!parent || !parent.uri) {
-        return false
+        return true
       }
       // @@ This hiddenness should actually be server defined
       const pathEnd = obj.uri.slice(parent.uri.length)
@@ -103,7 +106,7 @@ export default {
         mainTable.removeChild(mainTable.firstChild)
       }
 
-      const filter = st => noHiddenFiles(st.object)
+      const filter = item => noHiddenFiles(item.object || item)
       outliner.appendPropertyTRs(mainTable, plist, true, filter)
     }
 
