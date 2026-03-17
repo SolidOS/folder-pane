@@ -94,9 +94,20 @@ export default {
               (window as any).panes?.getOutliner?.()
 
             if (manager && typeof manager.GotoSubject === 'function') {
-              event.preventDefault()
-              manager.GotoSubject(kb.sym(uri), true, undefined, true, undefined)
-              return
+              try {
+                event.preventDefault()
+                manager.GotoSubject(
+                  kb.sym(uri),
+                  true,
+                  undefined,
+                  true,
+                  undefined,
+                  mainTable || div
+                )
+                return
+              } catch (error) {
+                console.warn('GotoSubject failed for ' + uri, error)
+              }
             }
 
             // No outline manager available in this host. Fall back to an
