@@ -3,7 +3,7 @@
  **  This outline pane lists the members of a folder
  */
 
-import { authn } from 'solid-logic'
+import { authn, authSession } from 'solid-logic'
 import * as UI from 'solid-ui'
 
 export default {
@@ -44,6 +44,32 @@ export default {
 
   // Render a file folder in a LDP/solid system
   render: function (subject, context) {
+    let accessNoticeArea
+
+    function showAccessNotice (message) {
+      if (!accessNoticeArea) return
+      accessNoticeArea.textContent = ''
+      const note = accessNoticeArea.appendChild(dom.createElement('div'))
+      note.style.cssText =
+        'margin: 0.4em 0; padding: 0.55em 0.7em; border: 1px solid #d6c176; background: #fff9df; color: #5f4b00; border-radius: 0.3em; font-size: 95%;'
+      note.textContent = message
+    }
+
+    function accessErrorMessage (error) {
+      const text = String(error && (error.message || error))
+      if (/\b401\b/.test(text)) {
+        return 'This resource requires authentication. Log in with a WebID that has access and try again.'
+      }
+      return text
+    }
+
+    function renderErrorBlock (targetDiv, message) {
+      const note = targetDiv.appendChild(dom.createElement('div'))
+      note.style.cssText =
+        'margin: 0.5em 0; padding: 0.6em; border: 1px solid #d6c176; background: #fff9df; color: #5f4b00; border-radius: 0.2em;'
+      note.textContent = message
+    }
+
     function noHiddenFiles (obj) {
       // @@ This hiddenness should actually be server defined
       const pathEnd = obj.uri.slice(obj.dir().uri.length)
@@ -55,20 +81,109 @@ export default {
     }
 
     function refresh () {
-      let objs = kb.each(subject, UI.ns.ldp('contains')).filter(noHiddenFiles)
-      objs = objs.map(obj => [UI.utils.label(obj).toLowerCase(), obj])
-      objs.sort() // Sort by label case-insensitive
-      objs = objs.map(pair => pair[1])
-      UI.utils.syncTableToArray(mainTable, objs, function (obj) {
-        const st = kb.statementsMatching(subject, UI.ns.ldp('contains'), obj)[0]
-        const defaultpropview = outliner.VIEWAS_boring_default
-        const tr = outliner.propertyTR(dom, st, false)
-        tr.firstChild.textContent = '' // Was initialized to 'Contains'
-        tr.firstChild.style.cssText += 'min-width: 3em;'
-        tr.appendChild(
-          outliner.outlineObjectTD(obj, defaultpropview, undefined, st)
+      function bindLinkNavigationByUri (linkEl, uri) {
+        linkEl.addEventListener(
+          'click',
+          function (event) {
+            // Stop row-level handlers from hijacking the click.
+            event.stopPropagation()
+            event.stopImmediatePropagation()
+
+            const manager =
+              (window as any).document?.outlineManager ||
+              (window as any).panes?.getOutliner?.()
+
+            if (manager && typeof manager.GotoSubject === 'function') {
+              event.preventDefault()
+              manager.GotoSubject(kb.sym(uri), true, undefined, true, undefined)
+              return
+            }
+
+            // No outline manager available in this host. Fall back to an
+            // authenticated fetch and display the content in a new tab.
+            event.preventDefault()
+            const popup = window.open('', '_blank', 'noopener,noreferrer')
+            authSession
+              .fetch(uri)
+              .then(function (response) {
+                if (!response.ok) {
+                  throw new Error('HTTP ' + response.status)
+                }
+                return response.blob().then(function (blob) {
+                  const blobUrl = URL.createObjectURL(blob)
+                  if (popup) {
+                    popup.location.href = blobUrl
+                    setTimeout(function () {
+                      URL.revokeObjectURL(blobUrl)
+                    }, 60000)
+                  } else {
+                    window.open(blobUrl, '_blank', 'noopener,noreferrer')
+                  }
+                })
+              })
+              .catch(function (error) {
+                if (popup) {
+                  popup.close()
+                }
+                console.warn('Authenticated open failed for ' + uri, error)
+                showAccessNotice(
+                  'Could not open this resource. Please confirm this WebID has read access.'
+                )
+              })
+          },
+          true
         )
-        // UI.widgets.makeDraggable(tr, obj)
+      }
+
+      let statements = kb.statementsMatching(subject, UI.ns.ldp('contains'))
+      statements = statements.filter(st => noHiddenFiles(st.object))
+      statements.sort(function (a, b) {
+        return UI.utils
+          .label(a.object)
+          .toLowerCase()
+          .localeCompare(UI.utils.label(b.object).toLowerCase())
+      })
+
+      if (typeof outliner.appendPropertyTRs === 'function') {
+        console.log('Using outliner.appendPropertyTRs to render folder contents')
+        while (mainTable.firstChild) {
+          mainTable.removeChild(mainTable.firstChild)
+        }
+        outliner.appendPropertyTRs(mainTable, statements, false, null)
+
+        const links = mainTable.querySelectorAll('a[href]')
+        links.forEach(linkEl => {
+          const link = linkEl as HTMLAnchorElement
+          if (link.dataset.folderPaneBound === 'true') {
+            return
+          }
+          link.dataset.folderPaneBound = 'true'
+          const uri = link.getAttribute('href')
+          if (uri) {
+            bindLinkNavigationByUri(link, uri)
+          }
+        })
+        return
+      }
+
+      const objs = statements.map(st => st.object)
+
+      UI.utils.syncTableToArray(mainTable, objs, function (obj) {
+        const tr = dom.createElement('tr')
+        const predicateTd = tr.appendChild(dom.createElement('td'))
+        predicateTd.textContent = ''
+        predicateTd.style.cssText = 'min-width: 3em;'
+
+        const objectTd = tr.appendChild(dom.createElement('td'))
+        const iconLink = objectTd.appendChild(UI.widgets.linkIcon(dom, obj))
+        bindLinkNavigationByUri(iconLink, obj.uri)
+
+        const textLink = objectTd.appendChild(dom.createElement('a'))
+        textLink.setAttribute('href', obj.uri)
+        textLink.setAttribute('target', '_blank')
+        textLink.setAttribute('rel', 'noopener noreferrer')
+        textLink.textContent = UI.utils.label(obj)
+        bindLinkNavigationByUri(textLink, obj.uri)
         return tr
       })
     }
@@ -81,6 +196,7 @@ export default {
     div.setAttribute('class', 'instancePane')
     const paneStyle = UI.style.folderPaneStyle || 'border-top: solid 1px #777; border-bottom: solid 1px #777; margin-top: 0.5em; margin-bottom: 0.5em;'
     div.setAttribute('style', paneStyle)
+    accessNoticeArea = div.appendChild(dom.createElement('div'))
     
     const thisDir = subject.uri.endsWith('/') ? subject.uri : subject.uri + '/'
     const indexThing = kb.sym(thisDir + 'index.ttl#this')
@@ -90,12 +206,21 @@ export default {
       )
       const packageDiv = div.appendChild(dom.createElement('div'))
       packageDiv.style.cssText = 'border-top: 0.2em solid #ccc;' // Separate folder views above from package views below
-      kb.fetcher.load(indexThing.doc()).then(function () {
-        mainTable = packageDiv.appendChild(dom.createElement('table'))
-        context
-          .getOutliner(dom)
-          .GotoSubject(indexThing, true, undefined, false, undefined, mainTable)
-      })
+      kb.fetcher
+        .load(indexThing.doc())
+        .then(function () {
+          mainTable = packageDiv.appendChild(dom.createElement('table'))
+          context
+            .getOutliner(dom)
+            .GotoSubject(indexThing, true, undefined, false, undefined, mainTable)
+        })
+        .catch(function (error) {
+          console.error('Error loading folder index: ' + indexThing.uri, error)
+          renderErrorBlock(
+            packageDiv,
+            'Could not load folder index. ' + accessErrorMessage(error)
+          )
+        })
       return div
     } else {
       mainTable = div.appendChild(dom.createElement('table'))
