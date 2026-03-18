@@ -106,8 +106,7 @@ export default {
         mainTable.removeChild(mainTable.firstChild)
       }
 
-      const filter = item => noHiddenFiles(item.object || item)
-      outliner.appendPropertyTRs(mainTable, plist, false, filter)
+      outliner.appendPropertyTRs(mainTable, plist, false, null)
     }
 
     const dom = context.dom
