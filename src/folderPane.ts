@@ -102,11 +102,28 @@ export default {
         return
       }
 
-      while (mainTable.firstChild) {
-        mainTable.removeChild(mainTable.firstChild)
-      }
-      
-      context.getOutliner(dom).appendPropertyTRs(mainTable, plist, false, null)
+      const statementByObjectUri = {}
+      plist.forEach(st => {
+        if (st.object && st.object.uri) {
+          statementByObjectUri[st.object.uri] = st
+        }
+      })
+
+      const objs = plist.map(st => st.object)
+      UI.utils.syncTableToArray(mainTable, objs, function (obj) {
+        const st = statementByObjectUri[obj.uri]
+        const tempTable = dom.createElement('table')
+        outliner.appendPropertyTRs(tempTable, [st], false, null)
+        const tr = tempTable.firstElementChild
+        if (tr) {
+          return tr
+        }
+        // Defensive fallback: should not happen, but avoid empty rows.
+        const fallback = dom.createElement('tr')
+        const td = fallback.appendChild(dom.createElement('td'))
+        td.textContent = UI.utils.label(obj)
+        return fallback
+      })
     }
 
     const dom = context.dom
