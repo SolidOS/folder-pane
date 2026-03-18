@@ -80,56 +80,6 @@ export default {
     }
 
     function refresh () {
-      function resolveResourceUriFromLink (href) {
-        if (!href) return null
-        try {
-          const parsed = new URL(href, window.location.href)
-          const viaQuery = parsed.searchParams.get('uri')
-          return viaQuery || href
-        } catch (_error) {
-          return href
-        }
-      }
-
-      function bindDatabrowserTabLinks () {
-        const links = mainTable.querySelectorAll('a[href]')
-        links.forEach(linkEl => {
-          const link = linkEl as HTMLAnchorElement
-          if (link.dataset.folderPaneDatabrowserBound === 'true') {
-            return
-          }
-          const resourceUri = resolveResourceUriFromLink(
-            link.getAttribute('href')
-          )
-          if (!resourceUri) {
-            return
-          }
-          link.dataset.folderPaneDatabrowserBound = 'true'
-          link.addEventListener(
-            'click',
-            function (event) {
-              event.preventDefault()
-              event.stopPropagation()
-              event.stopImmediatePropagation()
-              const databrowserUrl =
-                window.location.origin +
-                window.location.pathname +
-                '?uri=' +
-                encodeURIComponent(resourceUri)
-              const popup = window.open(
-                databrowserUrl,
-                '_blank',
-                'noopener,noreferrer'
-              )
-              if (!popup) {
-                window.location.href = databrowserUrl
-              }
-            },
-            true
-          )
-        })
-      }
-
       let plist = kb.statementsMatching(subject, UI.ns.ldp('contains'))
       plist = plist.filter(st => noHiddenFiles(st.object))
       plist.sort(function (a, b) {
@@ -157,7 +107,6 @@ export default {
       }
       
       context.getOutliner(dom).appendPropertyTRs(mainTable, plist, false, null)
-      bindDatabrowserTabLinks()
     }
 
     const dom = context.dom
