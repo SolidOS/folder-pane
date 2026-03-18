@@ -102,27 +102,17 @@ export default {
         return
       }
 
-      const statementByObjectUri = {}
-      plist.forEach(st => {
-        if (st.object && st.object.uri) {
-          statementByObjectUri[st.object.uri] = st
-        }
-      })
-
       const objs = plist.map(st => st.object)
       UI.utils.syncTableToArray(mainTable, objs, function (obj) {
-        const st = statementByObjectUri[obj.uri]
-        const tempTable = dom.createElement('table')
-        outliner.appendPropertyTRs(tempTable, [st], false, null)
-        const tr = tempTable.firstElementChild
-        if (tr) {
-          return tr
-        }
-        // Defensive fallback: should not happen, but avoid empty rows.
-        const fallback = dom.createElement('tr')
-        const td = fallback.appendChild(dom.createElement('td'))
-        td.textContent = UI.utils.label(obj)
-        return fallback
+        const st = kb.statementsMatching(subject, UI.ns.ldp('contains'), obj)[0]
+        const defaultpropview = outliner.VIEWAS_boring_default
+        const tr = outliner.propertyTR(dom, st, false)
+        tr.firstChild.textContent = '' // Was initialized to 'Contains'
+        tr.firstChild.style.cssText += 'min-width: 3em;'
+        tr.appendChild(
+          outliner.outlineObjectTD(obj, defaultpropview, undefined, st)
+        )
+        return tr
       })
     }
 
