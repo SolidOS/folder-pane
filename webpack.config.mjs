@@ -8,7 +8,7 @@ const require = createRequire(import.meta.url)
 
 const common = {
   mode: 'production',
-  entry: './src/folderPane.js',
+  entry: './src/folderPane.ts',
   module: {
     rules: moduleRules,
   },
