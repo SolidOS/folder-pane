@@ -1,7 +1,7 @@
 import { sym } from 'rdflib'
-import pane from '../src/folderPane'
+import pane from '../src/folderPane.ts'
 import './dev-global.css' // Import after src to override component styles
-import { context, fetcher } from './context'
+import { context, fetcher } from './context.js'
 import { authn, authSession } from 'solid-logic'
 import * as UI from 'solid-ui'
 
