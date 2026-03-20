@@ -81,7 +81,7 @@ export default {
     const kb = context.session.store
     let mainTable // This is a live synced table
     const div = dom.createElement('div')
-    div.classList.add('instancePane', 'folderPaneinstancePane')
+    div.classList.add('instancePane', 'folderPaneInstancePane')
     if (UI.style.folderPaneStyle) {
       div.setAttribute('style', UI.style.folderPaneStyle)
     }
