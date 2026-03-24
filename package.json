@@ -2,7 +2,6 @@
   "name": "folder-pane",
   "version": "3.0.2",
   "description": "Solid-compatible Panes: File browser",
-  "type": "module",
   "main": "lib/folder-pane.js",
   "types": "lib/folderPane.d.ts",
   "sideEffects": [
