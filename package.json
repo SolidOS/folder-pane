@@ -22,6 +22,7 @@
   },
   "files": [
     "lib/",
+    "declarations.d.ts",
     "README.md",
     "LICENSE"
   ],
