@@ -1,6 +1,6 @@
 {
   "name": "folder-pane",
-  "version": "3.0.1",
+  "version": "3.0.2",
   "description": "Solid-compatible Panes: File browser",
   "main": "lib/folderPane.js",
   "scripts": {
@@ -43,8 +43,8 @@
   },
   "homepage": "https://github.com/SolidOS/folder-pane",
   "peerDependencies": {
-    "solid-logic": "^4.0.2",
-    "solid-ui": "^3.0.3"
+    "solid-logic": "^4.0.6",
+    "solid-ui": "^3.0.5"
   },
   "devDependencies": {
     "@babel/core": "^7.28.6",
@@ -65,5 +65,8 @@
     "webpack": "^5.96.1",
     "webpack-cli": "^6.0.1",
     "webpack-dev-server": "^5.2.3"
+  },
+  "dependencies": {
+    "rdflib": "^2.3.6"
   }
 }
