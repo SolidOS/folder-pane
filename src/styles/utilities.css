@@ -1,4 +1,4 @@
 :root {
-  /* Primary/Accent colors (profile-pane specific) */
+  /* Shared utility variables (e.g., base icon size) */
   --icon-base: 2em;
 }
