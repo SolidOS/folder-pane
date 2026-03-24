@@ -131,9 +131,9 @@ export default {
 
         UI.aclControl.preventBrowserDropEvents(dom)
 
-        const explictDropIcon = false
+        const explicitDropIcon = false
         let target
-        if (explictDropIcon) {
+        if (explicitDropIcon) {
           target = creationDiv.insertBefore(
             dom.createElement('img'),
             creationDiv.firstChild
