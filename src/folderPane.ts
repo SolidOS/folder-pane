@@ -88,17 +88,36 @@ export default {
     
     const thisDir = subject.uri.endsWith('/') ? subject.uri : subject.uri + '/'
     const indexThing = kb.sym(thisDir + 'index.ttl#this')
-    if (kb.holds(subject, UI.ns.ldp('contains'), indexThing.doc())) {
+    const detailsThing = kb.sym(thisDir + 'details.ttl#event')
+    const indexDoc = indexThing.doc()
+    const detailsDoc = detailsThing.doc()
+    const hasIndexDoc = kb.holds(subject, UI.ns.ldp('contains'), indexDoc)
+    const hasDetailsDoc = kb.holds(subject, UI.ns.ldp('contains'), detailsDoc)
+    const folderViewThing = hasIndexDoc
+      ? indexThing
+      : hasDetailsDoc
+        ? detailsThing
+        : undefined
+
+    if (folderViewThing) {
+      const sourceLabel = hasIndexDoc ? 'index' : 'details-fallback'
       console.log(
-        'View of folder will be view of indexThing. Loading ' + indexThing
+        '[folder-pane] using ' + sourceLabel + ' view subject: ' + folderViewThing
       )
       const packageDiv = div.appendChild(dom.createElement('div'))
       packageDiv.classList.add('folderPanePackageDiv')
-      kb.fetcher.load(indexThing.doc()).then(function () {
+      kb.fetcher.load(folderViewThing.doc()).then(function () {
         mainTable = packageDiv.appendChild(dom.createElement('table'))
         context
           .getOutliner(dom)
-          .GotoSubject(indexThing, true, undefined, false, undefined, mainTable)
+          .GotoSubject(
+            folderViewThing,
+            true,
+            undefined,
+            false,
+            undefined,
+            mainTable
+          )
       })
       return div
     } else {
