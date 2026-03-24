@@ -4,12 +4,13 @@
   "description": "Solid-compatible Panes: File browser",
   "type": "module",
   "main": "lib/folder-pane.js",
+  "types": "lib/folderPane.d.ts",
   "sideEffects": [
     "**/*.css"
   ],
   "scripts": {
     "clean": "rm -rf lib",
-    "build": "npm run clean && npm run typecheck && tsc",
+    "build": "npm run clean && npm run typecheck && webpack --config webpack.config.mjs && tsc --emitDeclarationOnly",
     "lint": "eslint",
     "lint-fix": "eslint --fix",
     "typecheck": "tsc --noEmit",
