@@ -2,10 +2,14 @@
   "name": "folder-pane",
   "version": "3.0.2",
   "description": "Solid-compatible Panes: File browser",
-  "main": "lib/folderPane.js",
+  "main": "lib/folder-pane.js",
+  "types": "lib/folderPane.d.ts",
+  "sideEffects": [
+    "**/*.css"
+  ],
   "scripts": {
     "clean": "rm -rf lib",
-    "build": "npm run clean && npm run typecheck && tsc",
+    "build": "npm run clean && npm run typecheck && webpack --config webpack.config.mjs && tsc --emitDeclarationOnly",
     "lint": "eslint",
     "lint-fix": "eslint --fix",
     "typecheck": "tsc --noEmit",
@@ -17,6 +21,7 @@
   },
   "files": [
     "lib/",
+    "declarations.d.ts",
     "README.md",
     "LICENSE"
   ],
@@ -55,12 +60,14 @@
     "@types/node": "^25.0.10",
     "@typescript-eslint/parser": "^8.53.1",
     "babel-loader": "^10.1.1",
+    "copy-webpack-plugin": "^14.0.0",
     "css-loader": "^7.1.4",
     "eslint": "^10.0.1",
     "globals": "^17.1.0",
     "html-webpack-plugin": "^5.6.6",
     "node-polyfill-webpack-plugin": "^4.1.0",
     "style-loader": "^4.0.0",
+    "terser-webpack-plugin": "^5.4.0",
     "typescript": "^5.9.3",
     "webpack": "^5.96.1",
     "webpack-cli": "^6.0.1",
