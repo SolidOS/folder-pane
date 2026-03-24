@@ -5,7 +5,7 @@
   margin-bottom: var(--spacing-xs, 0.5em);
 }
 .folderPanePackageDiv {
-  border-top: 0.2em solid #ccc; 
+  border-top: 0.2em solid #ccc;
 }
 
 .folderPanePredicateCell {
