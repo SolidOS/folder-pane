@@ -1,18 +1,18 @@
 .folderPaneInstancePane {
-	border-top: solid 1px #777;
-	border-bottom: solid 1px #777;
-	margin-top: var(--spacing-xs, 0.5em);
-	margin-bottom: var(--spacing-xs, 0.5em);
+  border-top: solid 1px #777;
+  border-bottom: solid 1px #777;
+  margin-top: var(--spacing-xs, 0.5em);
+  margin-bottom: var(--spacing-xs, 0.5em);
 }
 .folderPanePackageDiv {
-  border-top: 0.2em solid #ccc; 
+  border-top: 0.2em solid #ccc;
 }
 
 .folderPanePredicateCell {
-	min-width: 3em;
+  min-width: 3em;
 }
 
 .folderPaneExplicitDropIcon {
-	width: var(--icon-base, 2em);
-	height: var(--icon-base, 2em);
+  width: var(--icon-base, 2em);
+  height: var(--icon-base, 2em);
 }
