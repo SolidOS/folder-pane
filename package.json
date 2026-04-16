@@ -3,7 +3,7 @@
   "version": "3.0.2",
   "description": "Solid-compatible Panes: File browser",
   "main": "lib/folder-pane.js",
-  "types": "lib/folderPane.d.ts",
+  "types": "declarations.d.ts",
   "sideEffects": [
     "**/*.css"
   ],
