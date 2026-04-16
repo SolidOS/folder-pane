@@ -1,18 +1,63 @@
 .folderPaneInstancePane {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
   border-top: solid 1px #777;
   border-bottom: solid 1px #777;
   margin-top: var(--spacing-xs, 0.5em);
   margin-bottom: var(--spacing-xs, 0.5em);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
+
 .folderPanePackageDiv {
+  width: 100%;
+  max-width: 100%;
   border-top: 0.2em solid #ccc;
+  overflow-x: auto;
+}
+
+.folderPaneMainTable {
+  width: 100%;
+  max-width: 100%;
+  table-layout: auto;
+  text-align: left;
+}
+
+.folderPaneMainTable td,
+.folderPaneMainTable th {
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .folderPanePredicateCell {
-  min-width: 3em;
+  min-width: 0.1em;
+}
+
+.folderPaneCreationDiv {
+  width: 100%;
+  max-width: 100%;
+}
+
+.folderPaneDropTarget {
+  max-width: 100%;
 }
 
 .folderPaneExplicitDropIcon {
   width: var(--icon-base, 2em);
   height: var(--icon-base, 2em);
+}
+
+@media (max-width: 700px) {
+  .folderPaneInstancePane {
+    margin-top: var(--spacing-2xs, 0.25em);
+    margin-bottom: var(--spacing-2xs, 0.25em);
+  }
+
+  .folderPaneExplicitDropIcon {
+    width: var(--icon-sm, 1.5em);
+    height: var(--icon-sm, 1.5em);
+  }
 }

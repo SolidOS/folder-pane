@@ -96,6 +96,7 @@ export default {
       packageDiv.classList.add('folderPanePackageDiv')
       kb.fetcher.load(indexThing.doc()).then(function () {
         mainTable = packageDiv.appendChild(dom.createElement('table'))
+        mainTable.classList.add('folderPaneMainTable')
         context
           .getOutliner(dom)
           .GotoSubject(indexThing, true, undefined, false, undefined, mainTable)
@@ -103,6 +104,7 @@ export default {
       return div
     } else {
       mainTable = div.appendChild(dom.createElement('table'))
+      mainTable.classList.add('folderPaneMainTable')
       mainTable.refresh = refresh
       refresh()
       // addDownstreamChangeListener is a high level function which when someone else changes the resource,
@@ -112,6 +114,7 @@ export default {
 
     // Allow user to create new things within the folder
     const creationDiv = div.appendChild(dom.createElement('div'))
+    creationDiv.classList.add('folderPaneCreationDiv')
     const me = authn.currentUser() // @@ respond to login events
     if (!me) {
       return div // Cannot create new things without being logged in
@@ -142,6 +145,10 @@ export default {
           target.setAttribute('src', UI.icons.iconBase + 'noun_748003.svg')
         } else {
           target = creationDiv.firstChild // Overload drop target semantics onto the plus sign
+        }
+
+        if (target instanceof HTMLElement) {
+          target.classList.add('folderPaneDropTarget')
         }
 
         // /////////// Allow new file to be Uploaded
