@@ -1,9 +1,11 @@
 .folderPaneInstancePane {
   box-sizing: border-box;
+  align-self: stretch;
+  text-align: left;
   width: 100%;
-  max-width: 100%;
-  border-top: solid 1px #777;
-  border-bottom: solid 1px #777;
+  max-width: none;
+  margin-left: 0;
+  margin-right: 0;
   margin-top: var(--spacing-xs, 0.5em);
   margin-bottom: var(--spacing-xs, 0.5em);
   overflow-x: auto;
@@ -11,17 +13,25 @@
 }
 
 .folderPanePackageDiv {
+  display: block;
+  text-align: left;
   width: 100%;
-  max-width: 100%;
+  max-width: none;
+  margin-left: 0;
+  margin-right: 0;
   border-top: 0.2em solid #ccc;
   overflow-x: auto;
 }
 
 .folderPaneMainTable {
+  display: table;
   width: 100%;
-  max-width: 100%;
+  max-width: none;
   table-layout: auto;
   text-align: left;
+  margin-left: 0;
+  margin-right: auto;
+  margin-bottom: var(--spacing-lg, 1.5625rem);
 }
 
 .folderPaneMainTable td,
@@ -32,17 +42,45 @@
   word-break: break-word;
 }
 
+/* manager.js sets inline padding:0 on object cells; use an important override here */
+.folderPaneMainTable > tr > td.obj,
+.folderPaneMainTable > tbody > tr > td.obj {
+  padding-left: var(--spacing-lg, 1.5625rem) !important;
+}
+
 .folderPanePredicateCell {
-  min-width: 0.1em;
+  width: 0;
+  min-width: 0;
+  max-width: 0;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+  overflow: hidden;
 }
 
 .folderPaneCreationDiv {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  text-align: left;
   width: 100%;
-  max-width: 100%;
+  max-width: none;
+  margin-left: 0;
+  margin-right: 0;
 }
 
 .folderPaneDropTarget {
-  max-width: 100%;
+  display: inline-block;
+  width: var(--icon-base, 2em);
+  min-width: var(--icon-base, 2em);
+  max-width: var(--icon-base, 2em);
+  height: var(--icon-base, 2em);
+  min-height: var(--icon-base, 2em);
+  max-height: var(--icon-base, 2em);
+  padding: 0 !important;
+  margin: 0 !important;
+  box-sizing: content-box;
+  flex: 0 0 var(--icon-base, 2em);
 }
 
 .folderPaneExplicitDropIcon {
