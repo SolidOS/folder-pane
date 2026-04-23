@@ -82,9 +82,6 @@ export default {
     let mainTable // This is a live synced table
     const div = dom.createElement('div')
     div.classList.add('instancePane', 'folderPaneInstancePane')
-    if (UI.style.folderPaneStyle) {
-      div.setAttribute('style', UI.style.folderPaneStyle)
-    }
     
     const thisDir = subject.uri.endsWith('/') ? subject.uri : subject.uri + '/'
     const indexThing = kb.sym(thisDir + 'index.ttl#this')
