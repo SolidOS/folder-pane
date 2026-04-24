@@ -1,6 +1,6 @@
 {
   "name": "folder-pane",
-  "version": "3.0.2",
+  "version": "3.1.0",
   "description": "Solid-compatible Panes: File browser",
   "main": "lib/folder-pane.js",
   "types": "declarations.d.ts",
