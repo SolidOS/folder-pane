@@ -6,10 +6,14 @@
   max-width: none;
   margin-left: 0;
   margin-right: 0;
+  border-top: solid 1px #777;
+  border-bottom: solid 1px #777;
   margin-top: var(--spacing-xs, 0.5em);
   margin-bottom: var(--spacing-xs, 0.5em);
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+  padding-top: 1rem;
+  padding-bottom: 1rem;
 }
 
 .folderPanePackageDiv {
@@ -90,6 +94,8 @@
 
 @media (max-width: 700px) {
   .folderPaneInstancePane {
+    border-top: solid 1px #777;
+    border-bottom: solid 1px #777;
     margin-top: var(--spacing-2xs, 0.25em);
     margin-bottom: var(--spacing-2xs, 0.25em);
   }
