@@ -5,6 +5,8 @@
 
 import { authn } from 'solid-logic'
 import * as UI from 'solid-ui'
+import './styles/folderPane.css'
+import './styles/utilities.css'
 
 export default {
   icon: UI.icons.iconBase + 'noun_973694_expanded.svg',
@@ -63,8 +65,9 @@ export default {
         const st = kb.statementsMatching(subject, UI.ns.ldp('contains'), obj)[0]
         const defaultpropview = outliner.VIEWAS_boring_default
         const tr = outliner.propertyTR(dom, st, false)
-        tr.firstChild.textContent = '' // Was initialized to 'Contains'
-        tr.firstChild.style.cssText += 'min-width: 3em;'
+        const predicateCell = tr.firstChild as HTMLElement
+        predicateCell.textContent = '' // Was initialized to 'Contains'
+        predicateCell.classList.add('folderPanePredicateCell')
         tr.appendChild(
           outliner.outlineObjectTD(obj, defaultpropview, undefined, st)
         )
@@ -78,9 +81,7 @@ export default {
     const kb = context.session.store
     let mainTable // This is a live synced table
     const div = dom.createElement('div')
-    div.setAttribute('class', 'instancePane')
-    const paneStyle = UI.style.folderPaneStyle || 'border-top: solid 1px #777; border-bottom: solid 1px #777; margin-top: 0.5em; margin-bottom: 0.5em;'
-    div.setAttribute('style', paneStyle)
+    div.classList.add('instancePane', 'folderPaneInstancePane')
     
     const thisDir = subject.uri.endsWith('/') ? subject.uri : subject.uri + '/'
     const indexThing = kb.sym(thisDir + 'index.ttl#this')
@@ -89,9 +90,10 @@ export default {
         'View of folder will be view of indexThing. Loading ' + indexThing
       )
       const packageDiv = div.appendChild(dom.createElement('div'))
-      packageDiv.style.cssText = 'border-top: 0.2em solid #ccc;' // Separate folder views above from package views below
+      packageDiv.classList.add('folderPanePackageDiv')
       kb.fetcher.load(indexThing.doc()).then(function () {
         mainTable = packageDiv.appendChild(dom.createElement('table'))
+        mainTable.classList.add('folderPaneMainTable')
         context
           .getOutliner(dom)
           .GotoSubject(indexThing, true, undefined, false, undefined, mainTable)
@@ -99,6 +101,7 @@ export default {
       return div
     } else {
       mainTable = div.appendChild(dom.createElement('table'))
+      mainTable.classList.add('folderPaneMainTable')
       mainTable.refresh = refresh
       refresh()
       // addDownstreamChangeListener is a high level function which when someone else changes the resource,
@@ -108,6 +111,7 @@ export default {
 
     // Allow user to create new things within the folder
     const creationDiv = div.appendChild(dom.createElement('div'))
+    creationDiv.classList.add('folderPaneCreationDiv')
     const me = authn.currentUser() // @@ respond to login events
     if (!me) {
       return div // Cannot create new things without being logged in
@@ -127,19 +131,21 @@ export default {
 
         UI.aclControl.preventBrowserDropEvents(dom)
 
-        const explictDropIcon = false
+        const explicitDropIcon = false
         let target
-        if (explictDropIcon) {
-          const iconStyleFound = creationDiv.firstChild.style.cssText
+        if (explicitDropIcon) {
           target = creationDiv.insertBefore(
             dom.createElement('img'),
             creationDiv.firstChild
           )
-          target.style.cssText = iconStyleFound
+          target.classList.add('folderPaneExplicitDropIcon')
           target.setAttribute('src', UI.icons.iconBase + 'noun_748003.svg')
-          target.setAttribute('style', 'width: 2em; height: 2em') // Safari says target.style is read-only
         } else {
           target = creationDiv.firstChild // Overload drop target semantics onto the plus sign
+        }
+
+        if (target instanceof HTMLElement) {
+          target.classList.add('folderPaneDropTarget')
         }
 
         // /////////// Allow new file to be Uploaded
