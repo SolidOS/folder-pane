@@ -12,6 +12,8 @@
   margin-bottom: var(--spacing-xs, 0.5em);
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+  padding-top: 1rem;
+  padding-bottom: 1rem;
 }
 
 .folderPanePackageDiv {
