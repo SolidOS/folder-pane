@@ -61,18 +61,21 @@ export default {
       objs = objs.map(obj => [UI.utils.label(obj).toLowerCase(), obj])
       objs.sort() // Sort by label case-insensitive
       objs = objs.map(pair => pair[1])
+      // mainTable is a <ul class="folder-listing"> — every entry has the same
+      // predicate (ldp:contains), so the listing is a list of resources, not
+      // a 2-column data table. syncTableToArray works on any parent's
+      // children, so it manages <li>s identically to <tr>s.
       UI.utils.syncTableToArray(mainTable, objs, function (obj) {
         const st = kb.statementsMatching(subject, UI.ns.ldp('contains'), obj)[0]
         const defaultpropview = outliner.VIEWAS_boring_default
-        const tr = outliner.propertyTR(dom, st, false)
-        const predicateCell = tr.firstChild as HTMLElement
-        predicateCell.textContent = '' // Was initialized to 'Contains'
-        predicateCell.classList.add('folderPanePredicateCell')
-        tr.appendChild(
-          outliner.outlineObjectTD(obj, defaultpropview, undefined, st)
+        const li = dom.createElement('li')
+        li.classList.add('folder-listing__item')
+        ;(li as any).AJAR_statement = st
+        const cell = outliner.outlineObjectTD(
+          obj, defaultpropview, undefined, st, 'div'
         )
-        // UI.widgets.makeDraggable(tr, obj)
-        return tr
+        li.appendChild(cell)
+        return li
       })
     }
 
@@ -92,16 +95,22 @@ export default {
       const packageDiv = div.appendChild(dom.createElement('div'))
       packageDiv.classList.add('folderPanePackageDiv')
       kb.fetcher.load(indexThing.doc()).then(function () {
-        mainTable = packageDiv.appendChild(dom.createElement('table'))
-        mainTable.classList.add('folderPaneMainTable')
+        // The "package" branch — when the container holds an index.ttl, we
+        // delegate rendering to GotoSubject and just need a host element.
+        // A <div> works fine here since we're not laying out rows ourselves.
+        mainTable = packageDiv.appendChild(dom.createElement('div'))
+        mainTable.classList.add('folderPanePackageContents')
         context
           .getOutliner(dom)
           .GotoSubject(indexThing, true, undefined, false, undefined, mainTable)
       })
       return div
     } else {
-      mainTable = div.appendChild(dom.createElement('table'))
-      mainTable.classList.add('folderPaneMainTable')
+      // Listing of LDP contents — every row has the same predicate, so this
+      // is a list of resources, not a 2-column table. Render as <ul>.
+      mainTable = div.appendChild(dom.createElement('ul'))
+      mainTable.classList.add('folder-listing')
+      mainTable.setAttribute('aria-label', 'Contents of ' + (UI.utils.label(subject) || 'folder'))
       mainTable.refresh = refresh
       refresh()
       // addDownstreamChangeListener is a high level function which when someone else changes the resource,
