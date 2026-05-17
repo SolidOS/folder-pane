@@ -8,6 +8,6 @@ export default {
         },
       },
     ],
-    "@babel/preset-typescript",
+    ["@babel/preset-typescript", { allowDeclareFields: true }],
   ],
 }
