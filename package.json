@@ -74,6 +74,7 @@
     "webpack-dev-server": "^5.2.3"
   },
   "dependencies": {
-    "rdflib": "^2.3.6"
+    "patch-package": "^8.0.1",
+    "rdflib": "^2.3.9"
   }
 }
