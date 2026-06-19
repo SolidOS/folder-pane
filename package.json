@@ -1,6 +1,6 @@
 {
   "name": "folder-pane",
-  "version": "3.1.0",
+  "version": "3.1.1-0",
   "description": "Solid-compatible Panes: File browser",
   "main": "lib/folder-pane.js",
   "types": "declarations.d.ts",
@@ -74,6 +74,7 @@
     "webpack-dev-server": "^5.2.3"
   },
   "dependencies": {
-    "rdflib": "^2.3.6"
+    "patch-package": "^8.0.1",
+    "rdflib": "^2.3.9"
   }
 }
