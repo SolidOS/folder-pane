@@ -56,12 +56,27 @@ export default {
       )
     }
 
+    function simpleRow (obj) {
+      const tr = dom.createElement('tr')
+      const td = dom.createElement('td')
+      const link = dom.createElement('a')
+      link.href = obj.uri
+      link.textContent = UI.utils.label(obj)
+      td.appendChild(link)
+      tr.appendChild(td)
+      return tr
+    }
+
     function refresh () {
       let objs = kb.each(subject, UI.ns.ldp('contains')).filter(noHiddenFiles)
       objs = objs.map(obj => [UI.utils.label(obj).toLowerCase(), obj])
       objs.sort() // Sort by label case-insensitive
       objs = objs.map(pair => pair[1])
       UI.utils.syncTableToArray(mainTable, objs, function (obj) {
+        if (!outliner) {
+          return simpleRow(obj)
+        }
+
         const st = kb.statementsMatching(subject, UI.ns.ldp('contains'), obj)[0]
         const defaultpropview = outliner.VIEWAS_boring_default
         const tr = outliner.propertyTR(dom, st, false)
@@ -77,7 +92,7 @@ export default {
     }
 
     const dom = context.dom
-    const outliner = context.getOutliner(dom)
+    const outliner = context.getOutliner(dom) as any
     const kb = context.session.store
     let mainTable // This is a live synced table
     const div = dom.createElement('div')
@@ -94,9 +109,18 @@ export default {
       kb.fetcher.load(indexThing.doc()).then(function () {
         mainTable = packageDiv.appendChild(dom.createElement('table'))
         mainTable.classList.add('folderPaneMainTable')
-        context
-          .getOutliner(dom)
-          .GotoSubject(indexThing, true, undefined, false, undefined, mainTable)
+        if (outliner) {
+          outliner.GotoSubject(
+            indexThing,
+            true,
+            undefined,
+            false,
+            undefined,
+            mainTable
+          )
+        } else {
+          mainTable.appendChild(simpleRow(indexThing))
+        }
       })
       return div
     } else {

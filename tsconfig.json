@@ -3,7 +3,7 @@
     /* Basic Options */
     "target": "ES2019", /* Allow top-level await and modern JS features. */
     "module": "ESNext", /* Use ESNext modules for Webpack/Babel compatibility. */
-    "moduleResolution": "node", /* Use Node.js-style module resolution for Webpack compatibility. */
+    "moduleResolution": "bundler", /* Use Node.js-style module resolution for Webpack compatibility. */
     "skipLibCheck": true, // if true, Type errors in library .d.ts files will be ignored, so you might miss some issues.
     "allowSyntheticDefaultImports": true, // Often helps with ESM interop
     "lib": [
@@ -18,7 +18,7 @@
     "sourceMap": true /* Generates corresponding '.map' file. */,
     // "outFile": "./",                       /* Concatenate and emit output to single file. */
 
-    "outDir": "lib" /* Redirect output structure to the directory. */,
+    "outDir": "dist" /* Redirect output structure to the directory. */,
     "rootDir": "src/",
 
     // "rootDir": "./",                       /* Specify the root directory of input files. Use to control the output directory structure with --outDir. */
@@ -74,5 +74,5 @@
     "src/**/*",
     "declarations.d.ts"
   ],
-  "exclude": ["node_modules", "lib"]
+  "exclude": ["node_modules", "dist"]
 }
