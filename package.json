@@ -58,7 +58,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.3",
     "@eslint/js": "^10.0.1",
-    "@types/node": "^25.0.10",
+    "@types/node": "^24.13.3",
     "@typescript-eslint/parser": "^8.53.1",
     "@vitest/coverage-v8": "^4.0.18",
     "eslint": "^10.0.1",
