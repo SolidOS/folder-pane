@@ -73,6 +73,12 @@
   margin-right: 0;
 }
 
+.folderPaneDropZone {
+  padding: 0.5rem 0.25rem;
+  min-height: calc(var(--icon-base, 2em) + 1rem);
+  box-sizing: border-box;
+}
+
 .folderPaneDropTarget {
   display: inline-block;
   width: var(--icon-base, 2em);
