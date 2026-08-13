@@ -6,14 +6,9 @@
   max-width: none;
   margin-left: 0;
   margin-right: 0;
-  border-top: solid 1px #777;
-  border-bottom: solid 1px #777;
-  margin-top: var(--spacing-xs, 0.5em);
-  margin-bottom: var(--spacing-xs, 0.5em);
+  padding-top: 5px;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  padding-top: 1rem;
-  padding-bottom: 1rem;
 }
 
 .folderPanePackageDiv {
@@ -23,7 +18,6 @@
   max-width: none;
   margin-left: 0;
   margin-right: 0;
-  border-top: 0.2em solid #ccc;
   overflow-x: auto;
 }
 
