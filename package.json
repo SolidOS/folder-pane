@@ -48,8 +48,8 @@
   },
   "homepage": "https://github.com/SolidOS/folder-pane",
   "peerDependencies": {
-    "solid-logic": "^4.0.6",
-    "solid-ui": "^3.1.0"
+    "solid-logic": "^5.0.0",
+    "solid-ui": "^4.0.0"
   },
   "devDependencies": {
     "@babel/core": "^7.28.6",
@@ -74,6 +74,6 @@
     "webpack-dev-server": "^5.2.3"
   },
   "dependencies": {
-    "rdflib": "^2.3.6"
+    "rdflib": "^2.4.0"
   }
 }
