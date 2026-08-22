@@ -4,16 +4,48 @@
   text-align: left;
   width: 100%;
   max-width: none;
-  margin-left: 0;
-  margin-right: 0;
-  border-top: solid 1px #777;
-  border-bottom: solid 1px #777;
-  margin-top: var(--spacing-xs, 0.5em);
-  margin-bottom: var(--spacing-xs, 0.5em);
+  margin: 0;
+  background: var(--white, #ffffff);
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  padding-top: 1rem;
-  padding-bottom: 1rem;
+  padding: 0;
+}
+
+/* Breadcrumb row sits at the top of the pane, above the sidebar/grid card
+   (Figma node 1569:12509). Horizontal padding matches the card's inner
+   gutter; vertical padding leaves the row breathing room. */
+.folderPaneInstancePane > folder-breadcrumb {
+  display: block;
+  padding: 16px 24px;
+}
+
+/* Two-column shell (Figma node 1569:12231): nav rail flush-left, card area
+   filling the rest. The <folder-nav-sidebar> carries its own 250px width
+   and right border. */
+.folder-pane-layout {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  min-height: 360px;
+}
+
+.folder-pane-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  box-sizing: border-box;
+  /* Figma node 1569:12303: card grid at left 269 / top 24, sidebar is 250
+     wide — a 19px gutter between the rail and the first card. */
+  padding: 24px 24px 24px 19px;
+}
+
+/* Grid of <folder-card> tiles — Figma node 1569:12303: a wrapping flex row
+   with a 20px gap. Cards are fixed-size so they tile left-to-right. */
+.folder-card-grid {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 20px;
+  width: 100%;
 }
 
 .folderPanePackageDiv {
