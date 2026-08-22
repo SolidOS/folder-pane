@@ -27,39 +27,31 @@
   overflow-x: auto;
 }
 
-.folderPaneMainTable {
-  display: table;
+/* LDP container listing — a list of resources, not a data table.
+   Every entry has the same predicate (ldp:contains), so a 2-column table
+   was always wrong here. <ul>/<li> is announced as "list, N items" by AT. */
+.folder-listing {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 var(--spacing-lg, 1.5625rem) 0;
   width: 100%;
   max-width: none;
-  table-layout: auto;
   text-align: left;
-  margin-left: 0;
-  margin-right: auto;
-  margin-bottom: var(--spacing-lg, 1.5625rem);
 }
 
-.folderPaneMainTable td,
-.folderPaneMainTable th {
-  text-align: left;
-  vertical-align: top;
+.folder-listing__item {
   overflow-wrap: anywhere;
   word-break: break-word;
 }
 
-/* manager.js sets inline padding:0 on object cells; use an important override here */
-.folderPaneMainTable > tr > td.obj,
-.folderPaneMainTable > tbody > tr > td.obj {
-  padding-left: var(--spacing-lg, 1.5625rem) !important;
+.folder-listing__item > .obj {
+  padding-left: var(--spacing-lg, 1.5625rem);
 }
 
-.folderPanePredicateCell {
-  width: 0;
-  min-width: 0;
-  max-width: 0;
-  padding: 0 !important;
-  margin: 0 !important;
-  border: 0 !important;
-  overflow: hidden;
+/* Package branch falls back to GotoSubject rendering inside this host. */
+.folderPanePackageContents {
+  display: block;
+  width: 100%;
 }
 
 .folderPaneCreationDiv {
