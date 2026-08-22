@@ -1,0 +1,22 @@
+:host {
+  li {
+    color: var(--gray-500, #6A7282);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+  }
+
+  icon-lucide-chevron-right,
+  icon-lucide-chevron-down {
+    flex: 0 0 16px;
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    transition: transform 120ms ease;
+  }
+
+  li[data-expanded='true'] icon-lucide-chevron-right {
+    transform: rotate(90deg);
+  }
+}

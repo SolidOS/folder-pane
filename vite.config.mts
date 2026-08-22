@@ -3,7 +3,7 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   plugins: solidPane({
-    litDecoratorPaths: [],
+    litDecoratorPaths: ['src/components'],
     sandbox: {
       subject: "https://testingsolidos.solidcommunity.net/",
     },

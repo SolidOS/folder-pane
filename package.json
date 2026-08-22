@@ -12,7 +12,8 @@
     }
   },
   "sideEffects": [
-    "**/*.css"
+    "**/*.css",
+    "src/components/**/*.ts"
   ],
   "scripts": {
     "clean": "rm -rf dist",
@@ -56,6 +57,7 @@
   },
   "homepage": "https://github.com/SolidOS/folder-pane",
   "devDependencies": {
+    "@iconify-json/lucide": "^1.2.116",
     "@eslint/eslintrc": "^3.3.3",
     "@eslint/js": "^10.0.1",
     "@types/node": "^24.13.3",
