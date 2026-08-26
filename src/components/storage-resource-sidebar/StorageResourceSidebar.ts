@@ -1,16 +1,16 @@
-import { customElement, utils, WebComponent, ns } from 'solid-ui'
+import { customElement, utils, WebComponent } from 'solid-ui'
 import { html } from 'lit'
 import { repeat } from 'lit/directives/repeat.js'
 import { property, state } from 'lit/decorators.js'
 import type { PropertyValues } from 'lit'
 import styles from './StorageResourceSidebar.styles.css'
 import { NamedNode } from 'rdflib'
-import type { ResourceMap, SelectableResourceItem } from '../../types'
+import type { Resource, ResourceMap } from '../../types'
 import '~icons/lucide/chevron-right'
-import { noHiddenFiles } from '../../helpers'
+import { getResourcesForContainer } from '../../helpers'
 
 type VisibleResource = {
-  resource: SelectableResourceItem
+  resource: Resource
   depth: number
 }
 
@@ -39,29 +39,11 @@ export default class StorageResourceSidebar extends WebComponent {
   @state()
   accessor selectedResource: NamedNode | undefined = undefined
   
-  private getResourcesForContainer (container: NamedNode): ResourceMap{
-    if (!this.store) return new Map()
-    let containedResources = this.store.each(container, ns.ldp('contains')).filter(noHiddenFiles)
-    // on the main page for localhost:3100 i was getting duplicates
-    // when i viewed one of the storages though it was fine.
-    containedResources = containedResources.filter((containedResource, index, allContainedResources) => {
-      return allContainedResources.findIndex(other => other.sameTerm(containedResource)) === index
-    })
-    containedResources = containedResources.map(containedResource => [utils.label(containedResource).toLowerCase(), containedResource])
-    containedResources.sort() // Sort by label case-insensitive
-    return new Map(containedResources.map(pair => [pair[1].value, {
-      id: pair[1].value,
-      subject: pair[1],
-      parentId: container.value,
-      isContainer: this.resourceLogic?.isContainer?.(pair[1]) ?? false
-    }]))
-  }
-
   private loadResources () {
     if (!this.store || !this.subject) return
 
     this.expandedContainers = new Set()
-    this.resources = this.getResourcesForContainer(this.subject)
+    this.resources = getResourcesForContainer(this.store, this.subject, this.resourceLogic)
   }
 
   private getVisibleResources (): VisibleResource[] {
@@ -72,7 +54,7 @@ export default class StorageResourceSidebar extends WebComponent {
         visibleResources.push({ resource, depth })
 
         if (resource.isContainer && this.expandedContainers.has(resource.id)) {
-          appendResources(this.getResourcesForContainer(resource.subject), depth + 1)
+          appendResources(getResourcesForContainer(this.store, resource.subject, this.resourceLogic), depth + 1)
         }
       }
     }
@@ -81,7 +63,7 @@ export default class StorageResourceSidebar extends WebComponent {
     return visibleResources
   }
 
-  private async expandContainer (resource: SelectableResourceItem, event: MouseEvent) {
+  private async expandContainer (resource: Resource, event: MouseEvent) {
     event.preventDefault()
     event.stopPropagation()
     if (!resource.isContainer) {
@@ -102,11 +84,11 @@ export default class StorageResourceSidebar extends WebComponent {
     this.expandedContainers = nextExpandedContainers
   }
 
-  private isSelectedResource (resource: SelectableResourceItem) {
+  private isSelectedResource (resource: Resource) {
     return this.selectedResource?.sameTerm(resource.subject) ?? false
   }
 
-  private selectResource (resource: SelectableResourceItem) {
+  private selectResource (resource: Resource) {
     this.selectedResource = resource.subject
     this.dispatchEvent(new CustomEvent('resource-selected', {
       detail: { resource: resource.subject },
@@ -115,7 +97,7 @@ export default class StorageResourceSidebar extends WebComponent {
     }))
   }
 
-  private renderResourceItem (resource: SelectableResourceItem, depth: number) {
+  private renderResourceItem (resource: Resource, depth: number) {
     const selected = this.isSelectedResource(resource)
     const isExpanded = this.expandedContainers.has(resource.id)
 
@@ -130,12 +112,6 @@ export default class StorageResourceSidebar extends WebComponent {
         role="option"
         tabindex="0"
         .subject=${resource.subject}
-        .tabulatorSelect=${() => this.selectResource(resource)}
-        .tabulatorDeselect=${() => {
-          if (this.isSelectedResource(resource)) {
-            this.selectedResource = undefined
-          }
-        }}
         @click=${() => this.selectResource(resource)}
         @keydown=${(event: KeyboardEvent) => {
           if (event.key === 'Enter' || event.key === ' ') {

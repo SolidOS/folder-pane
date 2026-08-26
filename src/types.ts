@@ -9,7 +9,22 @@ export type Resource = {
 
 export type ResourceMap = Map<string, Resource>
 
-export type SelectableResourceItem = Resource & {
-  tabulatorSelect?: () => void
-  tabulatorDeselect?: () => void
+export type StoragePaneOutliner = {
+  GotoSubject: (
+    subject: NamedNode,
+    openPane: boolean,
+    focus?: unknown,
+    replace?: boolean,
+    source?: unknown,
+    targetView?: HTMLElement
+  ) => void
+}
+
+export type ContentViewRenderer = {
+  store: any
+  resourceLogic: any
+  selectedResource: NamedNode
+  contentView: HTMLElement
+  outliner?: StoragePaneOutliner
+  renderContainerPane: (selectedResource: NamedNode) => void
 }

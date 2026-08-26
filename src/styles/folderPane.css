@@ -27,18 +27,6 @@
   overflow-x: auto;
 }
 
-.storage-pane-section {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--spacing-lg, 1.5625rem);
-  width: 100%;
-  max-width: none;
-  text-align: left;
-  margin-left: 0;
-  margin-right: auto;
-  margin-bottom: var(--spacing-lg, 1.5625rem);
-}
-
 storage-resource-sidebar {
   display: block;
   flex: 0 0 25%;

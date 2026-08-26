@@ -4,12 +4,10 @@
  */
 
 import { authn } from 'solid-logic'
-import { NamedNode } from 'rdflib'
 import './styles/folderPane.css'
 import './styles/utilities.css'
-import './components/storage-resource-sidebar/StorageResourceSidebar'
-import './components/storage-content-view/StorageContentView'
-import { aclControl, create, createTypes, icons, log, login, ns, widgets } from 'solid-ui'
+import './components/storage-pane-view/StoragePaneView'
+import { aclControl, create, createTypes, icons, login, ns, widgets } from 'solid-ui'
 
 export default {
   icon: icons.iconBase + 'noun_973694_expanded.svg',
@@ -48,47 +46,20 @@ export default {
 
   // Render a file folder in a LDP/solid system
   render: function (subject, context) {
-    // check if it's the main storage container code below
-    // subject && subject.uri && subject.site && subject.site().uri === subject.uri
+
 
     const dom = context.dom
     const kb = context.session.store
     const outliner = context.getOutliner(dom)
     const div = dom.createElement('div')
     div.classList.add('instancePane', 'storage-pane')
+    const storagePaneView = div.appendChild(dom.createElement('storage-pane-view'))
+    storagePaneView.dom = dom
+    storagePaneView.outliner = outliner
+    storagePaneView.store = kb
+    storagePaneView.subject = subject
+    storagePaneView.resourceLogic = context.session.logic.resource
 
-    const folderUri = subject.uri.endsWith('/') ? subject.uri : subject.uri + '/'
-    const indexThing = kb.sym(folderUri + 'index.ttl#this')
-    if (kb.holds(subject, ns.ldp('contains'), indexThing.doc())) {
-      const storagePaneSection = div.appendChild(dom.createElement('section'))
-      storagePaneSection.classList.add('storage-pane-section')
-
-      const contentView = storagePaneSection.appendChild(dom.createElement('storage-content-view'))
-      contentView.classList.add('storage-content-view')
-      void showResourceInContentView(indexThing, contentView)
-      return div
-    }
-
-    let contentView
-    let resourceSidebar
-
-    const storagePaneSection = div.appendChild(dom.createElement('section'))
-    storagePaneSection.classList.add('storage-pane-section')
-
-    resourceSidebar = storagePaneSection.appendChild(dom.createElement('storage-resource-sidebar'))
-    resourceSidebar.dom = dom
-    resourceSidebar.store = context.session.store
-    resourceSidebar.subject = subject
-    resourceSidebar.resourceLogic = context.session.logic.resource
-    contentView = storagePaneSection.appendChild(dom.createElement('storage-content-view'))
-    contentView.classList.add('storage-content-view')
-
-    resourceSidebar.addEventListener('resource-selected', function (event: Event) {
-      const customEvent = event as CustomEvent<{ resource: NamedNode }>
-      if (customEvent.detail?.resource) {
-        void showResourceInContentView(customEvent.detail.resource, contentView)
-      }
-    })
     // The pane registry is needed to open the internal pane on Alt-click.
     // addDownstreamChangeListener is a high level function which when someone else changes the resource,
     // reloads it into the kb, then must call addDownstreamChangeListener to be able to update the folder pane.
@@ -108,7 +79,7 @@ export default {
       statusArea: creationDiv,
       me: me
     }
-    creationContext.refreshTarget = contentView
+    // SAM creationContext.refreshTarget = contentView
     login
       // The available pane list includes the internal pane functionality used by the create-new UI.
       .filterAvailablePanes(context.session.paneRegistry.list)
@@ -141,17 +112,6 @@ export default {
       })
 
     return div
-
-    async function showResourceInContentView (selectedResource: NamedNode, targetView: HTMLElement) {
-      try {
-        if (context.session.logic.resource.isContainer(selectedResource)) {
-          await kb.fetcher.load(selectedResource)
-        }
-        outliner.GotoSubject(selectedResource, true, undefined, false, undefined, targetView)
-      } catch (error) {
-        log.error('Unable to render selected resource: ' + error)
-      }
-    }
 
     function droppedFileHandler (files) {
       widgets.uploadFiles(

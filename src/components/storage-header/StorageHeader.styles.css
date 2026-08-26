@@ -1,0 +1,52 @@
+:host {
+	display: block;
+	min-width: 0;
+}
+
+.storage-header {
+	display: flex;
+	flex-direction: column;
+	gap: 0.35rem;
+	min-width: 0;
+}
+
+.storage-header-breadcrumbs {
+	min-width: 0;
+	overflow: hidden;
+}
+
+.storage-header-breadcrumbs ol {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.35rem;
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	min-width: 0;
+}
+
+.storage-header-breadcrumbs li {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.35rem;
+	min-width: 0;
+}
+
+.storage-header-breadcrumbs .crumb,
+.storage-header-breadcrumbs .current,
+.storage-header-breadcrumbs .separator {
+	white-space: nowrap;
+}
+
+.storage-header-breadcrumbs .crumb {
+	opacity: 0.72;
+}
+
+.storage-header-breadcrumbs .current {
+	font-weight: 600;
+}
+
+.storage-header-breadcrumbs .separator {
+	opacity: 0.45;
+}
