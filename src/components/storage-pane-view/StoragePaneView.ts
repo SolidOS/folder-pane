@@ -6,7 +6,6 @@ import '../storage-header'
 import '../storage-container-pane'
 import '../storage-resource-sidebar'
 import '../storage-content-view'
-import styles from './StoragePaneView.styles.css'
 import type { NamedNode } from 'rdflib'
 import { StoragePaneOutliner } from '../../types'
 import { renderSelectedResourceInContentView } from '../../helpers'
@@ -14,8 +13,6 @@ import { renderSelectedResourceInContentView } from '../../helpers'
 
 @customElement('storage-pane-view')
 export default class StoragePaneView extends WebComponent {
-  static styles = styles
-
   @property({ attribute: false })
   accessor dom: HTMLDocument | null = null
 
@@ -36,6 +33,13 @@ export default class StoragePaneView extends WebComponent {
 
   @query('storage-content-view')
   private accessor contentView: HTMLElement | null = null
+
+  protected createRenderRoot() {
+    // Keep the storage shell in light DOM for now; using a shadow-root host
+    // would require every pane rendered inside it to already be a WebComponent
+    // with its own shadow styles.
+    return this
+  }
 
   protected updated (changedProperties: PropertyValues<this>) {
     if (changedProperties.has('selectedResource') && this.selectedResource) {

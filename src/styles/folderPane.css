@@ -1,3 +1,12 @@
+/*
+ * Temporary light-DOM layout for the storage pane shell.
+ * These row/fill rules live here because storage-pane-view and storage-container-pane
+ * currently render into light DOM, and the component `*.styles.css` files are compiled
+ * by litCss for shadow DOM only. When the storage shell can move back to shadow DOM,
+ * move the corresponding layout rules back into StoragePaneView.styles.css and
+ * StorageContainerPane.styles.css so they apply via static styles again.
+ */
+
 .storage-pane {
   box-sizing: border-box;
   align-self: stretch;
@@ -27,15 +36,46 @@
   overflow-x: auto;
 }
 
+/* storage-pane-view and storage-container-pane render into light DOM, so their
+   layout must live here: *.styles.css files are compiled to Lit CSSResult. */
+.storage-pane-section {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  width: 100%;
+  min-height: 60vh;
+}
+
 storage-resource-sidebar {
   display: block;
   flex: 0 0 25%;
   min-width: 16rem;
 }
 
-.storage-content-view {
-  flex: 1 1 75%;
+storage-content-view {
+  display: block;
+  flex: 1 1 0%;
   min-width: 0;
+}
+
+storage-container-pane {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+}
+
+storage-container-pane .storage-container-pane,
+storage-container-pane .storage-container-pane-main-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+storage-container-pane storage-creation-area {
+  margin-top: auto;
+  align-self: flex-start;
 }
 
 .storage-pane-predicate-cell {

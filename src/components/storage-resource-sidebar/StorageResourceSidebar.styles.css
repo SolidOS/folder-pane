@@ -1,4 +1,21 @@
 :host {
+  aside {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+  }
+
+  ul {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  storage-creation-area {
+    margin-top: auto;
+    flex: 0 0 auto;
+  }
+
   li {
     color: var(--gray-500, #6A7282);
     display: flex;

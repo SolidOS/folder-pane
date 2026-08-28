@@ -1,0 +1,16 @@
+:host {
+  .storage-creation-area {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    min-width: 4.5rem;
+    min-height: 4.5rem;
+    box-sizing: border-box;
+  }
+
+  icon-lucide-plus {
+    width: 30px;
+    height: 30px;
+  }
+}
+

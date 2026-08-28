@@ -4,10 +4,12 @@ import { repeat } from 'lit/directives/repeat.js'
 import { property, state } from 'lit/decorators.js'
 import type { PropertyValues } from 'lit'
 import styles from './StorageResourceSidebar.styles.css'
-import { NamedNode } from 'rdflib'
+import type { LiveStore, NamedNode } from 'rdflib'
+import type { SolidLogic } from 'solid-logic'
 import type { Resource, ResourceMap } from '../../types'
 import '~icons/lucide/chevron-right'
 import { getResourcesForContainer } from '../../helpers'
+import '../storage-creation-area'
 
 type VisibleResource = {
   resource: Resource
@@ -22,13 +24,13 @@ export default class StorageResourceSidebar extends WebComponent {
   accessor dom: HTMLDocument | null = null
 
   @property({ attribute: false })
-  accessor store: any = null
+  accessor store: LiveStore | null = null
 
   @property({ attribute: false })
-  accessor subject: any = null
+  accessor subject: NamedNode | null = null
 
   @property({ attribute: false })
-  accessor resourceLogic: any = null
+  accessor resourceLogic: Pick<SolidLogic['resource'], 'isContainer'> | null = null
 
   @state()
   accessor resources: ResourceMap = new Map()
@@ -38,11 +40,10 @@ export default class StorageResourceSidebar extends WebComponent {
 
   @state()
   accessor selectedResource: NamedNode | undefined = undefined
-  
-  private loadResources () {
+
+  private syncResources () {
     if (!this.store || !this.subject) return
 
-    this.expandedContainers = new Set()
     this.resources = getResourcesForContainer(this.store, this.subject, this.resourceLogic)
   }
 
@@ -128,10 +129,6 @@ export default class StorageResourceSidebar extends WebComponent {
     `
   }
 
-  protected updated (changedProperties: PropertyValues<this>) {
-    super.updated(changedProperties)
-  }
-
   protected willUpdate (changedProperties: PropertyValues<this>) {
     super.willUpdate(changedProperties)
     if (
@@ -139,7 +136,8 @@ export default class StorageResourceSidebar extends WebComponent {
       changedProperties.has('subject') ||
       changedProperties.has('resourceLogic')
     ) {
-      this.loadResources()
+      this.expandedContainers = new Set()
+      this.syncResources()
     }
   }
 
@@ -151,6 +149,11 @@ export default class StorageResourceSidebar extends WebComponent {
         <ul role="listbox">
           ${repeat(visibleResources, (item) => item.resource.id, (item) => this.renderResourceItem(item.resource, item.depth))}
         </ul>
+        <storage-creation-area
+          .store=${this.store}
+          .subject=${this.subject}
+          @resource-created=${this.syncResources}
+        ></storage-creation-area>
       </aside>
     `
   }
