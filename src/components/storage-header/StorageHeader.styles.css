@@ -1,12 +1,17 @@
 :host {
 	display: block;
 	min-width: 0;
+	position: sticky;
+	top: 0;
+	z-index: 100;
+	background: var(--solid-ui-color-white, #fff);
+	flex-shrink: 0;
 
 	.storage-header {
 		display: flex;
 		align-items: center;
-		gap: 1rem;
 		justify-content: space-between;
+		padding: 10px 0;
 	}
 
 	.storage-header-toolbar {
@@ -34,11 +39,6 @@
 		min-width: 0;
 		padding: 0 10px;
 		box-sizing: border-box;
-		border: 0;
-		outline: none;
-		background: transparent;
-		font: inherit;
-		color: inherit;
 		font-size: var(--solid-ui-font-size-xs, .75rem);
 		text-align: right;
 	}
@@ -133,17 +133,5 @@
 	.storage-header-breadcrumbs .current,
 	.storage-header-breadcrumbs .separator {
 		white-space: nowrap;
-	}
-
-	.storage-header-breadcrumbs .crumb {
-		opacity: 0.72;
-	}
-
-	.storage-header-breadcrumbs .current {
-		font-weight: 600;
-	}
-
-	.storage-header-breadcrumbs .separator {
-		opacity: 0.45;
 	}
 }

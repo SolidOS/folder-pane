@@ -8,6 +8,7 @@ import '~icons/lucide/search'
 import '~icons/lucide/layout-grid'
 import '~icons/lucide/list'
 import '../storage-creation-menu/StorageCreationMenu'
+import { isStorageRoot } from '../../helpers'
 import styles from './StorageHeader.styles.css'
 
 @customElement('storage-header')
@@ -26,12 +27,16 @@ export default class StorageHeader extends WebComponent {
   @state()
   accessor searchValue = ''
 
-  private getBreadcrumbSegments (resource: NamedNode) {
+  private getBreadcrumbSegments (resource: NamedNode, store: DataBrowserContext['session']['store'] | null) {
     const segments: NamedNode[] = []
     let current: NamedNode | null = resource
 
     while (current) {
       segments.unshift(current)
+      if (store && isStorageRoot(store, current)) {
+        break
+      }
+
       const parent = current.dir()
       if (!parent || parent.sameTerm(current)) {
         break
@@ -42,7 +47,11 @@ export default class StorageHeader extends WebComponent {
     return segments
   }
 
-  private getBreadcrumbLabel (resource: NamedNode) {
+  private getBreadcrumbLabel (resource: NamedNode, store: DataBrowserContext['session']['store'] | null) {
+    if (store && isStorageRoot(store, resource)) {
+      return 'Storage'
+    }
+
     try {
       const url = new URL(resource.uri)
       const pathSegments = url.pathname.split('/').filter(Boolean)
@@ -62,18 +71,35 @@ export default class StorageHeader extends WebComponent {
   }
 
   private renderBreadcrumbs (resource: NamedNode) {
-    const segments = this.getBreadcrumbSegments(resource)
+    const store = this.browserContext?.session.store ?? null
+    const segments = this.getBreadcrumbSegments(resource, store)
+    const specialCrumb = this.getBreadcrumbLabel(resource, store).toLowerCase() === 'public'
+      ? 'Public'
+      : 'Home'
+
+    const breadcrumbItems: Array<NamedNode | string> = [...segments]
+
+    if (breadcrumbItems.length > 0) {
+      breadcrumbItems.splice(1, 0, specialCrumb)
+    }
 
     return html`
       <nav class="storage-header-breadcrumbs" aria-label="Breadcrumb">
         <icon-lucide-folder-open></icon-lucide-folder-open>
         <ol>
-          ${segments.map((segment, index) => html`
+          ${breadcrumbItems.map((segment, index) => typeof segment === 'string'
+            ? html`
+              <li>
+                <span class=${index === breadcrumbItems.length - 1 ? 'current' : 'crumb'}>${segment}</span>
+                ${index < breadcrumbItems.length - 1 ? html`<span class="separator">/</span>` : ''}
+              </li>
+            `
+            : html`
             <li>
-              <span class=${index === segments.length - 1 ? 'current' : 'crumb'}>
-                ${this.getBreadcrumbLabel(segment)}
+              <span class=${index === breadcrumbItems.length - 1 ? 'current' : 'crumb'}>
+                ${this.getBreadcrumbLabel(segment, store)}
               </span>
-              ${index < segments.length - 1 ? html`<span class="separator">/</span>` : ''}
+              ${index < breadcrumbItems.length - 1 ? html`<span class="separator">/</span>` : ''}
             </li>
           `)}
         </ol>
