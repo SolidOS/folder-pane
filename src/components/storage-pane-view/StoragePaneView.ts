@@ -2,6 +2,7 @@ import { customElement, log, WebComponent } from 'solid-ui'
 import { html } from 'lit'
 import { property, query, state } from 'lit/decorators.js'
 import type { PropertyValues } from 'lit'
+import type { DataBrowserContext } from 'pane-registry'
 import '../storage-header'
 import '../storage-container-pane'
 import '../storage-resource-sidebar'
@@ -15,6 +16,9 @@ import { renderSelectedResourceInContentView } from '../../helpers'
 export default class StoragePaneView extends WebComponent {
   @property({ attribute: false })
   accessor dom: HTMLDocument | null = null
+
+  @property({ attribute: false })
+  accessor browserContext: DataBrowserContext | null = null
 
   @property({ attribute: false })
   accessor outliner: StoragePaneOutliner | undefined = undefined
@@ -90,7 +94,11 @@ export default class StoragePaneView extends WebComponent {
 
   render () {
     return html`
-      <storage-header .subject=${this.subject} .selectedResource=${this.selectedResource}></storage-header>
+      <storage-header
+        .subject=${this.subject}
+        .selectedResource=${this.selectedResource}
+        .browserContext=${this.browserContext}
+      ></storage-header>
       <div class="storage-pane-main-content">
         <div class="storage-pane-section">
           <storage-resource-sidebar

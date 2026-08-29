@@ -1,9 +1,14 @@
-import { customElement, WebComponent, login } from 'solid-ui'
+import { customElement, WebComponent, login, utils } from 'solid-ui'
 import { html, nothing } from 'lit'
 import { property, state } from 'lit/decorators.js'
 import type { PropertyValues } from 'lit'
 import type { DataBrowserContext, PaneDefinition } from 'pane-registry'
 import type { NamedNode } from 'rdflib'
+import 'solid-ui/components/button'
+import 'solid-ui/components/menu'
+import 'solid-ui/components/menu-item'
+import '~icons/lucide/chevron-down'
+import '~icons/lucide/plus'
 import { makeNewAppInstance } from './mintPaneInstance'
 import styles from './StorageCreationMenu.styles.css'
 
@@ -36,8 +41,22 @@ export default class StorageCreationMenu extends WebComponent {
 
   protected async updated (changedProperties: PropertyValues<this>) {
     if (changedProperties.has('paneList')) {
-      this.availablePanes = await login.filterAvailablePanes(this.paneList ?? [])
+      const audiencePanes = await login.filterAvailablePanes(this.paneList ?? [])
+      // filterAvailablePanes only filters by audience; only minting panes can create anything.
+      this.availablePanes = audiencePanes.filter((pane) => pane.mintNew)
     }
+  }
+
+  private getPaneLabel (pane: PaneDefinition): string {
+    if (!pane.mintClass) {
+      return pane.name.charAt(0).toUpperCase() + pane.name.slice(1)
+    }
+
+    return utils.label(pane.mintClass)
+  }
+
+  private getMintNoun (pane: PaneDefinition): string {
+    return `New ${this.getPaneLabel(pane)}`
   }
 
   private async handlePaneSelected (pane: PaneDefinition) {
@@ -64,20 +83,19 @@ export default class StorageCreationMenu extends WebComponent {
 
   render () {
     return html`
-      <div class="storage-creation-menu">
-        ${this.availablePanes.length > 0
-          ? this.availablePanes.map((pane) => html`
-              <button
-                type="button"
-                class="storage-creation-menu__item"
-                @click=${() => this.handlePaneSelected(pane)}
-              >
-                ${pane.icon ? html`<img src=${pane.icon} alt="" class="storage-creation-menu__icon" />` : nothing}
-                <span>${pane.name}</span>
-              </button>
-            `)
-          : html`<div class="storage-creation-menu__empty">No create targets available</div>`}
-      </div>
+      <solid-ui-menu placement="bottom-end">
+        <solid-ui-button slot="trigger" variant="primary">
+          <icon-lucide-plus slot="left-icon"></icon-lucide-plus>
+          Add
+          <icon-lucide-chevron-down slot="right-icon"></icon-lucide-chevron-down>
+        </solid-ui-button>
+        ${this.availablePanes.map((pane) => html`
+          <solid-ui-menu-item @solid-ui-select=${() => this.handlePaneSelected(pane)}>
+            ${pane.icon ? html`<img slot="left-icon" src=${pane.icon} alt="" />` : nothing}
+            ${this.getMintNoun(pane)}
+          </solid-ui-menu-item>
+        `)}
+      </solid-ui-menu>
     `
   }
 }

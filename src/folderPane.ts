@@ -54,6 +54,7 @@ export default {
     storagePaneView.dom = dom
     storagePaneView.outliner = outliner
     storagePaneView.store = kb
+    storagePaneView.browserContext = context
     storagePaneView.subject = subject
     storagePaneView.resourceLogic = context.session.logic.resource
 

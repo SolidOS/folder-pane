@@ -1,7 +1,7 @@
 import { authn } from 'solid-logic'
 import { DataBrowserContext, PaneDefinition } from 'pane-registry'
 import { NamedNode } from 'rdflib'
-import { ns, widgets } from 'solid-ui'
+import { ns, utils, widgets } from 'solid-ui'
 
 // This code was from newThingUI in solid-ui, we don't need the UI part
 // anymore we just need to create the new instance and add it to the folder. 
@@ -22,7 +22,9 @@ export async function makeNewAppInstance (options: MakeNewAppInstanceOptions): P
     throw new Error('makeNewAppInstance: must be logged in')
   }
 
-  const noun = options.pane.mintClass ? options.pane.name : options.pane.name
+  const noun = options.pane.mintClass
+    ? utils.label(options.pane.mintClass)
+    : options.pane.name.charAt(0).toUpperCase() + options.pane.name.slice(1)
   const appPathSegment = noun.slice(0, 1).toUpperCase() + noun.slice(1)
 
   const name = await widgets.askName(
