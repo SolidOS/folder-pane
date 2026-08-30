@@ -24,6 +24,9 @@ export default class StorageHeader extends WebComponent {
   @property({ attribute: false })
   accessor browserContext: DataBrowserContext | null = null
 
+  @property({ attribute: false })
+  accessor getStatusArea: (() => HTMLElement | null) | null = null
+
   @state()
   accessor searchValue = ''
 
@@ -143,8 +146,8 @@ export default class StorageHeader extends WebComponent {
               ? html`
                   <storage-creation-menu
                     .browserContext=${this.browserContext}
-                    .dom=${this.browserContext.dom}
-                    .folder=${resource}
+                    .getStatusArea=${this.getStatusArea}
+                    .container=${resource}
                     .paneList=${this.browserContext.session.paneRegistry.list}
                   ></storage-creation-menu>
                 `

@@ -1,93 +1,62 @@
 import { authn } from 'solid-logic'
 import { DataBrowserContext, PaneDefinition } from 'pane-registry'
 import { NamedNode } from 'rdflib'
-import { ns, utils, widgets } from 'solid-ui'
+import { ns, utils } from 'solid-ui'
 
 // This code was from newThingUI in solid-ui, we don't need the UI part
-// anymore we just need to create the new instance and add it to the folder. 
+// anymore we just need to create the new instance and add it to the container.
 export type MakeNewAppInstanceOptions = {
   browserContext: DataBrowserContext
-  div: HTMLElement
-  dom: HTMLDocument
-  folder: NamedNode
+  container: NamedNode
   pane: PaneDefinition
-  refreshTarget?: { refresh?: () => void } | null
-  onCreated?: (newInstance: NamedNode) => void
+  name: string
+  // Panes render their own "created" notice into this element.
+  statusArea: HTMLElement
 }
 
-export async function makeNewAppInstance (options: MakeNewAppInstanceOptions): Promise<NamedNode | undefined> {
-  const kb = options.browserContext.session.store
+export function getPaneLabel (pane: PaneDefinition): string {
+  if (!pane.mintClass) {
+    return pane.name.charAt(0).toUpperCase() + pane.name.slice(1)
+  }
+
+  return utils.label(pane.mintClass)
+}
+
+export async function makeNewAppInstance (options: MakeNewAppInstanceOptions): Promise<NamedNode> {
+  const { browserContext, container, pane, name, statusArea } = options
+  const kb = browserContext.session.store
   const me = authn.currentUser()
   if (!me) {
     throw new Error('makeNewAppInstance: must be logged in')
   }
 
-  const noun = options.pane.mintClass
-    ? utils.label(options.pane.mintClass)
-    : options.pane.name.charAt(0).toUpperCase() + options.pane.name.slice(1)
-  const appPathSegment = noun.slice(0, 1).toUpperCase() + noun.slice(1)
+  const noun = getPaneLabel(pane)
+  const containerUri = container.uri.endsWith('/') ? container.uri : container.uri + '/'
+  const newBase = containerUri + encodeURIComponent(name) + '/'
 
-  const name = await widgets.askName(
-    options.dom,
-    kb,
-    options.div,
-    ns.foaf('name'),
-    null,
-    noun
-  )
-
-  if (!name) {
-    return undefined
-  }
-
-  let newBase = options.folder.uri
-  if (!newBase.endsWith('/')) {
-    newBase += '/'
-  }
-  newBase += encodeURIComponent(name) + '/'
-
-  const newPaneOptions: any = {
+  const created = await pane.mintNew!(browserContext, {
     newBase,
-    folder: options.folder,
-    workspace: undefined,
-    pane: options.pane,
-    div: options.div,
-    dom: options.dom,
+    // solid-ui mintNew implementations still expect this to be called `folder`.
+    folder: container,
+    pane,
+    div: statusArea,
+    dom: browserContext.dom,
     me,
-    refreshTarget: options.refreshTarget ?? undefined,
     noun,
-    appPathSegment,
+    appPathSegment: noun.charAt(0).toUpperCase() + noun.slice(1),
     noIndexHTML: true
-  }
+  } as any)
 
-  const created = await options.pane.mintNew!(options.browserContext, newPaneOptions)
   if (!created || !created.newInstance) {
     throw new Error('Cannot mint new thing - missing newInstance')
   }
 
-  const tail = created.newInstance.uri.slice(options.folder.uri.length)
-  const isPackage = tail.includes('/')
+  // A package is minted as a container holding an index document, so the
+  // container is what the sidebar lists and what should become selected.
+  const isPackage = created.newInstance.uri.slice(container.uri.length).includes('/')
+  const newResource = isPackage ? kb.sym(created.newBase) : created.newInstance
 
-  if (isPackage) {
-    kb.add(
-      options.folder,
-      ns.ldp('contains'),
-      kb.sym(created.newBase),
-      options.folder.doc()
-    )
-  } else {
-    kb.add(
-      options.folder,
-      ns.ldp('contains'),
-      created.newInstance,
-      options.folder.doc()
-    )
-  }
+  kb.add(container, ns.ldp('contains'), newResource, container.doc())
 
-  if (options.refreshTarget && options.refreshTarget.refresh) {
-    options.refreshTarget.refresh()
-  }
-
-  options.onCreated?.(created.newInstance)
-  return created.newInstance
+  return newResource
 }

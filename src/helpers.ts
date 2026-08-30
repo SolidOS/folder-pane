@@ -38,6 +38,9 @@ function getContainerIndexThing (store, container: NamedNode): NamedNode {
 function isContainerResource (store, resource: NamedNode): boolean {
   if (!store) return false
 
+  // A freshly minted container has no statements in the store yet.
+  if (resource.uri.endsWith('/')) return true
+
   return store.each(resource, ns.ldp('contains')).length > 0 || store.holds(resource, ns.rdf('type'), ns.ldp('Container'))
 }
 

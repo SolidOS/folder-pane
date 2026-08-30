@@ -29,7 +29,7 @@
     height: auto;
   }
 
-  .obj {
+  .resource-item {
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -90,15 +90,15 @@
     gap: 10px;
   }
 
-  .obj.selected > .resource-row,
-  .obj.selected > .resource-row-special {
+  .resource-item.selected > .resource-row,
+  .resource-item.selected > .resource-row-special {
     background: var(--solid-ui-color-primary-selected);
     color: var(--solid-ui-color-primary);
     border-radius: 5px;
   }
 
-  .obj.selected icon-lucide-chevron-right,
-  .obj.selected icon-lucide-circle-small {
+  .resource-item.selected icon-lucide-chevron-right,
+  .resource-item.selected icon-lucide-circle-small {
     color: currentColor;
     stroke: currentColor;
   }

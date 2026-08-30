@@ -1,15 +1,18 @@
-import { customElement, WebComponent, login, utils } from 'solid-ui'
+import { customElement, WebComponent, authContext, DEFAULT_AUTH_CONTEXT, login, showDialog } from 'solid-ui'
 import { html, nothing } from 'lit'
+import { consume } from '@lit/context'
 import { property, state } from 'lit/decorators.js'
 import type { PropertyValues } from 'lit'
 import type { DataBrowserContext, PaneDefinition } from 'pane-registry'
 import type { NamedNode } from 'rdflib'
+import type { AuthContext } from 'solid-ui'
 import 'solid-ui/components/button'
 import 'solid-ui/components/menu'
 import 'solid-ui/components/menu-item'
 import '~icons/lucide/chevron-down'
 import '~icons/lucide/plus'
-import { makeNewAppInstance } from './mintPaneInstance'
+import { getPaneLabel, makeNewAppInstance } from './mintPaneInstance'
+import StorageCreationDialog from '../storage-creation-dialog'
 import styles from './StorageCreationMenu.styles.css'
 
 
@@ -21,22 +24,33 @@ export default class StorageCreationMenu extends WebComponent {
   accessor browserContext: DataBrowserContext | null = null
 
   @property({ attribute: false })
-  accessor dom: HTMLDocument | null = null
-
-  @property({ attribute: false })
-  accessor folder: NamedNode | null = null
+  accessor container: NamedNode | null = null
 
   @property({ attribute: false })
   accessor paneList: PaneDefinition[] = []
 
+  // Resolved on click, because the target is not rendered yet on first paint.
   @property({ attribute: false })
-  accessor refreshTarget: { refresh?: () => void } | null = null
+  accessor getStatusArea: (() => HTMLElement | null) | null = null
+
+  @consume({ context: authContext, subscribe: true })
+  private accessor auth: AuthContext = DEFAULT_AUTH_CONTEXT
 
   @state()
   accessor availablePanes: PaneDefinition[] = []
 
-  protected createRenderRoot () {
-    return this
+  private unsubscribeSessionUpdated?: () => void
+
+  connectedCallback () {
+    super.connectedCallback()
+
+    this.unsubscribeSessionUpdated = this.auth.onSessionUpdated(() => this.requestUpdate())
+  }
+
+  disconnectedCallback () {
+    super.disconnectedCallback()
+
+    this.unsubscribeSessionUpdated?.()
   }
 
   protected async updated (changedProperties: PropertyValues<this>) {
@@ -47,44 +61,47 @@ export default class StorageCreationMenu extends WebComponent {
     }
   }
 
-  private getPaneLabel (pane: PaneDefinition): string {
-    if (!pane.mintClass) {
-      return pane.name.charAt(0).toUpperCase() + pane.name.slice(1)
-    }
-
-    return utils.label(pane.mintClass)
-  }
-
-  private getMintNoun (pane: PaneDefinition): string {
-    return `New ${this.getPaneLabel(pane)}`
-  }
-
   private async handlePaneSelected (pane: PaneDefinition) {
-    if (!this.browserContext || !this.dom || !this.folder) {
+    if (!this.browserContext || !this.container || !this.auth.account) {
       return
     }
 
-    await makeNewAppInstance({
-      browserContext: this.browserContext,
-      div: this,
-      dom: this.dom,
-      folder: this.folder,
-      pane,
-      refreshTarget: this.refreshTarget,
-      onCreated: (newInstance) => {
-        this.dispatchEvent(new CustomEvent('resource-selected', {
-          detail: { resource: newInstance },
-          bubbles: true,
-          composed: true
-        }))
-      }
+    this.getStatusArea?.()?.replaceChildren()
+
+    const name = await new Promise<string | undefined>((resolve) => {
+      showDialog(StorageCreationDialog, {
+        props: {
+          label: getPaneLabel(pane)
+        },
+        onClose: (result) => resolve(result)
+      })
     })
+
+    if (!name) {
+      return
+    }
+
+    const newResource = await makeNewAppInstance({
+      browserContext: this.browserContext,
+      container: this.container,
+      pane,
+      name,
+      statusArea: this.getStatusArea?.() ?? this
+    })
+
+    this.dispatchEvent(new CustomEvent('resource-selected', {
+      detail: { resource: newResource },
+      bubbles: true,
+      composed: true
+    }))
   }
 
   render () {
+    const isLoggedIn = !!this.auth.account
+
     return html`
       <solid-ui-menu placement="bottom-end">
-        <solid-ui-button slot="trigger" variant="primary">
+        <solid-ui-button slot="trigger" variant="primary" ?disabled=${!isLoggedIn}>
           <icon-lucide-plus slot="left-icon"></icon-lucide-plus>
           Add
           <icon-lucide-chevron-down slot="right-icon"></icon-lucide-chevron-down>
@@ -92,7 +109,7 @@ export default class StorageCreationMenu extends WebComponent {
         ${this.availablePanes.map((pane) => html`
           <solid-ui-menu-item @solid-ui-select=${() => this.handlePaneSelected(pane)}>
             ${pane.icon ? html`<img slot="left-icon" src=${pane.icon} alt="" />` : nothing}
-            ${this.getMintNoun(pane)}
+            New ${getPaneLabel(pane)}
           </solid-ui-menu-item>
         `)}
       </solid-ui-menu>

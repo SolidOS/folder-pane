@@ -38,6 +38,9 @@ export default class StoragePaneView extends WebComponent {
   @query('storage-content-view')
   private accessor contentView: HTMLElement | null = null
 
+  @query('.storage-pane-status')
+  private accessor statusArea: HTMLElement | null = null
+
   protected createRenderRoot() {
     // Keep the storage shell in light DOM for now; using a shadow-root host
     // would require every pane rendered inside it to already be a WebComponent
@@ -45,10 +48,10 @@ export default class StoragePaneView extends WebComponent {
     return this
   }
 
-  protected updated (changedProperties: PropertyValues<this>) {
-    if (changedProperties.has('selectedResource') && this.selectedResource) {
-      void this.showResourceInContentView(this.selectedResource)
-    }
+  protected updated (_changedProperties: PropertyValues<this>) {
+    // Rendering is triggered directly from handleResourceSelected; rdflib
+    // interns NamedNode objects by URI, so reselecting an already-current
+    // resource wouldn't be seen as a change here.
   }
 
   private renderContainerPane (selectedResource: NamedNode) {
@@ -90,7 +93,10 @@ export default class StoragePaneView extends WebComponent {
     if (!event.detail?.resource) return
 
     this.selectedResource = event.detail.resource
+    void this.showResourceInContentView(event.detail.resource)
   }
+
+  private getStatusArea = () => this.statusArea
 
   render () {
     return html`
@@ -98,6 +104,8 @@ export default class StoragePaneView extends WebComponent {
         .subject=${this.subject}
         .selectedResource=${this.selectedResource}
         .browserContext=${this.browserContext}
+        .getStatusArea=${this.getStatusArea}
+        @resource-selected=${this.handleResourceSelected}
       ></storage-header>
       <div class="storage-pane-main-content">
         <div class="storage-pane-section">
@@ -106,9 +114,13 @@ export default class StoragePaneView extends WebComponent {
             .store=${this.store}
             .resourceLogic=${this.resourceLogic}
             .subject=${this.subject}
+            .selectedResource=${this.selectedResource}
             @resource-selected=${this.handleResourceSelected}
           ></storage-resource-sidebar>
-          <storage-content-view></storage-content-view>
+          <div class="storage-pane-content-column">
+            <div class="storage-pane-status"></div>
+            <storage-content-view></storage-content-view>
+          </div>
         </div>
       </div>
     `

@@ -39,7 +39,7 @@ export default class StorageResourceSidebar extends WebComponent {
   @state()
   accessor homeExpanded = false
 
-  @state()
+  @property({ attribute: false })
   accessor selectedResource: NamedNode | undefined = undefined
 
   private syncResources () {
@@ -101,7 +101,7 @@ export default class StorageResourceSidebar extends WebComponent {
   ) {
     return html`
       <li
-        class=${selected ? 'obj selected' : 'obj'}
+        class=${selected ? 'resource-item selected' : 'resource-item'}
         notSelectable="false"
         role="treeitem"
         aria-selected=${String(selected)}
@@ -143,7 +143,7 @@ export default class StorageResourceSidebar extends WebComponent {
 
     return html`
       <li
-        class=${selected ? 'obj selected' : 'obj'}
+        class=${selected ? 'resource-item selected' : 'resource-item'}
         notSelectable="false"
         role="treeitem"
         aria-selected=${String(selected)}
@@ -232,7 +232,7 @@ export default class StorageResourceSidebar extends WebComponent {
 
     return html`
       <li
-        class=${selected ? 'obj selected' : 'obj'}
+        class=${selected ? 'resource-item selected' : 'resource-item'}
         notSelectable="false"
         role="treeitem"
         aria-selected=${String(selected)}
@@ -273,6 +273,8 @@ export default class StorageResourceSidebar extends WebComponent {
       this.expandedContainers = new Set()
       this.homeExpanded = true
       this.selectedResource = this.subject ?? undefined
+      this.syncResources()
+    } else if (changedProperties.has('selectedResource')) {
       this.syncResources()
     }
   }
