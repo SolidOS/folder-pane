@@ -22,7 +22,6 @@ export type StoragePaneOutliner = {
 
 export type ContentViewRenderer = {
   store: any
-  resourceLogic: any
   selectedResource: NamedNode
   contentView: HTMLElement
   outliner?: StoragePaneOutliner

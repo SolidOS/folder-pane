@@ -56,7 +56,6 @@ export default {
     storagePaneView.store = kb
     storagePaneView.browserContext = context
     storagePaneView.subject = subject
-    storagePaneView.resourceLogic = context.session.logic.resource
 
     // The pane registry is needed to open the internal pane on Alt-click.
     // addDownstreamChangeListener is a high level function which when someone else changes the resource,

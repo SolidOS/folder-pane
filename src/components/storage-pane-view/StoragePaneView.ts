@@ -29,9 +29,6 @@ export default class StoragePaneView extends WebComponent {
   @property({ attribute: false })
   accessor subject: NamedNode | undefined = undefined
 
-  @property({ attribute: false })
-  accessor resourceLogic: any = null
-
   @state()
   accessor selectedResource: NamedNode | undefined = undefined
 
@@ -67,7 +64,6 @@ export default class StoragePaneView extends WebComponent {
     containerPane.outliner = this.outliner
     containerPane.store = this.store
     containerPane.subject = selectedResource
-    containerPane.resourceLogic = this.resourceLogic
 
     this.contentView.replaceChildren(containerPane)
   }
@@ -77,7 +73,6 @@ export default class StoragePaneView extends WebComponent {
       if (this.contentView) {
         await renderSelectedResourceInContentView({
           store: this.store,
-          resourceLogic: this.resourceLogic,
           selectedResource,
           contentView: this.contentView,
           outliner: this.outliner,
@@ -95,7 +90,8 @@ export default class StoragePaneView extends WebComponent {
     this.selectedResource = event.detail.resource
     void this.showResourceInContentView(event.detail.resource)
   }
-
+  // the status area here is temporary. it is to hold the status that comes from the panes
+  // when a new pane is created. we should actually modify the panes themselves to handle this differently
   private getStatusArea = () => this.statusArea
 
   render () {
@@ -112,7 +108,6 @@ export default class StoragePaneView extends WebComponent {
           <storage-resource-sidebar
             .dom=${this.dom}
             .store=${this.store}
-            .resourceLogic=${this.resourceLogic}
             .subject=${this.subject}
             .selectedResource=${this.selectedResource}
             @resource-selected=${this.handleResourceSelected}

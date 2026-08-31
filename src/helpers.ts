@@ -1,5 +1,6 @@
 import { ns, utils } from 'solid-ui'
 import type { NamedNode } from 'rdflib'
+import { solidLogicSingleton } from 'solid-logic'
 import type { ContentViewRenderer, ResourceMap } from './types'
 
 function noHiddenFiles (obj) {
@@ -12,7 +13,7 @@ function noHiddenFiles (obj) {
   )
 }
 
-function getResourcesForContainer (store, container: NamedNode, resourceLogic): ResourceMap {
+function getResourcesForContainer (store, container: NamedNode): ResourceMap {
   if (!store) return new Map()
 
   let containedResources = store.each(container, ns.ldp('contains')).filter(noHiddenFiles)
@@ -26,8 +27,31 @@ function getResourcesForContainer (store, container: NamedNode, resourceLogic): 
     id: pair[1].value,
     subject: pair[1],
     parentId: container.value,
-    isContainer: resourceLogic?.isContainer?.(pair[1]) ?? false
+    isContainer: solidLogicSingleton.resource?.isContainer?.(pair[1]) ?? false
   }]))
+}
+
+async function loadResourcesForContainer (store, container: NamedNode): Promise<ResourceMap> {
+  if (!store) return new Map()
+
+  await store.fetcher.load(container)
+
+  let resources = getResourcesForContainer(store, container)
+
+  await Promise.all(
+    Array.from(resources.values())
+      .filter((resource) => resource.isContainer)
+      .map(async (resource) => {
+        try {
+          await store.fetcher.load(resource.subject)
+        } catch (_error) {
+          // Keep loading best-effort; a missing child should not stop the rest.
+        }
+      })
+  )
+
+  resources = getResourcesForContainer(store, container)
+  return resources
 }
 
 function getContainerIndexThing (store, container: NamedNode): NamedNode {
@@ -59,7 +83,6 @@ function containerHasIndexDocument (store, container: NamedNode): boolean {
 
 async function renderSelectedResourceInContentView ({
   store,
-  resourceLogic,
   selectedResource,
   contentView,
   outliner,
@@ -69,6 +92,7 @@ async function renderSelectedResourceInContentView ({
 
   if (isContainer) {
     await store.fetcher.load(selectedResource)
+    await loadResourcesForContainer(store, selectedResource)
 
     const hasIndexDocumentAfterLoad = containerHasIndexDocument(store, selectedResource)
 
@@ -87,4 +111,4 @@ async function renderSelectedResourceInContentView ({
   outliner?.GotoSubject(selectedResource, true, undefined, false, undefined, contentView)
 }
 
-export { containerHasIndexDocument, getContainerIndexThing, getResourcesForContainer, isContainerResource, isStorageRoot, noHiddenFiles, renderSelectedResourceInContentView }
+export { containerHasIndexDocument, getContainerIndexThing, getResourcesForContainer, loadResourcesForContainer, isContainerResource, isStorageRoot, noHiddenFiles, renderSelectedResourceInContentView }

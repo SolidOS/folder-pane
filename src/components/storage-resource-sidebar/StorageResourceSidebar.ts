@@ -45,7 +45,7 @@ export default class StorageResourceSidebar extends WebComponent {
   private syncResources () {
     if (!this.store || !this.subject) return
 
-    this.resources = getResourcesForContainer(this.store, this.subject, this.resourceLogic)
+    this.resources = getResourcesForContainer(this.store, this.subject)
   }
 
   private async expandContainer (resource: Resource, event: MouseEvent) {
@@ -138,7 +138,7 @@ export default class StorageResourceSidebar extends WebComponent {
     const selected = this.isSelectedResource(resource)
     const isExpanded = this.expandedContainers.has(resource.id)
     const children = resource.isContainer && isExpanded
-      ? getResourcesForContainer(this.store, resource.subject, this.resourceLogic)
+      ? getResourcesForContainer(this.store, resource.subject)
       : null
 
     return html`
@@ -227,7 +227,7 @@ export default class StorageResourceSidebar extends WebComponent {
     const selected = this.isSelectedResource(resource)
     const isExpanded = this.expandedContainers.has(resource.id)
     const children = resource.isContainer && isExpanded
-      ? getResourcesForContainer(this.store, resource.subject, this.resourceLogic)
+      ? getResourcesForContainer(this.store, resource.subject)
       : null
 
     return html`

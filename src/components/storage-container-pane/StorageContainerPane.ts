@@ -1,16 +1,28 @@
-import { html } from 'lit'
+import { html, nothing } from 'lit'
 import { property, query, state } from 'lit/decorators.js'
 import type { PropertyValues } from 'lit'
 import '../storage-header'
 import '../storage-content-view'
 import '../storage-creation-area'
 import type { NamedNode } from 'rdflib'
+import { solidLogicSingleton } from 'solid-logic'
 import { customElement, log, utils, WebComponent } from 'solid-ui'
 import { Resource, StoragePaneOutliner } from '../../types'
-import { getResourcesForContainer, renderSelectedResourceInContentView } from '../../helpers'
+import { getResourcesForContainer, loadResourcesForContainer, renderSelectedResourceInContentView } from '../../helpers'
+import styles from './StorageContainerPane.styles.css'
+import '~icons/lucide/folder'
+import '~icons/lucide/file'
+import '~icons/lucide/globe'
+import '~icons/lucide/lock-keyhole'
+
+/* think i'm going to need to move the web component for the 3 dots to solid-ui 
+because i need it here too */
+import '~icons/lucide/ellipsis-vertical'
 
 @customElement('storage-container-pane')
 export default class StorageContainerPane extends WebComponent {
+  static styles = styles
+
   @property({ attribute: false })
   accessor outliner: StoragePaneOutliner | undefined = undefined
 
@@ -21,13 +33,18 @@ export default class StorageContainerPane extends WebComponent {
   accessor subject: NamedNode | undefined = undefined
 
   @property({ attribute: false })
-  accessor resourceLogic: any = null
+  accessor view: 'grid' | 'list' = 'grid'
 
   @state()
   accessor selectedResource: NamedNode | undefined = undefined
 
   @state()
-  accessor resources = getResourcesForContainer(this.store, this.subject!, this.resourceLogic)
+  accessor resources = getResourcesForContainer(this.store, this.subject!)
+
+  @state()
+  accessor resourceVisibility: Map<string, boolean> = new Map()
+
+  private resourceVisibilityLoading = new Set<string>()
 
   @query('storage-content-view')
   private accessor contentView: HTMLElement | null = null
@@ -36,10 +53,32 @@ export default class StorageContainerPane extends WebComponent {
     return this
   }
 
-  private syncResources () {
+  private ensureResourceVisibility (resource: Resource) {
+    if (this.resourceVisibility.has(resource.id) || this.resourceVisibilityLoading.has(resource.id)) {
+      return
+    }
+
+    this.resourceVisibilityLoading.add(resource.id)
+
+    void solidLogicSingleton.resource.fetchMetadata(resource.subject)
+      .then((metadata) => {
+        this.resourceVisibility = new Map(this.resourceVisibility).set(resource.id, metadata.access.isPublic)
+      })
+      .catch(() => {
+        // Unknown visibility stays unknown; render nothing.
+      })
+      .finally(() => {
+        this.resourceVisibilityLoading.delete(resource.id)
+      })
+  }
+
+  private async syncResources () {
     if (!this.store || !this.subject) return
 
-    this.resources = getResourcesForContainer(this.store, this.subject, this.resourceLogic)
+    this.resources = await loadResourcesForContainer(this.store, this.subject)
+    for (const resource of this.resources.values()) {
+      this.ensureResourceVisibility(resource)
+    }
   }
 
   private selectResource (resource: Resource) {
@@ -58,13 +97,11 @@ export default class StorageContainerPane extends WebComponent {
       outliner?: StoragePaneOutliner
       store?: any
       subject?: NamedNode
-      resourceLogic?: any
     }
 
     containerPane.outliner = this.outliner
     containerPane.store = this.store
     containerPane.subject = selectedResource
-    containerPane.resourceLogic = this.resourceLogic
 
     this.contentView.replaceChildren(containerPane)
   }
@@ -74,7 +111,6 @@ export default class StorageContainerPane extends WebComponent {
       if (this.contentView) {
         await renderSelectedResourceInContentView({
           store: this.store,
-          resourceLogic: this.resourceLogic,
           selectedResource,
           contentView: this.contentView,
           outliner: this.outliner,
@@ -90,12 +126,15 @@ export default class StorageContainerPane extends WebComponent {
     return this.selectedResource?.sameTerm(resource.subject) ?? false
   }
 
-  private renderResourceItem (resource: Resource, depth: number) {
+  private renderResourceGridItem (resource: Resource, depth: number) {
     const selected = this.isSelectedResource(resource)
+    const { isContainer, getContainerMemberCount } = solidLogicSingleton.resource
+    this.ensureResourceVisibility(resource)
+    const isPublic = this.resourceVisibility.get(resource.id)
 
     return html`
       <li
-        class=${selected ? 'obj selected' : 'obj'}
+        class=${selected ? 'resource-grid-item selected' : 'resource-grid-item'}
         notSelectable="false"
         aria-selected=${String(selected)}
         about=${resource.subject.toNT()}
@@ -110,7 +149,45 @@ export default class StorageContainerPane extends WebComponent {
           }
         }}
       >
-        ${utils.label(resource.subject)}
+        <span class="resource-grid-icon">
+          ${isContainer(resource.subject) ? html`<icon-lucide-folder></icon-lucide-folder>` : html`<icon-lucide-file></icon-lucide-file>`}</span>
+        </span>
+        <span class="resource-grid-label">${utils.label(resource.subject)}</span>
+        <div class="resource-grid-item-footer">
+          ${isContainer(resource.subject) ? html`<span class="container-member-count">${getContainerMemberCount(resource.subject)} items</span>` : nothing}
+          ${isPublic === undefined ? nothing : isPublic ? html`<icon-lucide-globe></icon-lucide-globe>` : html`<icon-lucide-lock-keyhole></icon-lucide-lock-keyhole>`}
+        </div>
+      </li>
+    `
+  }
+
+  private renderResourceListItem (resource: Resource, depth: number) {
+    const selected = this.isSelectedResource(resource)
+    const { isContainer, getContainerMemberCount } = solidLogicSingleton.resource
+    this.ensureResourceVisibility(resource)
+    const isPublic = this.resourceVisibility.get(resource.id)
+
+    return html`
+      <li
+        class=${selected ? 'resource-list-item selected' : 'resource-list-item'}
+        notSelectable="false"
+        aria-selected=${String(selected)}
+        about=${resource.subject.toNT()}
+        role="option"
+        tabindex="0"
+        .subject=${resource.subject}
+        @click=${() => this.selectResource(resource)}
+        @keydown=${(event: KeyboardEvent) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault()
+            this.selectResource(resource)
+          }
+        }}
+      >
+        ${isContainer(resource.subject) ? html`<icon-lucide-folder></icon-lucide-folder>` : html`<icon-lucide-file></icon-lucide-file>`}
+        <span class="resource-list-label">${utils.label(resource.subject)}</span>
+        ${isContainer(resource.subject) ? html`<span class="container-member-count">${getContainerMemberCount(resource.subject)} items</span>` : nothing}
+        ${isPublic === undefined ? nothing : isPublic ? html`<icon-lucide-globe></icon-lucide-globe>` : html`<icon-lucide-lock-keyhole></icon-lucide-lock-keyhole>`}
       </li>
     `
   }
@@ -126,11 +203,26 @@ export default class StorageContainerPane extends WebComponent {
 
     if (
       changedProperties.has('store') ||
-      changedProperties.has('subject') ||
-      changedProperties.has('resourceLogic')
+      changedProperties.has('subject') 
     ) {
-      this.syncResources()
+      void this.syncResources()
     }
+  }
+
+  private renderListView () {
+    return html`
+      <ul class="resource-list" role="listbox">
+        ${Array.from(this.resources.values()).map((resource) => this.renderResourceListItem(resource, 0))}
+      </ul>
+    `
+  }
+
+  private renderGridView () {
+    return html`
+      <ul class="resource-grid" role="listbox">
+        ${Array.from(this.resources.values()).map((resource) => this.renderResourceGridItem(resource, 0))}
+      </ul>
+    `
   }
 
   render () {
@@ -138,11 +230,7 @@ export default class StorageContainerPane extends WebComponent {
       <div class="storage-container-pane">
         <div class="storage-container-pane-main-content">
           ${this.resources.size > 0
-            ? html`
-                <ul class="storage-container-pane-resource-list" role="listbox">
-                  ${Array.from(this.resources.values()).map((resource) => this.renderResourceItem(resource, 0))}
-                </ul>
-              `
+            ? (this.view === 'grid' ? this.renderGridView() : this.renderListView())
             : html`<div class="storage-container-pane-empty-message">No resources found in this container.</div>`
           }
           <storage-content-view></storage-content-view>

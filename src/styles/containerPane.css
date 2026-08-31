@@ -1,0 +1,164 @@
+/*
+ * Light-DOM layout for the storage container pane.
+ * This is the file to edit while the shell still renders into light DOM.
+ * The matching shadow-DOM version stays in StorageContainerPane.styles.css
+ * for later transfer back to static styles.
+ */
+
+storage-container-pane {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+storage-container-pane .storage-container-pane {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+storage-container-pane .storage-container-pane-main-content {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+}
+
+storage-container-pane .resource-list {
+  flex: 0 0 auto;
+  overflow: auto;
+  min-height: 0;
+  margin: 0;
+}
+
+storage-container-pane .resource-list-item {
+  display: flex;
+  padding: 14px 12px;
+  align-items: center;
+  gap: 10px;
+  align-self: stretch;
+  border-bottom: 1px solid var(--solid-ui-color-gray-200, #E5E7EB);
+  background: var(--solid-ui-color-white, #FFF);
+}
+
+storage-container-pane .resource-list-label {
+  color: var(--solid-ui-color-gray-700, #364153);
+  font-size: var(--solid-ui-font-size-md, 1rem);
+  font-weight: 500;
+}
+
+storage-container-pane .resource-grid {
+  display: flex;
+  align-items: center;
+  align-content: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+storage-container-pane .resource-grid-item {
+  width: 206px;
+  height: 145.824px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border-radius: 5px;
+  background-color: var(--solid-ui-color-white, #FFF);
+  border: 1px solid var(--solid-ui-color-gray-200, #E5E7EB);
+}
+
+storage-container-pane .resource-grid-icon {
+  display: flex;
+  width: 37.282px;
+  height: 37.282px;
+  padding: 0 9.32px;
+  justify-content: center;
+  align-items: center;
+  aspect-ratio: 1/1;
+}
+
+storage-container-pane .resource-grid-label {
+  color: var(--solid-ui-color-gray-700, #364153);
+  font-size: var(--solid-ui-font-size-md, 1rem);
+  font-weight: 500;
+  padding: 0 12px;
+}
+
+storage-container-pane .resource-grid-item-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: auto;
+  height: 40px;
+  min-height: 40px;
+  padding: 0 15px;
+  border-top: 1px solid var(--solid-ui-color-gray-200, #E5E7EB);
+}
+
+storage-container-pane .container-member-count {
+  color: var(--solid-ui-color-gray-500, #6A7282);
+  font-size: var(--solid-ui-font-size-xs, .75rem);
+  font-weight: 500;
+}
+
+storage-container-pane icon-lucide-globe {
+  width: 0.875rem;
+  height: 0.875rem;
+  color: var(--blue-400, #51A2FF);
+  stroke-width: 1.021px;
+  stroke: var(--blue-400, #51A2FF);
+}
+
+storage-container-pane icon-lucide-lock-keyhole {
+  width: 0.875rem;
+  height: 0.875rem;
+  color: var(--yellow-600, #D08700);
+  stroke-width: 1.021px;
+  stroke: var(--yellow-600, #D08700);
+}
+
+storage-container-pane storage-content-view {
+  display: block;
+  width: 100%;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+storage-container-pane storage-creation-area {
+  margin-top: auto;
+  align-self: flex-start;
+  flex: 0 0 auto;
+}
+
+storage-container-pane icon-lucide-folder,
+storage-container-pane icon-lucide-file,
+storage-container-pane icon-lucide-globe,
+storage-container-pane icon-lucide-lock-keyhole {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+storage-container-pane icon-lucide-folder,
+storage-container-pane icon-lucide-file {
+  color: var(--solid-ui-color-gray-500, #6A7282);
+  fill: rgba(224, 231, 255, 0.50);
+  stroke: var(--solid-ui-color-gray-500, #6A7282);
+  stroke-width: 1.25px;
+}
+
+storage-container-pane icon-lucide-globe {
+  color: var(--blue-400, #51A2FF);
+  stroke-width: 1.021px;
+  stroke: var(--blue-400, #51A2FF);
+}
+
+storage-container-pane icon-lucide-lock-keyhole {
+  color: var(--yellow-600, #D08700);
+  stroke-width: 1.021px;
+  stroke: var(--yellow-600, #D08700);
+}

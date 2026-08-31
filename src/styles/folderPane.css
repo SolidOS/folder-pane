@@ -1,3 +1,4 @@
+
 /*
  * Temporary light-DOM layout for the storage pane shell.
  * These row/fill rules live here because storage-pane-view and storage-container-pane
@@ -6,6 +7,8 @@
  * move the corresponding layout rules back into StoragePaneView.styles.css and
  * StorageContainerPane.styles.css so they apply via static styles again.
  */
+
+@import './containerPane.css';
 
 .storage-pane {
   overflow: visible;
