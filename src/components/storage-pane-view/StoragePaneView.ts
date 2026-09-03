@@ -1,36 +1,33 @@
-import { customElement, log, WebComponent } from 'solid-ui'
+import { customElement, DEFAULT_STORE, log, storeContext, WebComponent } from 'solid-ui'
+import { DEFAULT_STORAGE_CONTEXT, storageContext } from '../storage-provider/context'
 import { html } from 'lit'
-import { property, query, state } from 'lit/decorators.js'
+import { property, query } from 'lit/decorators.js'
 import type { PropertyValues } from 'lit'
+import { consume } from '@lit/context'
+import { fileExplorerContext, type FileExplorerContext } from 'solid-ui'
 import type { DataBrowserContext } from 'pane-registry'
 import '../storage-header'
 import '../storage-container-pane'
 import '../storage-resource-sidebar'
 import '../storage-content-view'
-import type { NamedNode } from 'rdflib'
+import { LiveStore, NamedNode } from 'rdflib'
 import { StoragePaneOutliner } from '../../types'
+import type { StorageContext } from '../storage-provider/context'
 import { renderSelectedResourceInContentView } from '../../helpers'
-
-
 @customElement('storage-pane-view')
 export default class StoragePaneView extends WebComponent {
-  @property({ attribute: false })
-  accessor dom: HTMLDocument | null = null
 
   @property({ attribute: false })
   accessor browserContext: DataBrowserContext | null = null
 
-  @property({ attribute: false })
-  accessor outliner: StoragePaneOutliner | undefined = undefined
+  @consume({ context: storeContext, subscribe: true })
+  accessor store: LiveStore = DEFAULT_STORE
 
-  @property({ attribute: false })
-  accessor store: any = null
+  @consume({ context: fileExplorerContext, subscribe: true })
+  accessor fileExplorerContext: FileExplorerContext = undefined as unknown as FileExplorerContext
 
-  @property({ attribute: false })
-  accessor subject: NamedNode | undefined = undefined
-
-  @state()
-  accessor selectedResource: NamedNode | undefined = undefined
+  @consume({ context: storageContext, subscribe: true })
+  accessor storageContext: StorageContext = DEFAULT_STORAGE_CONTEXT
 
   @query('storage-content-view')
   private accessor contentView: HTMLElement | null = null
@@ -38,17 +35,33 @@ export default class StoragePaneView extends WebComponent {
   @query('.storage-pane-status')
   private accessor statusArea: HTMLElement | null = null
 
-  protected createRenderRoot() {
-    // Keep the storage shell in light DOM for now; using a shadow-root host
-    // would require every pane rendered inside it to already be a WebComponent
-    // with its own shadow styles.
+  private renderedResourceUri: string | undefined = undefined
+
+  // Keep the storage shell in light DOM: the legacy panes rendered into the
+  // content view are styled by global stylesheets, which cannot cross a shadow boundary.
+  protected createRenderRoot () {
     return this
   }
 
   protected updated (_changedProperties: PropertyValues<this>) {
-    // Rendering is triggered directly from handleResourceSelected; rdflib
-    // interns NamedNode objects by URI, so reselecting an already-current
-    // resource wouldn't be seen as a change here.
+    const selectedResource = this.currentSelectedResource
+
+    if (!selectedResource) {
+      return
+    }
+
+    if (this.renderedResourceUri !== selectedResource.uri) {
+      this.renderedResourceUri = selectedResource.uri
+      void this.showResourceInContentView(selectedResource)
+    }
+  }
+
+  private get currentSelectedResource (): NamedNode | undefined {
+    const subject = this.fileExplorerContext?.subjectUri
+      ? new NamedNode(this.fileExplorerContext.subjectUri)
+      : undefined
+
+    return this.storageContext.selectedResource ?? subject
   }
 
   private renderContainerPane (selectedResource: NamedNode) {
@@ -56,14 +69,11 @@ export default class StoragePaneView extends WebComponent {
 
     const containerPane = document.createElement('storage-container-pane') as HTMLElement & {
       outliner?: StoragePaneOutliner
-      store?: any
       subject?: NamedNode
-      resourceLogic?: any
     }
 
-    containerPane.outliner = this.outliner
-    containerPane.store = this.store
     containerPane.subject = selectedResource
+    containerPane.outliner = this.browserContext?.getOutliner(this.browserContext?.dom) as StoragePaneOutliner
 
     this.contentView.replaceChildren(containerPane)
   }
@@ -75,7 +85,7 @@ export default class StoragePaneView extends WebComponent {
           store: this.store,
           selectedResource,
           contentView: this.contentView,
-          outliner: this.outliner,
+          outliner: this.browserContext?.getOutliner(this.browserContext?.dom) as StoragePaneOutliner,
           renderContainerPane: this.renderContainerPane.bind(this),
         })
       }
@@ -84,35 +94,22 @@ export default class StoragePaneView extends WebComponent {
     }
   }
 
-  private handleResourceSelected = (event: CustomEvent<{ resource: NamedNode }>) => {
-    if (!event.detail?.resource) return
-
-    this.selectedResource = event.detail.resource
-    void this.showResourceInContentView(event.detail.resource)
-  }
-  // the status area here is temporary. it is to hold the status that comes from the panes
-  // when a new pane is created. we should actually modify the panes themselves to handle this differently
   private getStatusArea = () => this.statusArea
 
   render () {
     return html`
       <storage-header
-        .subject=${this.subject}
-        .selectedResource=${this.selectedResource}
-        .browserContext=${this.browserContext}
         .getStatusArea=${this.getStatusArea}
-        @resource-selected=${this.handleResourceSelected}
+        .browserContext=${this.browserContext}
       ></storage-header>
       <div class="storage-pane-main-content">
         <div class="storage-pane-section">
           <storage-resource-sidebar
-            .dom=${this.dom}
-            .store=${this.store}
-            .subject=${this.subject}
-            .selectedResource=${this.selectedResource}
-            @resource-selected=${this.handleResourceSelected}
+            .dom=${this.browserContext?.dom}
           ></storage-resource-sidebar>
           <div class="storage-pane-content-column">
+            <!-- the status area here is temporary. it is to hold the status that comes from the panes
+            when a new pane is created. we should actually modify the panes themselves to handle this differently -->
             <div class="storage-pane-status"></div>
             <storage-content-view></storage-content-view>
           </div>

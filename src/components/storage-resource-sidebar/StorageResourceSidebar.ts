@@ -1,18 +1,20 @@
-import { customElement, utils, WebComponent } from 'solid-ui'
+import { customElement, DEFAULT_STORE, FileExplorerContext, fileExplorerContext, storeContext, utils, WebComponent } from 'solid-ui'
 import { html, nothing } from 'lit'
 import { repeat } from 'lit/directives/repeat.js'
 import { property, state } from 'lit/decorators.js'
 import type { PropertyValues } from 'lit'
 import styles from './StorageResourceSidebar.styles.css'
-import type { LiveStore, NamedNode } from 'rdflib'
-import type { SolidLogic } from 'solid-logic'
+import type { NamedNode } from 'rdflib'
 import type { Resource, ResourceMap } from '../../types'
 import '~icons/lucide/chevron-right'
 import '~icons/lucide/folder'
 import '~icons/lucide/globe'
 import '~icons/lucide/circle-small'
-import { getResourcesForContainer } from '../../helpers'
 import '../storage-creation-area'
+import { consume } from '@lit/context'
+import { DEFAULT_STORAGE_CONTEXT, StorageContext, storageContext } from '../storage-provider/context'
+import { LiveStore } from 'rdflib'
+import { getResourcesForContainer, loadResourcesForContainer } from '../../helpers'
 
 @customElement('storage-resource-sidebar')
 export default class StorageResourceSidebar extends WebComponent {
@@ -21,14 +23,14 @@ export default class StorageResourceSidebar extends WebComponent {
   @property({ attribute: false })
   accessor dom: HTMLDocument | null = null
 
-  @property({ attribute: false })
-  accessor store: LiveStore | null = null
+  @consume({ context: storeContext, subscribe: true })
+  accessor store: LiveStore = DEFAULT_STORE
 
-  @property({ attribute: false })
-  accessor subject: NamedNode | null = null
+  @consume({ context: fileExplorerContext, subscribe: true })
+  accessor fileExplorerContext: FileExplorerContext = undefined as unknown as FileExplorerContext
 
-  @property({ attribute: false })
-  accessor resourceLogic: Pick<SolidLogic['resource'], 'isContainer'> | null = null
+  @consume({ context: storageContext, subscribe: true })
+  accessor storageContext: StorageContext = DEFAULT_STORAGE_CONTEXT
 
   @state()
   accessor resources: ResourceMap = new Map()
@@ -37,15 +39,33 @@ export default class StorageResourceSidebar extends WebComponent {
   accessor expandedContainers: Set<string> = new Set()
 
   @state()
-  accessor homeExpanded = false
+  accessor homeExpanded = true
 
-  @property({ attribute: false })
-  accessor selectedResource: NamedNode | undefined = undefined
+  private get currentSubject (): NamedNode | undefined {
+    if (!this.fileExplorerContext?.subjectUri || this.store === DEFAULT_STORE) {
+      return undefined
+    }
 
-  private syncResources () {
-    if (!this.store || !this.subject) return
+    return this.store.sym(this.fileExplorerContext.subjectUri)
+  }
 
-    this.resources = getResourcesForContainer(this.store, this.subject)
+  private get currentSelectedResource (): NamedNode | undefined {
+    return this.storageContext.selectedResource ?? this.currentSubject
+  }
+
+  private async syncResources () {
+    const subject = this.currentSubject
+
+    if (!this.store || !subject) {
+      return
+    }
+
+    const loadedResources = await loadResourcesForContainer(this.store, subject)
+    this.resources = loadedResources
+  }
+
+  protected firstUpdated () {
+    void this.syncResources()
   }
 
   private async expandContainer (resource: Resource, event: MouseEvent) {
@@ -70,7 +90,7 @@ export default class StorageResourceSidebar extends WebComponent {
   }
 
   private isSelectedResource (resource: Resource) {
-    return this.selectedResource?.sameTerm(resource.subject) ?? false
+    return this.currentSelectedResource?.sameTerm(resource.subject) ?? false
   }
 
   private isPublicResource (resource: Resource) {
@@ -78,13 +98,15 @@ export default class StorageResourceSidebar extends WebComponent {
   }
 
   private getHomeResource (): Resource | null {
-    if (!this.subject) {
+    const subject = this.currentSubject
+
+    if (!subject) {
       return null
     }
 
     return {
-      id: this.subject.value,
-      subject: this.subject,
+      id: subject.value,
+      subject,
       parentId: null,
       isContainer: true,
     }
@@ -175,12 +197,7 @@ export default class StorageResourceSidebar extends WebComponent {
   }
 
   private selectResource (resource: Resource) {
-    this.selectedResource = resource.subject
-    this.dispatchEvent(new CustomEvent('resource-selected', {
-      detail: { resource: resource.subject },
-      bubbles: true,
-      composed: true,
-    }))
+    this.storageContext.selectResource(resource.subject)
   }
 
   private renderResourceGroup (resources: ResourceMap, isRoot: boolean) {
@@ -265,17 +282,12 @@ export default class StorageResourceSidebar extends WebComponent {
 
   protected willUpdate (changedProperties: PropertyValues<this>) {
     super.willUpdate(changedProperties)
+
     if (
       changedProperties.has('store') ||
-      changedProperties.has('subject') ||
-      changedProperties.has('resourceLogic')
+      changedProperties.has('fileExplorerContext')
     ) {
-      this.expandedContainers = new Set()
-      this.homeExpanded = true
-      this.selectedResource = this.subject ?? undefined
-      this.syncResources()
-    } else if (changedProperties.has('selectedResource')) {
-      this.syncResources()
+      void this.syncResources()
     }
   }
 
@@ -284,8 +296,6 @@ export default class StorageResourceSidebar extends WebComponent {
       <aside>
         ${this.renderResourceGroup(this.resources, true)}
         <storage-creation-area
-          .store=${this.store}
-          .subject=${this.subject}
           @resource-created=${this.syncResources}
         ></storage-creation-area>
       </aside>

@@ -1,14 +1,19 @@
 import { html, nothing } from 'lit'
 import { property, query, state } from 'lit/decorators.js'
 import type { PropertyValues } from 'lit'
+import { consume } from '@lit/context'
 import '../storage-header'
 import '../storage-content-view'
 import '../storage-creation-area'
-import type { NamedNode } from 'rdflib'
+import '../storage-provider/StorageProvider'
+import type { LiveStore, NamedNode } from 'rdflib'
+import type { FileExplorerContext } from 'solid-ui'
+import type { StorageContext } from '../storage-provider/context'
+import { storageContext, DEFAULT_STORAGE_CONTEXT } from '../storage-provider/context'
 import { solidLogicSingleton } from 'solid-logic'
-import { customElement, log, utils, WebComponent } from 'solid-ui'
-import { Resource, StoragePaneOutliner } from '../../types'
-import { getResourcesForContainer, loadResourcesForContainer, renderSelectedResourceInContentView } from '../../helpers'
+import { customElement, DEFAULT_STORE, fileExplorerContext, log, storeContext, utils, WebComponent } from 'solid-ui'
+import { Resource, type ResourceMap, StoragePaneOutliner } from '../../types'
+import { getResourcesForContainer, getResourcesFromSearchQuery, loadResourcesForContainer, renderSelectedResourceInContentView } from '../../helpers'
 import styles from './StorageContainerPane.styles.css'
 import '~icons/lucide/folder'
 import '~icons/lucide/file'
@@ -26,31 +31,45 @@ export default class StorageContainerPane extends WebComponent {
   @property({ attribute: false })
   accessor outliner: StoragePaneOutliner | undefined = undefined
 
-  @property({ attribute: false })
-  accessor store: any = null
+  @consume({ context: storeContext, subscribe: true })
+  accessor store: LiveStore = DEFAULT_STORE
 
-  @property({ attribute: false })
-  accessor subject: NamedNode | undefined = undefined
+  @consume({ context: fileExplorerContext, subscribe: true })
+  accessor fileExplorerContext: FileExplorerContext = undefined as unknown as FileExplorerContext
 
-  @property({ attribute: false })
-  accessor view: 'grid' | 'list' = 'grid'
-
-  @state()
-  accessor selectedResource: NamedNode | undefined = undefined
+  @consume({ context: storageContext, subscribe: true })
+  accessor storageContext: StorageContext = DEFAULT_STORAGE_CONTEXT
 
   @state()
-  accessor resources = getResourcesForContainer(this.store, this.subject!)
+  accessor resources: ResourceMap = new Map()
 
   @state()
   accessor resourceVisibility: Map<string, boolean> = new Map()
 
   private resourceVisibilityLoading = new Set<string>()
+  private resourceSyncGeneration = 0
+
+  @state()
+  accessor isLoadingResources = false
 
   @query('storage-content-view')
   private accessor contentView: HTMLElement | null = null
 
-  protected createRenderRoot() {
+  protected createRenderRoot () {
     return this
+  }
+
+  protected firstUpdated () {
+    void this.syncResources()
+  }
+
+  private get currentSubject (): NamedNode | undefined {
+    const subjectUri = this.fileExplorerContext?.subjectUri
+    return subjectUri ? this.store.sym(subjectUri) : undefined
+  }
+
+  private get selectedResource (): NamedNode | undefined {
+    return this.storageContext.selectedResource ?? this.currentSubject
   }
 
   private ensureResourceVisibility (resource: Resource) {
@@ -73,37 +92,74 @@ export default class StorageContainerPane extends WebComponent {
   }
 
   private async syncResources () {
-    if (!this.store || !this.subject) return
+    const subject = this.selectedResource
+    if (!this.store || !subject) return
 
-    this.resources = await loadResourcesForContainer(this.store, this.subject)
+    const syncGeneration = ++this.resourceSyncGeneration
+    this.isLoadingResources = true
+    this.resources = new Map()
+
+    try {
+      const loadedResources = await loadResourcesForContainer(this.store, subject)
+
+      if (syncGeneration !== this.resourceSyncGeneration) {
+        return
+      }
+
+      this.resources = loadedResources
+    } catch (_error) {
+      if (syncGeneration !== this.resourceSyncGeneration) {
+        return
+      }
+
+      this.resources = getResourcesForContainer(this.store, subject)
+    }
+
+    if (syncGeneration !== this.resourceSyncGeneration) {
+      return
+    }
+
+    this.isLoadingResources = false
+
     for (const resource of this.resources.values()) {
       this.ensureResourceVisibility(resource)
     }
   }
 
+  private get searchQuery () {
+    return this.storageContext.searchQuery.trim()
+  }
+
+  private get visibleResources () {
+    if (this.searchQuery) {
+      return Array.from(getResourcesFromSearchQuery(this.store, this.searchQuery).values())
+    }
+
+    return Array.from(this.resources.values())
+  }
+
   private selectResource (resource: Resource) {
-    this.selectedResource = resource.subject
-    this.dispatchEvent(new CustomEvent('resource-selected', {
-      detail: { resource: resource.subject },
-      bubbles: true,
-      composed: true,
-    }))
+    this.storageContext.selectResource(resource.subject)
   }
 
   private renderContainerPane (selectedResource: NamedNode) {
     if (!this.contentView) return
 
-    const containerPane = document.createElement('storage-container-pane') as HTMLElement & {
-      outliner?: StoragePaneOutliner
-      store?: any
+    const provider = document.createElement('storage-provider') as HTMLElement & {
       subject?: NamedNode
     }
 
-    containerPane.outliner = this.outliner
-    containerPane.store = this.store
-    containerPane.subject = selectedResource
+    provider.subject = selectedResource
 
-    this.contentView.replaceChildren(containerPane)
+    const containerPane = document.createElement('storage-container-pane') as HTMLElement & {
+      outliner?: StoragePaneOutliner
+      store?: any
+    }
+
+    containerPane.outliner = this.outliner
+
+    provider.appendChild(containerPane)
+    this.contentView.replaceChildren(provider)
   }
 
   private async showResourceInContentView (selectedResource: NamedNode) {
@@ -192,27 +248,43 @@ export default class StorageContainerPane extends WebComponent {
     `
   }
 
-  protected updated (changedProperties: PropertyValues<this>) {
-    if (changedProperties.has('selectedResource') && this.selectedResource) {
-      void this.showResourceInContentView(this.selectedResource)
-    }
-  } 
-
   protected willUpdate (changedProperties: PropertyValues<this>) {
     super.willUpdate(changedProperties)
 
     if (
       changedProperties.has('store') ||
-      changedProperties.has('subject') 
+      changedProperties.has('fileExplorerContext')
     ) {
       void this.syncResources()
+    }
+  }
+
+  protected updated (changedProperties: PropertyValues<this>) {
+    if (!changedProperties.has('storageContext')) {
+      return
+    }
+
+    const previousStorageContext = changedProperties.get('storageContext') as StorageContext | undefined
+    const previousSelectedResourceUri = previousStorageContext?.selectedResource?.uri
+    const currentSelectedResourceUri = this.selectedResource?.uri
+    const currentSubjectUri = this.currentSubject?.uri
+
+    if (previousSelectedResourceUri !== currentSelectedResourceUri) {
+      if (!currentSelectedResourceUri || currentSelectedResourceUri === currentSubjectUri) {
+        this.contentView?.replaceChildren()
+        return
+      }
+
+      if (this.selectedResource) {
+        void this.showResourceInContentView(this.selectedResource)
+      }
     }
   }
 
   private renderListView () {
     return html`
       <ul class="resource-list" role="listbox">
-        ${Array.from(this.resources.values()).map((resource) => this.renderResourceListItem(resource, 0))}
+        ${this.visibleResources.map((resource) => this.renderResourceListItem(resource, 0))}
       </ul>
     `
   }
@@ -220,23 +292,28 @@ export default class StorageContainerPane extends WebComponent {
   private renderGridView () {
     return html`
       <ul class="resource-grid" role="listbox">
-        ${Array.from(this.resources.values()).map((resource) => this.renderResourceGridItem(resource, 0))}
+        ${this.visibleResources.map((resource) => this.renderResourceGridItem(resource, 0))}
       </ul>
     `
   }
 
   render () {
+    const visibleResources = this.visibleResources
+    const searchQuery = this.searchQuery
+
     return html`
       <div class="storage-container-pane">
         <div class="storage-container-pane-main-content">
-          ${this.resources.size > 0
-            ? (this.view === 'grid' ? this.renderGridView() : this.renderListView())
-            : html`<div class="storage-container-pane-empty-message">No resources found in this container.</div>`
+          ${this.isLoadingResources && !searchQuery
+            ? html`<div class="storage-container-pane-empty-message">Loading resources...</div>`
+            : visibleResources.length > 0
+              ? (this.storageContext.view === 'grid' ? this.renderGridView() : this.renderListView())
+              : html`<div class="storage-container-pane-empty-message">
+                  ${searchQuery ? 'No resources match this search.' : 'No resources found in this container.'}
+                </div>`
           }
           <storage-content-view></storage-content-view>
           <storage-creation-area
-            .store=${this.store}
-            .subject=${this.subject}
             @resource-created=${this.syncResources}
           ></storage-creation-area>
         </div>

@@ -1,20 +1,73 @@
 import { ns, utils } from 'solid-ui'
-import type { NamedNode } from 'rdflib'
+import type { NamedNode, Statement } from 'rdflib'
 import { solidLogicSingleton } from 'solid-logic'
 import type { ContentViewRenderer, ResourceMap } from './types'
 
+const hiddenFileSuffixes = ['.acl', '~']
+
 function noHiddenFiles (obj) {
   // @@ This hiddenness should actually be server defined
-  const pathEnd = obj.uri.slice(obj.dir().uri.length)
-  return !(
-    pathEnd.startsWith('.') ||
-    pathEnd.endsWith('.acl') ||
-    pathEnd.endsWith('~')
-  )
+  const parentUri = obj?.dir?.()?.uri
+  const uri = obj?.uri
+
+  if (typeof uri !== 'string' || typeof parentUri !== 'string') {
+    return true
+  }
+
+  const pathEnd = uri.slice(parentUri.length)
+  return !pathEnd.startsWith('.') && !hiddenFileSuffixes.some((suffix) => pathEnd.endsWith(suffix))
+}
+
+function isNamedNode (term): term is NamedNode {
+  return Boolean(term && typeof term.uri === 'string')
+}
+
+function getResourcesFromSearchQuery (store, query: string): ResourceMap {
+  if (!store) {
+    return new Map()
+  }
+
+  const normalizedQuery = query.trim().toLowerCase()
+  if (!normalizedQuery) {
+    return new Map()
+  }
+
+  const statements = (store.statements || []) as Statement[]
+  const candidateResources = new Map<string, NamedNode>()
+
+  for (const statement of statements) {
+    for (const term of [statement.subject, statement.object]) {
+      if (!isNamedNode(term)) {
+        continue
+      }
+
+      if (!noHiddenFiles(term)) {
+        continue
+      }
+
+      const label = utils.label(term).toLowerCase()
+      if (label.includes(normalizedQuery) || term.uri.toLowerCase().includes(normalizedQuery)) {
+        candidateResources.set(term.value, term)
+      }
+    }
+  }
+
+  const resourceMap = Array.from(candidateResources.values())
+    .map(resource => [utils.label(resource).toLowerCase(), resource])
+    .sort()
+
+  return new Map(resourceMap.map(pair => [pair[1].value, {
+    id: pair[1].value,
+    subject: pair[1],
+    parentId: pair[1].dir().value,
+    isContainer: solidLogicSingleton.resource?.isContainer?.(pair[1]) ?? false
+  }]))
 }
 
 function getResourcesForContainer (store, container: NamedNode): ResourceMap {
-  if (!store) return new Map()
+  if (!store) {
+    return new Map()
+  }
 
   let containedResources = store.each(container, ns.ldp('contains')).filter(noHiddenFiles)
   containedResources = containedResources.filter((containedResource, index, allContainedResources) => {
@@ -32,9 +85,9 @@ function getResourcesForContainer (store, container: NamedNode): ResourceMap {
 }
 
 async function loadResourcesForContainer (store, container: NamedNode): Promise<ResourceMap> {
-  if (!store) return new Map()
-
-  await store.fetcher.load(container)
+  if (!store) {
+    return new Map()
+  }
 
   let resources = getResourcesForContainer(store, container)
 
@@ -52,6 +105,43 @@ async function loadResourcesForContainer (store, container: NamedNode): Promise<
 
   resources = getResourcesForContainer(store, container)
   return resources
+}
+
+async function loadResourcesForStorage (store, root: NamedNode, onProgress?: (resource: NamedNode) => void): Promise<ResourceMap> {
+  if (!store || !root) {
+    return new Map()
+  }
+
+  const discoveredResources = new Map<string, {
+    id: string
+    subject: NamedNode
+    parentId: string | null
+    isContainer: boolean
+  }>()
+  const visitedContainers = new Set<string>()
+  const pendingContainers: NamedNode[] = [root]
+
+  while (pendingContainers.length > 0) {
+    const container = pendingContainers.shift()
+
+    if (!container || visitedContainers.has(container.value)) {
+      continue
+    }
+
+    visitedContainers.add(container.value)
+
+    const resources = getResourcesForContainer(store, container)
+
+    for (const resource of resources.values()) {
+      discoveredResources.set(resource.id, resource)
+
+      if (resource.isContainer && !visitedContainers.has(resource.subject.value)) {
+        pendingContainers.push(resource.subject)
+      }
+    }
+  }
+
+  return new Map(discoveredResources)
 }
 
 function getContainerIndexThing (store, container: NamedNode): NamedNode {
@@ -91,8 +181,12 @@ async function renderSelectedResourceInContentView ({
   const isContainer = isContainerResource(store, selectedResource)
 
   if (isContainer) {
-    await store.fetcher.load(selectedResource)
-    await loadResourcesForContainer(store, selectedResource)
+    try {
+      await store.fetcher.load(selectedResource)
+      await loadResourcesForContainer(store, selectedResource)
+    } catch (_error) {
+      // Best-effort rendering: if loading fails, still try to show the container shell.
+    }
 
     const hasIndexDocumentAfterLoad = containerHasIndexDocument(store, selectedResource)
 
@@ -111,4 +205,15 @@ async function renderSelectedResourceInContentView ({
   outliner?.GotoSubject(selectedResource, true, undefined, false, undefined, contentView)
 }
 
-export { containerHasIndexDocument, getContainerIndexThing, getResourcesForContainer, loadResourcesForContainer, isContainerResource, isStorageRoot, noHiddenFiles, renderSelectedResourceInContentView }
+export { 
+  containerHasIndexDocument, 
+  getContainerIndexThing, 
+  getResourcesForContainer,
+  getResourcesFromSearchQuery, 
+  loadResourcesForContainer, 
+  loadResourcesForStorage,
+  isContainerResource, 
+  isStorageRoot, 
+  noHiddenFiles, 
+  renderSelectedResourceInContentView 
+}

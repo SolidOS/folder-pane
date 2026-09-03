@@ -1,8 +1,9 @@
-import { customElement, WebComponent } from 'solid-ui'
 import { html, nothing } from 'lit'
-import { property, state } from 'lit/decorators.js'
+import { consume } from '@lit/context'
+import { property } from 'lit/decorators.js'
 import type { DataBrowserContext } from 'pane-registry'
-import type { NamedNode } from 'rdflib'
+import { LiveStore, NamedNode } from 'rdflib'
+import { customElement, DEFAULT_STORE, FileExplorerContext, fileExplorerContext, storeContext, WebComponent } from 'solid-ui'
 import '~icons/lucide/folder-open'
 import '~icons/lucide/search'
 import '~icons/lucide/layout-grid'
@@ -10,16 +11,20 @@ import '~icons/lucide/list'
 import '../storage-creation-menu/StorageCreationMenu'
 import { isStorageRoot } from '../../helpers'
 import styles from './StorageHeader.styles.css'
+import { DEFAULT_STORAGE_CONTEXT, StorageContext, storageContext } from '../storage-provider/context'
 
 @customElement('storage-header')
 export default class StorageHeader extends WebComponent {
   static styles = styles
 
-  @property({ attribute: false })
-  accessor subject: NamedNode | undefined = undefined
+  @consume({ context: storeContext, subscribe: true })
+  accessor store: LiveStore = DEFAULT_STORE
 
-  @property({ attribute: false })
-  accessor selectedResource: NamedNode | undefined = undefined
+  @consume({ context: fileExplorerContext, subscribe: true })
+  accessor fileExplorerContext: FileExplorerContext = undefined as unknown as FileExplorerContext
+
+  @consume({ context: storageContext, subscribe: true })
+  accessor storageContext: StorageContext = DEFAULT_STORAGE_CONTEXT
 
   @property({ attribute: false })
   accessor browserContext: DataBrowserContext | null = null
@@ -27,16 +32,17 @@ export default class StorageHeader extends WebComponent {
   @property({ attribute: false })
   accessor getStatusArea: (() => HTMLElement | null) | null = null
 
-  @state()
-  accessor searchValue = ''
+  private get currentSubject (): NamedNode | undefined {
+    return this.fileExplorerContext?.subjectUri ? new NamedNode(this.fileExplorerContext.subjectUri) : undefined
+  }
 
-  private getBreadcrumbSegments (resource: NamedNode, store: DataBrowserContext['session']['store'] | null) {
+  private getBreadcrumbSegments (resource: NamedNode) {
     const segments: NamedNode[] = []
     let current: NamedNode | null = resource
 
     while (current) {
       segments.unshift(current)
-      if (store && isStorageRoot(store, current)) {
+      if (this.store && isStorageRoot(this.store, current)) {
         break
       }
 
@@ -50,8 +56,8 @@ export default class StorageHeader extends WebComponent {
     return segments
   }
 
-  private getBreadcrumbLabel (resource: NamedNode, store: DataBrowserContext['session']['store'] | null) {
-    if (store && isStorageRoot(store, resource)) {
+  private getBreadcrumbLabel (resource: NamedNode) {
+    if (this.store && isStorageRoot(this.store, resource)) {
       return 'Storage'
     }
 
@@ -70,13 +76,12 @@ export default class StorageHeader extends WebComponent {
   }
 
   private onSearchInput = (event: Event) => {
-    this.searchValue = (event.target as HTMLInputElement).value
+    this.storageContext.setSearchQuery((event.target as HTMLInputElement).value)
   }
 
   private renderBreadcrumbs (resource: NamedNode) {
-    const store = this.browserContext?.session.store ?? null
-    const segments = this.getBreadcrumbSegments(resource, store)
-    const specialCrumb = this.getBreadcrumbLabel(resource, store).toLowerCase() === 'public'
+    const segments = this.getBreadcrumbSegments(resource)
+    const specialCrumb = this.getBreadcrumbLabel(resource).toLowerCase() === 'public'
       ? 'Public'
       : 'Home'
 
@@ -100,7 +105,7 @@ export default class StorageHeader extends WebComponent {
             : html`
             <li>
               <span class=${index === breadcrumbItems.length - 1 ? 'current' : 'crumb'}>
-                ${this.getBreadcrumbLabel(segment, store)}
+                ${this.getBreadcrumbLabel(segment)}
               </span>
               ${index < breadcrumbItems.length - 1 ? html`<span class="separator">/</span>` : ''}
             </li>
@@ -111,21 +116,22 @@ export default class StorageHeader extends WebComponent {
   }
 
   render() {
-    const resource = this.selectedResource ?? this.subject
+    const activeResource = this.storageContext.selectedResource ?? this.currentSubject
+    const searchQuery = this.storageContext.searchQuery
 
     return html`
       <div class="storage-header">
-        ${resource ? this.renderBreadcrumbs(resource) : ''}
+        ${activeResource ? this.renderBreadcrumbs(activeResource) : ''}
         <div class="storage-header-toolbar">
           <div class="storage-header-search">
             <input
               type="text"
               aria-label="Search"
-              .value=${this.searchValue}
+              .value=${searchQuery}
               @input=${this.onSearchInput}
             />
-            ${this.searchValue
-              ? ''
+            ${searchQuery
+              ? nothing
               : html`
                   <span class="storage-header-search-placeholder">
                     <icon-lucide-search></icon-lucide-search>
@@ -134,20 +140,24 @@ export default class StorageHeader extends WebComponent {
                 `}
           </div>
           <div class="storage-header-actions">
-            <solid-ui-button variant="ghost">
+            <solid-ui-button
+              variant="ghost"
+              @click=${() => this.storageContext.setView('grid')}>
               <icon-lucide-layout-grid></icon-lucide-layout-grid>
             </solid-ui-button>
-            <solid-ui-button variant="ghost">
+            <solid-ui-button
+              variant="ghost"
+              @click=${() => this.storageContext.setView('list')}>
               <icon-lucide-list></icon-lucide-list>
             </solid-ui-button>
           </div>
           <div class="storage-header-create-menu-trigger">
-            ${resource && this.browserContext
+            ${activeResource && this.browserContext
               ? html`
                   <storage-creation-menu
                     .browserContext=${this.browserContext}
                     .getStatusArea=${this.getStatusArea}
-                    .container=${resource}
+                    .container=${activeResource}
                     .paneList=${this.browserContext.session.paneRegistry.list}
                   ></storage-creation-menu>
                 `

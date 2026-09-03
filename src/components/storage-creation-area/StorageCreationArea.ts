@@ -1,22 +1,21 @@
 import { authn } from 'solid-logic'
-import { customElement, ns, WebComponent, widgets } from 'solid-ui'
-import type { NamedNode } from 'rdflib'
+import { customElement, DEFAULT_STORE, FileExplorerContext, fileExplorerContext, ns, storeContext, WebComponent, widgets } from 'solid-ui'
 import { html, nothing } from 'lit'
 import styles from './StorageCreationArea.styles.css'
 import '~icons/lucide/plus'
-import { property } from 'lit/decorators.js'
 import { LiveStore } from 'rdflib'
+import { consume } from '@lit/context'
 
 
 @customElement('storage-creation-area')
 export default class StorageCreationArea extends WebComponent {
   static styles = styles
 
-  @property({ attribute: false })
-  accessor store: LiveStore | null = null
+  @consume({ context: storeContext, subscribe: true })
+  accessor store: LiveStore = DEFAULT_STORE
 
-  @property({ attribute: false })
-  accessor subject: NamedNode | null = null
+  @consume({ context: fileExplorerContext, subscribe: true })
+  accessor fileExplorerContext: FileExplorerContext = undefined as unknown as FileExplorerContext
 
   private onDragOver (event: DragEvent) {
     event.preventDefault()
@@ -28,23 +27,23 @@ export default class StorageCreationArea extends WebComponent {
     event.preventDefault()
     event.stopPropagation()
 
-    const store = this.store
-    const subject = this.subject
+    const subjectUri = this.fileExplorerContext.subjectUri
+    const subject = subjectUri ? this.store.sym(subjectUri) : undefined
     const files = event.dataTransfer?.files ?? []
 
-    if (!store || !subject) {
+    if (!this.store || !subject) {
       console.error('Store or subject is not defined for StorageCreationArea')
       return
     }
 
     widgets.uploadFiles(
-      store.fetcher,
+      this.store.fetcher,
       files,
       subject.uri,
       subject.uri,
       (file, uri) => {
-        const destination = store.sym(uri)
-        store.add(subject, ns.ldp('contains'), destination, subject.doc())
+        const destination = this.store.sym(uri)
+        this.store.add(subject, ns.ldp('contains'), destination, subject.doc())
         this.dispatchEvent(new CustomEvent('resource-created', {
           detail: { resource: destination },
           bubbles: true,

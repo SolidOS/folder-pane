@@ -5,6 +5,7 @@
 
 import './styles/folderPane.css'
 import './styles/utilities.css'
+import './components/storage-provider/StorageProvider'
 import './components/storage-pane-view/StoragePaneView'
 import { icons, ns } from 'solid-ui'
 
@@ -43,19 +44,14 @@ export default {
     return null // Suppress pane otherwise
   },
 
-  // Render a file folder in a LDP/solid system
   render: function (subject, context) {
     const dom = context.dom
-    const kb = context.session.store
-    const outliner = context.getOutliner(dom)
     const div = dom.createElement('div')
     div.classList.add('instancePane', 'storage-pane')
-    const storagePaneView = div.appendChild(dom.createElement('storage-pane-view'))
-    storagePaneView.dom = dom
-    storagePaneView.outliner = outliner
-    storagePaneView.store = kb
-    storagePaneView.browserContext = context
-    storagePaneView.subject = subject
+    const storageProvider = div.appendChild(dom.createElement('storage-provider'))
+    storageProvider.browserContext = context
+    storageProvider.subject = subject
+
 
     // The pane registry is needed to open the internal pane on Alt-click.
     // addDownstreamChangeListener is a high level function which when someone else changes the resource,

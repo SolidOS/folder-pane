@@ -34,6 +34,7 @@ storage-container-pane .resource-list {
   overflow: auto;
   min-height: 0;
   margin: 0;
+  padding: 0;
 }
 
 storage-container-pane .resource-list-item {
@@ -58,6 +59,7 @@ storage-container-pane .resource-grid {
   align-content: center;
   gap: 20px;
   flex-wrap: wrap;
+  padding: 0;
 }
 
 storage-container-pane .resource-grid-item {
