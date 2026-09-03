@@ -32,8 +32,13 @@ export default class StorageProvider extends WebComponent {
   @state()
   accessor searchQuery: string = ''
 
+  @state()
+  accessor history: NamedNode[] = []
+
   @provide({ context: storageContext })
-  accessor storageContext: StorageContext = DEFAULT_STORAGE_CONTEXT
+  accessor storageContext: StorageContext = {
+    ...DEFAULT_STORAGE_CONTEXT
+  }
 
   @provide({ context: fileExplorerContext })
   accessor fileExplorerContext: FileExplorerContext = { subjectUri: this.currentSubject?.uri }
@@ -48,6 +53,12 @@ export default class StorageProvider extends WebComponent {
   }
 
   private selectResource = (resource: NamedNode) => {
+    const currentResource = this.selectedResource ?? this.currentSubject
+
+    if (currentResource && !currentResource.sameTerm(resource)) {
+      this.history = [...this.history, currentResource]
+    }
+
     this.selectedResource = resource
     this.searchQuery = ''
     this.refreshStorageContextValue()
@@ -63,6 +74,17 @@ export default class StorageProvider extends WebComponent {
     this.refreshStorageContextValue()
   }
 
+  goBack = () => {
+    if (this.history.length > 0) {
+      const previousHistory = [...this.history]
+      const previousResource = previousHistory.pop()
+
+      this.history = previousHistory
+      this.selectedResource = previousResource
+      this.refreshStorageContextValue()
+    }
+  }
+  
   private refreshStorageContextValue () {
     this.storageContext = {
       selectedResource: this.selectedResource ?? this.currentSubject,
@@ -71,12 +93,12 @@ export default class StorageProvider extends WebComponent {
       setView: this.setView,
       searchQuery: this.searchQuery,
       setSearchQuery: this.setSearchQuery,
-
+      history: this.history
     }
   }
 
   private refreshFileExplorerContextValue () {
-    this.fileExplorerContext = { subjectUri: this.currentSubject?.uri }
+    this.fileExplorerContext = { subjectUri: this.currentSubject?.uri, onBack: this.goBack }
   }
 
   // Legacy panes rendered below this provider are styled by global stylesheets,

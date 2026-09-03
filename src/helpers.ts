@@ -196,7 +196,6 @@ async function renderSelectedResourceInContentView ({
       outliner?.GotoSubject(indexThing, true, undefined, false, undefined, contentView)
       return
     }
-
     renderContainerPane(selectedResource)
     return
   }
