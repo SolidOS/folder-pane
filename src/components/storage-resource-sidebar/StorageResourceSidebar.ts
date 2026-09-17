@@ -53,7 +53,7 @@ export default class StorageResourceSidebar extends WebComponent {
     return this.storageContext.selectedResource ?? this.currentSubject
   }
 
-  private async syncResources () {
+  private syncResources = async () => {
     const subject = this.currentSubject
 
     if (!this.store || !subject) {

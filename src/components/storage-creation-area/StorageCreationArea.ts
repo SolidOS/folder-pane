@@ -3,6 +3,7 @@ import { customElement, DEFAULT_STORE, FileExplorerContext, fileExplorerContext,
 import { html, nothing } from 'lit'
 import styles from './StorageCreationArea.styles.css'
 import '~icons/lucide/cloud-upload'
+import type { NamedNode } from 'rdflib'
 import { LiveStore } from 'rdflib'
 import { consume } from '@lit/context'
 import { property } from 'lit/decorators.js'
@@ -19,6 +20,9 @@ export default class StorageCreationArea extends WebComponent {
   accessor fileExplorerContext: FileExplorerContext = undefined as unknown as FileExplorerContext
 
   @property({ attribute: false })
+  accessor subject: NamedNode | undefined = undefined
+
+  @property({ attribute: false })
   accessor message: String | null = null
 
   private onDragOver (event: DragEvent) {
@@ -31,7 +35,7 @@ export default class StorageCreationArea extends WebComponent {
     event.preventDefault()
     event.stopPropagation()
 
-    const subjectUri = this.fileExplorerContext.subjectUri
+    const subjectUri = this.subject?.uri ?? this.fileExplorerContext.subjectUri
     const subject = subjectUri ? this.store.sym(subjectUri) : undefined
     const files = event.dataTransfer?.files ?? []
 
@@ -45,7 +49,7 @@ export default class StorageCreationArea extends WebComponent {
       files,
       subject.uri,
       subject.uri,
-      (file, uri) => {
+      (_file, uri) => {
         const destination = this.store.sym(uri)
         this.store.add(subject, ns.ldp('contains'), destination, subject.doc())
         this.dispatchEvent(new CustomEvent('resource-created', {

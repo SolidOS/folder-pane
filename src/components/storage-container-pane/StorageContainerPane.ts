@@ -29,6 +29,9 @@ export default class StorageContainerPane extends WebComponent {
   static styles = styles
 
   @property({ attribute: false })
+  accessor subject: NamedNode | undefined = undefined
+
+  @property({ attribute: false })
   accessor outliner: StoragePaneOutliner | undefined = undefined
 
   @consume({ context: storeContext, subscribe: true })
@@ -64,7 +67,8 @@ export default class StorageContainerPane extends WebComponent {
   }
 
   private get currentSubject (): NamedNode | undefined {
-    const subjectUri = this.fileExplorerContext?.subjectUri
+    const subjectUri = this.subject?.uri ?? this.fileExplorerContext?.subjectUri
+
     return subjectUri ? this.store.sym(subjectUri) : undefined
   }
 
@@ -91,9 +95,12 @@ export default class StorageContainerPane extends WebComponent {
       })
   }
 
-  private async syncResources () {
-    const subject = this.selectedResource
-    if (!this.store || !subject) return
+  private syncResources = async () => {
+    const subject = this.currentSubject
+
+    if (!this.store || !subject) {
+      return
+    }
 
     const syncGeneration = ++this.resourceSyncGeneration
     this.isLoadingResources = true
@@ -153,7 +160,6 @@ export default class StorageContainerPane extends WebComponent {
 
     const containerPane = document.createElement('storage-container-pane') as HTMLElement & {
       outliner?: StoragePaneOutliner
-      store?: any
     }
 
     containerPane.outliner = this.outliner
@@ -253,6 +259,7 @@ export default class StorageContainerPane extends WebComponent {
 
     if (
       changedProperties.has('store') ||
+      changedProperties.has('subject') ||
       changedProperties.has('fileExplorerContext')
     ) {
       void this.syncResources()
@@ -319,6 +326,7 @@ export default class StorageContainerPane extends WebComponent {
       ${this.renderResourceListArea(searchQuery, visibleResources)}
       <storage-content-view></storage-content-view>
       <storage-creation-area
+        .subject=${this.currentSubject}
         .message=${'Drop files or folder here'}
         @resource-created=${this.syncResources}
       ></storage-creation-area>
