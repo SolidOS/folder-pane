@@ -297,27 +297,31 @@ export default class StorageContainerPane extends WebComponent {
     `
   }
 
+  private renderResourceListArea (searchQuery: string, visibleResources: Resource[]) {
+    if (this.isLoadingResources && !searchQuery) {
+      return html`<div class="storage-container-pane-empty-message">Loading resources...</div>`
+    }
+
+    if (visibleResources.length > 0) {
+      return this.storageContext.view === 'grid' ? this.renderGridView() : this.renderListView()
+    }
+
+    return html`<div class="storage-container-pane-empty-message">
+      ${searchQuery ? 'No resources match this search.' : 'No resources found in this container.'}
+    </div>`
+  }
+
   render () {
     const visibleResources = this.visibleResources
     const searchQuery = this.searchQuery
 
     return html`
-      <div class="storage-container-pane">
-        <div class="storage-container-pane-main-content">
-          ${this.isLoadingResources && !searchQuery
-            ? html`<div class="storage-container-pane-empty-message">Loading resources...</div>`
-            : visibleResources.length > 0
-              ? (this.storageContext.view === 'grid' ? this.renderGridView() : this.renderListView())
-              : html`<div class="storage-container-pane-empty-message">
-                  ${searchQuery ? 'No resources match this search.' : 'No resources found in this container.'}
-                </div>`
-          }
-          <storage-content-view></storage-content-view>
-          <storage-creation-area
-            @resource-created=${this.syncResources}
-          ></storage-creation-area>
-        </div>
-      </div>
+      ${this.renderResourceListArea(searchQuery, visibleResources)}
+      <storage-content-view></storage-content-view>
+      <storage-creation-area
+        .message=${'Drop files or folder here'}
+        @resource-created=${this.syncResources}
+      ></storage-creation-area>
     `
   }
 }

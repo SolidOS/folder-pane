@@ -295,10 +295,10 @@ export default class StorageResourceSidebar extends WebComponent {
     return html`
       <aside>
         ${this.renderResourceGroup(this.resources, true)}
-        <storage-creation-area
-          @resource-created=${this.syncResources}
-        ></storage-creation-area>
       </aside>
+      <storage-creation-area
+        @resource-created=${this.syncResources}
+      ></storage-creation-area>
     `
   }
 }

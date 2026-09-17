@@ -103,16 +103,14 @@ export default class StoragePaneView extends WebComponent {
         .browserContext=${this.browserContext}
       ></storage-header>
       <div class="storage-pane-main-content">
-        <div class="storage-pane-section">
-          <storage-resource-sidebar
-            .dom=${this.browserContext?.dom}
-          ></storage-resource-sidebar>
-          <div class="storage-pane-content-column">
-            <!-- the status area here is temporary. it is to hold the status that comes from the panes
-            when a new pane is created. we should actually modify the panes themselves to handle this differently -->
-            <div class="storage-pane-status"></div>
-            <storage-content-view></storage-content-view>
-          </div>
+        <storage-resource-sidebar
+          .dom=${this.browserContext?.dom}
+        ></storage-resource-sidebar>
+        <div class="storage-pane-content-column">
+          <!-- the status area here is temporary. it is to hold the status that comes from the panes
+          when a new pane is created. we should actually modify the panes themselves to handle this differently -->
+          <div class="storage-pane-status"></div>
+          <storage-content-view></storage-content-view>
         </div>
       </div>
     `

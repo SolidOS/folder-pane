@@ -1,32 +1,52 @@
 :host {
   display: flex;
+  flex-direction: column;
+  height: 100%;
   min-height: 0;
-  max-height: 100%;
   overflow: hidden;
 
   aside {
     display: flex;
     flex-direction: column;
-    width: 250px;
-    padding: 17px 10px 0 10px;
-    align-items: flex-start;
-    height: 100%;
-    min-height: 0;
     flex: 1 1 auto;
-    border-radius: 5px 0 0 5px;
-    border-right: 1px solid var(--solid-ui-color-gray-200, #E5E7EB);
-    background: var(--neutral-50, #FAFAFA);
-    overflow: hidden;
+    min-height: 0;
+    overflow: auto;
     box-sizing: border-box;
-    position: relative;
+    padding: 17px 10px 0;
+    border-radius: 5px 0 0 5px;
+    background: var(--neutral-50, #FAFAFA);
+      /* Firefox */
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+
+  /* Chrome, Edge, Safari */
+  aside::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  aside::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  aside::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 999px;
+  }
+
+  aside:hover {
+    scrollbar-color: #c7cbd1 transparent;
+  }
+
+  aside:hover::-webkit-scrollbar-thumb {
+    background: #c7cbd1;
   }
 
   .resource-tree {
-    flex: 1 1 0%;
-    overflow-y: scroll;
-    min-height: 0px;
-    padding-bottom: 0px;
-    height: auto;
+    flex: 1 1 auto;
+    padding-bottom: 0;
+    margin: 0;
+    width: 100%;
   }
 
   .resource-item {
@@ -57,25 +77,11 @@
   }
 
   storage-creation-area {
+    display: block;
     align-self: stretch;
-    flex-shrink: 0;
-    width: calc(100% + 20px);
-    margin: 0 -10px;
-    box-sizing: border-box;
-    background-color: white;
-    padding: 8px;
-    z-index: 10;
-    height: auto;
-  }
-
-  .storage-creation-area {
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    width: 2.5rem;
-    height: 2.5rem;
-    min-width: 2.5rem;
-    min-height: 2.5rem;
+    flex: 0 0 auto;
+    margin-top: 0;
+    padding: 10px;
   }
 
   .resource-row {

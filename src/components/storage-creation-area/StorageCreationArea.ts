@@ -2,9 +2,10 @@ import { authn } from 'solid-logic'
 import { customElement, DEFAULT_STORE, FileExplorerContext, fileExplorerContext, ns, storeContext, WebComponent, widgets } from 'solid-ui'
 import { html, nothing } from 'lit'
 import styles from './StorageCreationArea.styles.css'
-import '~icons/lucide/plus'
+import '~icons/lucide/cloud-upload'
 import { LiveStore } from 'rdflib'
 import { consume } from '@lit/context'
+import { property } from 'lit/decorators.js'
 
 
 @customElement('storage-creation-area')
@@ -16,6 +17,9 @@ export default class StorageCreationArea extends WebComponent {
 
   @consume({ context: fileExplorerContext, subscribe: true })
   accessor fileExplorerContext: FileExplorerContext = undefined as unknown as FileExplorerContext
+
+  @property({ attribute: false })
+  accessor message: String | null = null
 
   private onDragOver (event: DragEvent) {
     event.preventDefault()
@@ -66,7 +70,8 @@ export default class StorageCreationArea extends WebComponent {
               @dragover=${this.onDragOver}
               @drop=${this.onDrop}
             >
-              <icon-lucide-plus></icon-lucide-plus>
+              <icon-lucide-cloud-upload></icon-lucide-cloud-upload>
+              <span class="storage-creation-area-message">${this.message ?? 'Drop file or folder'}</span>
             </div>
           `
         : nothing}

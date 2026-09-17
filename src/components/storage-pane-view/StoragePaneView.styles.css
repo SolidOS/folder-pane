@@ -13,7 +13,8 @@
 
   .storage-pane-main-content {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
+    gap: 20px;
     width: 100%;
     height: 100%;
     min-height: 0;
@@ -23,21 +24,11 @@
     background: var(--solid-ui-color-white, #fff);
   }
 
-  .storage-pane-section {
-    display: flex;
-    flex-direction: row;
-    align-items: stretch;
-    width: 100%;
-    min-height: 0;
-    height: 100%;
-    flex: 1 1 auto;
-    overflow: hidden;
-  }
-
   storage-header {
     position: sticky;
     top: 0;
-    z-index: 2;
+    display: flex;
+    flex-direction: column;
     background: var(--solid-ui-color-white, #fff);
   }
 
@@ -47,8 +38,8 @@
     min-width: 256px;
     min-height: 0;
     height: 100%;
-    max-height: 100%;
     overflow: hidden;
+    flex: 1 1 auto;
     text-align: left;
   }
 

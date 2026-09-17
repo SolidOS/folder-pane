@@ -8,9 +8,7 @@ export default class StorageContentView extends WebComponent {
 
   render () {
     return html`
-      <div class="storage-content-view">
-        <slot></slot>
-      </div>
+      <slot></slot>
     `
   }
 }
