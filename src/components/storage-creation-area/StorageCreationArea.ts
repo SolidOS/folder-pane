@@ -1,12 +1,13 @@
 import { authn } from 'solid-logic'
-import { customElement, DEFAULT_STORE, FileExplorerContext, fileExplorerContext, ns, storeContext, WebComponent, widgets } from 'solid-ui'
+import { customElement, DEFAULT_STORE, storeContext, WebComponent } from 'solid-ui'
 import { html, nothing } from 'lit'
 import styles from './StorageCreationArea.styles.css'
 import '~icons/lucide/cloud-upload'
 import type { NamedNode } from 'rdflib'
 import { LiveStore } from 'rdflib'
-import { consume } from '@lit/context'
 import { property } from 'lit/decorators.js'
+import { consume } from '@lit/context'
+import { uploadFilesIntoContainer } from '../../helpers'
 
 
 @customElement('storage-creation-area')
@@ -15,9 +16,6 @@ export default class StorageCreationArea extends WebComponent {
 
   @consume({ context: storeContext, subscribe: true })
   accessor store: LiveStore = DEFAULT_STORE
-
-  @consume({ context: fileExplorerContext, subscribe: true })
-  accessor fileExplorerContext: FileExplorerContext = undefined as unknown as FileExplorerContext
 
   @property({ attribute: false })
   accessor subject: NamedNode | undefined = undefined
@@ -35,30 +33,22 @@ export default class StorageCreationArea extends WebComponent {
     event.preventDefault()
     event.stopPropagation()
 
-    const subjectUri = this.subject?.uri ?? this.fileExplorerContext.subjectUri
-    const subject = subjectUri ? this.store.sym(subjectUri) : undefined
-    const files = event.dataTransfer?.files ?? []
+    const subject = this.subject
 
     if (!this.store || !subject) {
       console.error('Store or subject is not defined for StorageCreationArea')
       return
     }
 
-    widgets.uploadFiles(
-      this.store.fetcher,
-      files,
-      subject.uri,
-      subject.uri,
-      (_file, uri) => {
-        const destination = this.store.sym(uri)
-        this.store.add(subject, ns.ldp('contains'), destination, subject.doc())
-        this.dispatchEvent(new CustomEvent('resource-created', {
-          detail: { resource: destination },
-          bubbles: true,
-          composed: true,
-        }))
-      }
-    )
+    const files = event.dataTransfer?.files ?? []
+
+    uploadFilesIntoContainer(this.store, subject, files, (resource) => {
+      this.dispatchEvent(new CustomEvent('resource-created', {
+        detail: { resource },
+        bubbles: true,
+        composed: true,
+      }))
+    })
   }
 
   render() {

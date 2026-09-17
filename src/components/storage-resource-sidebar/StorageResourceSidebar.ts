@@ -14,7 +14,7 @@ import '../storage-creation-area'
 import { consume } from '@lit/context'
 import { DEFAULT_STORAGE_CONTEXT, StorageContext, storageContext } from '../storage-provider/context'
 import { LiveStore } from 'rdflib'
-import { getResourcesForContainer, loadResourcesForContainer } from '../../helpers'
+import { getResourcesForContainer, handleContainerDragOver, handleContainerDrop, loadResourcesForContainer } from '../../helpers'
 
 @customElement('storage-resource-sidebar')
 export default class StorageResourceSidebar extends WebComponent {
@@ -120,6 +120,7 @@ export default class StorageResourceSidebar extends WebComponent {
     selectItem: () => void,
     toggleExpanded: () => void,
     children: unknown,
+    resource: Resource | null,
   ) {
     return html`
       <li
@@ -129,6 +130,8 @@ export default class StorageResourceSidebar extends WebComponent {
         aria-selected=${String(selected)}
         aria-expanded=${String(expanded)}
         data-expanded=${String(expanded)}
+        @dragover=${resource ? (event: DragEvent) => this.onContainerDragOver(resource, event) : undefined}
+        @drop=${resource ? (event: DragEvent) => this.onContainerDrop(resource, event) : undefined}
       >
         <div
           class="resource-row resource-row-special"
@@ -173,6 +176,8 @@ export default class StorageResourceSidebar extends WebComponent {
         data-expanded=${String(isExpanded)}
         about=${resource.subject.toNT()}
         .subject=${resource.subject}
+        @dragover=${(event: DragEvent) => this.onContainerDragOver(resource, event)}
+        @drop=${(event: DragEvent) => this.onContainerDrop(resource, event)}
       >
         <div
           class="resource-row resource-row-special"
@@ -198,6 +203,26 @@ export default class StorageResourceSidebar extends WebComponent {
 
   private selectResource (resource: Resource) {
     this.storageContext.selectResource(resource.subject)
+  }
+
+  private onContainerDragOver (resource: Resource, event: DragEvent) {
+    if (!resource.isContainer) {
+      return
+    }
+
+    handleContainerDragOver(event, this.store, resource.subject)
+  }
+
+  private onContainerDrop (resource: Resource, event: DragEvent) {
+    if (!resource.isContainer) {
+      return
+    }
+
+    const handled = handleContainerDrop(event, this.store, resource.subject, () => { void this.syncResources() })
+
+    if (handled) {
+      this.selectResource(resource)
+    }
   }
 
   private renderResourceGroup (resources: ResourceMap, isRoot: boolean) {
@@ -228,7 +253,8 @@ export default class StorageResourceSidebar extends WebComponent {
               }
             },
             () => { this.homeExpanded = !this.homeExpanded },
-            this.homeExpanded ? this.renderResourceGroupFromList(orderedResources, false) : nothing
+            this.homeExpanded ? this.renderResourceGroupFromList(orderedResources, false) : nothing,
+            homeResource
           )
           : repeat(
             orderedResources,
@@ -257,6 +283,8 @@ export default class StorageResourceSidebar extends WebComponent {
         data-expanded=${String(isExpanded)}
         about=${resource.subject.toNT()}
         .subject=${resource.subject}
+        @dragover=${(event: DragEvent) => this.onContainerDragOver(resource, event)}
+        @drop=${(event: DragEvent) => this.onContainerDrop(resource, event)}
       >
         <div
           class="resource-row"
@@ -269,9 +297,9 @@ export default class StorageResourceSidebar extends WebComponent {
             }
           }}
         >
-          <icon-lucide-chevron-right 
-            @click=${(event: MouseEvent) => this.expandContainer(resource, event)}>
-          </icon-lucide-chevron-right>
+          <icon-lucide-chevron-right
+            @click=${(event: MouseEvent) => this.expandContainer(resource, event)}
+          ></icon-lucide-chevron-right>
           <icon-lucide-circle-small></icon-lucide-circle-small>
           ${utils.label(resource.subject)}
         </div>
@@ -297,6 +325,7 @@ export default class StorageResourceSidebar extends WebComponent {
         ${this.renderResourceGroup(this.resources, true)}
       </aside>
       <storage-creation-area
+        .subject=${this.currentSubject}
         @resource-created=${this.syncResources}
       ></storage-creation-area>
     `

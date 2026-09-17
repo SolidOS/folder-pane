@@ -13,7 +13,7 @@ import { storageContext, DEFAULT_STORAGE_CONTEXT } from '../storage-provider/con
 import { solidLogicSingleton } from 'solid-logic'
 import { customElement, DEFAULT_STORE, fileExplorerContext, log, storeContext, utils, WebComponent } from 'solid-ui'
 import { Resource, type ResourceMap, StoragePaneOutliner } from '../../types'
-import { getResourcesForContainer, getResourcesFromSearchQuery, loadResourcesForContainer, renderSelectedResourceInContentView } from '../../helpers'
+import { getResourcesForContainer, getResourcesFromSearchQuery, handleContainerDragOver, handleContainerDrop, loadResourcesForContainer, renderSelectedResourceInContentView } from '../../helpers'
 import styles from './StorageContainerPane.styles.css'
 import '~icons/lucide/folder'
 import '~icons/lucide/file'
@@ -149,6 +149,22 @@ export default class StorageContainerPane extends WebComponent {
     this.storageContext.selectResource(resource.subject)
   }
 
+  private onContainerDragOver (resource: Resource, event: DragEvent) {
+    if (!resource.isContainer) {
+      return
+    }
+
+    handleContainerDragOver(event, this.store, resource.subject)
+  }
+
+  private onContainerDrop (resource: Resource, event: DragEvent) {
+    if (!resource.isContainer) {
+      return
+    }
+
+    handleContainerDrop(event, this.store, resource.subject, () => { void this.syncResources() })
+  }
+
   private renderContainerPane (selectedResource: NamedNode) {
     if (!this.contentView) return
 
@@ -204,6 +220,8 @@ export default class StorageContainerPane extends WebComponent {
         tabindex="0"
         .subject=${resource.subject}
         @click=${() => this.selectResource(resource)}
+        @dragover=${(event: DragEvent) => this.onContainerDragOver(resource, event)}
+        @drop=${(event: DragEvent) => this.onContainerDrop(resource, event)}
         @keydown=${(event: KeyboardEvent) => {
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault()
@@ -239,6 +257,8 @@ export default class StorageContainerPane extends WebComponent {
         tabindex="0"
         .subject=${resource.subject}
         @click=${() => this.selectResource(resource)}
+        @dragover=${(event: DragEvent) => this.onContainerDragOver(resource, event)}
+        @drop=${(event: DragEvent) => this.onContainerDrop(resource, event)}
         @keydown=${(event: KeyboardEvent) => {
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault()

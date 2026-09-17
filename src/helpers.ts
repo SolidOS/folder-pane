@@ -1,4 +1,4 @@
-import { ns, utils } from 'solid-ui'
+import { ns, utils, widgets } from 'solid-ui'
 import type { NamedNode, Statement } from 'rdflib'
 import { solidLogicSingleton } from 'solid-logic'
 import type { ContentViewRenderer, ResourceMap } from './types'
@@ -149,6 +149,120 @@ function getContainerIndexThing (store, container: NamedNode): NamedNode {
   return store.sym(folderUri + 'index.ttl#this')
 }
 
+function containerHasMintClassIndexDocument (store, container: NamedNode): boolean {
+  if (!store || !containerHasIndexDocument(store, container)) {
+    return false
+  }
+
+  const indexThing = getContainerIndexThing(store, container)
+  const mintClassPredicate = ns.ui('mintClass')
+
+  return Boolean(
+    store.any(indexThing, mintClassPredicate, undefined, indexThing.doc()) ||
+    store.any(indexThing.doc(), mintClassPredicate, undefined, indexThing.doc())
+  )
+}
+
+function canAcceptUploads (store, container: NamedNode): boolean {
+  return !containerHasMintClassIndexDocument(store, container)
+}
+
+function uploadFilesIntoContainer (
+  store,
+  container: NamedNode,
+  files: FileList | File[],
+  onCreated?: (resource: NamedNode) => void
+) {
+  widgets.uploadFiles(
+    store.fetcher,
+    files,
+    container.uri,
+    container.uri,
+    (_file, uri) => {
+      const destination = store.sym(uri)
+      store.add(container, ns.ldp('contains'), destination, container.doc())
+      onCreated?.(destination)
+    }
+  )
+}
+
+function parseDroppedUris (dataTransfer: DataTransfer | null | undefined): string[] {
+  const types = dataTransfer?.types
+
+  if (!types) {
+    return []
+  }
+
+  const normalizeDroppedUris = (uriText: string) => uriText
+    .split('\n')
+    .map(uri => uri.trim())
+    .filter(uri => uri && uri[0] !== '#')
+
+  if (Array.from(types).includes('text/uri-list')) {
+    return normalizeDroppedUris(dataTransfer?.getData('text/uri-list') ?? '')
+  }
+
+  const plainText = dataTransfer?.getData('text/plain')?.trim() ?? ''
+
+  if (plainText.startsWith('http')) {
+    return [plainText]
+  }
+
+  return []
+}
+
+function addUrisToContainer (
+  store,
+  container: NamedNode,
+  uris: string[],
+  onCreated?: (resource: NamedNode) => void
+) {
+  for (const uri of uris) {
+    const destination = store.sym(uri)
+    store.add(container, ns.ldp('contains'), destination, container.doc())
+    onCreated?.(destination)
+  }
+}
+
+function handleContainerDrop (
+  event: DragEvent,
+  store,
+  container: NamedNode,
+  onCreated?: (resource: NamedNode) => void
+) {
+  event.preventDefault()
+  event.stopPropagation()
+
+  if (!canAcceptUploads(store, container)) {
+    return false
+  }
+
+  const uris = parseDroppedUris(event.dataTransfer)
+  if (uris.length > 0) {
+    addUrisToContainer(store, container, uris, onCreated)
+    return true
+  }
+
+  const files = event.dataTransfer?.files ?? []
+  if (files.length > 0) {
+    uploadFilesIntoContainer(store, container, files, onCreated)
+    return true
+  }
+
+  return false
+}
+
+function handleContainerDragOver (event: DragEvent, store, container: NamedNode) {
+  if (!canAcceptUploads(store, container)) {
+    return false
+  }
+
+  event.preventDefault()
+  event.stopPropagation()
+  event.dataTransfer!.dropEffect = 'copy'
+  return true
+}
+
 function isContainerResource (store, resource: NamedNode): boolean {
   if (!store) return false
 
@@ -205,14 +319,21 @@ async function renderSelectedResourceInContentView ({
 }
 
 export { 
+  addUrisToContainer,
+  canAcceptUploads,
   containerHasIndexDocument, 
+  containerHasMintClassIndexDocument,
   getContainerIndexThing, 
   getResourcesForContainer,
   getResourcesFromSearchQuery, 
   loadResourcesForContainer, 
   loadResourcesForStorage,
+  handleContainerDragOver,
+  handleContainerDrop,
   isContainerResource, 
   isStorageRoot, 
   noHiddenFiles, 
+  parseDroppedUris,
+  uploadFilesIntoContainer,
   renderSelectedResourceInContentView 
 }
