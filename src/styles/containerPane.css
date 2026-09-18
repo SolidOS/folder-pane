@@ -6,14 +6,30 @@
  */
 
 storage-container-pane {
-  display: inline-flex;
+  display: flex;
   flex-direction: column;
   width: 100%;
   box-sizing: border-box;
   height: 100%;
   overflow: hidden;
   min-height: 0;
-  flex-wrap: wrap;
+}
+
+storage-container-pane > storage-content-view {
+  order: 0;
+  flex: 1 1 0%;
+  min-height: 0;
+  overflow: auto;
+}
+
+storage-container-pane > .resource-list,
+storage-container-pane > .resource-grid {
+  order: 1;
+  flex: 0 0 auto;
+}
+
+storage-container-pane > storage-creation-area {
+  order: 2;
 }
 
 storage-container-pane .resource-list,
@@ -73,6 +89,15 @@ storage-container-pane .resource-list-label {
   color: var(--solid-ui-color-gray-700, #364153);
   font-size: var(--solid-ui-font-size-md, 1rem);
   font-weight: 500;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+storage-container-pane .resource-list-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
 }
 
 storage-container-pane .resource-grid {
@@ -83,6 +108,7 @@ storage-container-pane .resource-grid {
 }
 
 storage-container-pane .resource-grid-item {
+  position: relative;
   width: 206px;
   height: 145.824px;
   flex-shrink: 0;
@@ -95,19 +121,51 @@ storage-container-pane .resource-grid-item {
 
 storage-container-pane .resource-grid-icon {
   display: flex;
-  width: 37.282px;
-  height: 37.282px;
-  padding: 0 9.32px;
+  width: 80px;
+  height: 80px;
+  padding: 0;
   justify-content: center;
   align-items: center;
   aspect-ratio: 1/1;
+  margin: 12px auto 0;
+}
+
+storage-container-pane .resource-grid-icon .resource-pane-icon {
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+}
+
+storage-container-pane .resource-grid-icon--container {
+  width: 37.282px;
+  height: 37.282px;
+  padding: 0 9.32px;
+  margin: 12px 0 0 12px;
+  justify-content: flex-start;
+}
+
+storage-container-pane .resource-grid-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  width: 100%;
+  min-height: 92px;
+  position: relative;
 }
 
 storage-container-pane .resource-grid-label {
+  color: var(--solid-ui-color-gray-500, #6A7282);
+  font-size: var(--solid-ui-font-size-xs, .75rem);
+  font-weight: 500;
+  padding: 0 12px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+storage-container-pane .resource-grid-label--container {
   color: var(--solid-ui-color-gray-700, #364153);
   font-size: var(--solid-ui-font-size-md, 1rem);
   font-weight: 500;
-  padding: 0 12px;
 }
 
 storage-container-pane .resource-grid-item-footer {
@@ -119,6 +177,24 @@ storage-container-pane .resource-grid-item-footer {
   min-height: 40px;
   padding: 0 15px;
   border-top: 1px solid var(--solid-ui-color-gray-200, #E5E7EB);
+  gap: 12px;
+}
+
+storage-container-pane .resource-actions-menu {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  justify-content: flex-end;
+}
+
+storage-container-pane .resource-actions-menu--grid {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+}
+
+storage-container-pane .resource-actions-menu--list {
+  margin-left: auto;
 }
 
 storage-container-pane .container-member-count {
@@ -144,10 +220,11 @@ storage-container-pane icon-lucide-lock-keyhole {
 }
 
 storage-container-pane storage-content-view {
-  display: block;
+  display: flex;
   width: 100%;
   min-height: 0;
-  flex: 0 0 auto;
+  flex: 1 1 0%;
+  overflow: auto;
 }
 
 storage-container-pane storage-creation-area {

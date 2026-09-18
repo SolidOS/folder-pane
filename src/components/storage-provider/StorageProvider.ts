@@ -27,6 +27,9 @@ export default class StorageProvider extends WebComponent {
   accessor selectedResource: NamedNode | undefined = undefined
 
   @state()
+  accessor selectedPaneName: string | undefined = undefined
+
+  @state()
   accessor view: 'grid' | 'list' = 'grid'
 
   @state()
@@ -52,7 +55,7 @@ export default class StorageProvider extends WebComponent {
     return subjectUri ? this.store.sym(subjectUri) : undefined
   }
 
-  private selectResource = (resource: NamedNode) => {
+  private selectResource = (resource: NamedNode, paneName?: string) => {
     const currentResource = this.selectedResource ?? this.currentSubject
 
     if (currentResource && !currentResource.sameTerm(resource)) {
@@ -60,6 +63,7 @@ export default class StorageProvider extends WebComponent {
     }
 
     this.selectedResource = resource
+    this.selectedPaneName = paneName
     this.searchQuery = ''
     this.refreshStorageContextValue()
   }
@@ -81,6 +85,7 @@ export default class StorageProvider extends WebComponent {
 
       this.history = previousHistory
       this.selectedResource = previousResource
+      this.selectedPaneName = undefined
       this.refreshStorageContextValue()
     }
   }
@@ -88,6 +93,7 @@ export default class StorageProvider extends WebComponent {
   private refreshStorageContextValue () {
     this.storageContext = {
       selectedResource: this.selectedResource ?? this.currentSubject,
+      selectedPaneName: this.selectedPaneName,
       selectResource: this.selectResource,
       view: this.view,
       setView: this.setView,
@@ -113,11 +119,13 @@ export default class StorageProvider extends WebComponent {
     const subjectChanged = changedProperties.has('subject')
     const parentFileExplorerContextChanged = changedProperties.has('parentFileExplorerContext')
     const selectedResourceChanged = changedProperties.has('selectedResource')
-    const storageContextShouldRefresh = subjectChanged || parentFileExplorerContextChanged || selectedResourceChanged
+    const selectedPaneNameChanged = changedProperties.has('selectedPaneName')
+    const storageContextShouldRefresh = subjectChanged || parentFileExplorerContextChanged || selectedResourceChanged || selectedPaneNameChanged
     const fileExplorerContextShouldRefresh = subjectChanged || parentFileExplorerContextChanged
 
     if (subjectChanged) {
       this.selectedResource = this.currentSubject
+      this.selectedPaneName = undefined
     }
 
     if (storageContextShouldRefresh) {

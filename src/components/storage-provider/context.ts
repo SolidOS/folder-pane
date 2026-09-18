@@ -5,7 +5,8 @@ export type ViewMode = 'grid' | 'list'
 
 export interface StorageContext {
   selectedResource: NamedNode | undefined,
-  selectResource: (resource: NamedNode) => void,
+  selectedPaneName: string | undefined,
+  selectResource: (resource: NamedNode, paneName?: string) => void,
   view: ViewMode,
   setView: (view: ViewMode) => void,
   searchQuery: string,
@@ -15,6 +16,7 @@ export interface StorageContext {
 
 export const DEFAULT_STORAGE_CONTEXT: StorageContext = {
   selectedResource: undefined,
+  selectedPaneName: undefined,
   selectResource: () => {},
   view: 'grid',
   setView: (view: ViewMode) => {},
