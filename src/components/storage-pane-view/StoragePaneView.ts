@@ -36,6 +36,9 @@ export default class StoragePaneView extends WebComponent {
   @query('.storage-pane-status')
   private accessor statusArea: HTMLElement | null = null
 
+  @query('storage-resource-sidebar')
+  private accessor sidebar: HTMLElement | null = null
+
   private renderedSelectionKey: string | undefined = undefined
 
   // Keep the storage shell in light DOM: the legacy panes rendered into the
@@ -55,6 +58,7 @@ export default class StoragePaneView extends WebComponent {
 
     if (this.renderedSelectionKey !== selectionKey) {
       this.renderedSelectionKey = selectionKey
+      this.refreshSidebar()
 
       if (this.storageContext.selectedPaneName) {
         void this.showSelectedPaneInContentView(selectedResource, this.storageContext.selectedPaneName)
@@ -161,6 +165,12 @@ export default class StoragePaneView extends WebComponent {
   }
 
   private getStatusArea = () => this.statusArea
+
+  private refreshSidebar () {
+    const sidebar = this.sidebar as HTMLElement & { refresh?: () => void } | null
+
+    sidebar?.refresh?.()
+  }
 
   render () {
     return html`

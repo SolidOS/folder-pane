@@ -51,10 +51,7 @@ export async function makeNewAppInstance (options: MakeNewAppInstanceOptions): P
     throw new Error('Cannot mint new thing - missing newInstance')
   }
 
-  // A package is minted as a container holding an index document, so the
-  // container is what the sidebar lists and what should become selected.
-  const isPackage = created.newInstance.uri.slice(container.uri.length).includes('/')
-  const newResource = isPackage ? kb.sym(created.newBase) : created.newInstance
+  const newResource = created.newInstance
 
   kb.add(container, ns.ldp('contains'), newResource, container.doc())
 

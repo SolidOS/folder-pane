@@ -64,6 +64,10 @@ export default class StorageResourceSidebar extends WebComponent {
     this.resources = loadedResources
   }
 
+  refresh () {
+    void this.syncResources()
+  }
+
   protected firstUpdated () {
     void this.syncResources()
   }

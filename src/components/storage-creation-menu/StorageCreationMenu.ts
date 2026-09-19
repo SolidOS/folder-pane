@@ -6,6 +6,8 @@ import type { PropertyValues } from 'lit'
 import type { DataBrowserContext, PaneDefinition } from 'pane-registry'
 import type { NamedNode } from 'rdflib'
 import type { AuthContext } from 'solid-ui'
+import { DEFAULT_STORAGE_CONTEXT, storageContext, type StorageContext } from '../storage-provider/context'
+import { solidLogicSingleton } from 'solid-logic'
 import 'solid-ui/components/button'
 import 'solid-ui/components/menu'
 import 'solid-ui/components/menu-item'
@@ -36,6 +38,9 @@ export default class StorageCreationMenu extends WebComponent {
   @consume({ context: authContext, subscribe: true })
   private accessor auth: AuthContext = DEFAULT_AUTH_CONTEXT
 
+  @consume({ context: storageContext, subscribe: true })
+  private accessor storageContext: StorageContext = DEFAULT_STORAGE_CONTEXT
+
   @state()
   accessor availablePanes: PaneDefinition[] = []
 
@@ -59,6 +64,16 @@ export default class StorageCreationMenu extends WebComponent {
       // filterAvailablePanes only filters by audience; only minting panes can create anything.
       this.availablePanes = audiencePanes.filter((pane) => pane.mintNew)
     }
+  }
+
+  private get canAddToCurrentResource () {
+    return !!this.container && solidLogicSingleton.resource.isContainer(this.container)
+  }
+
+  private get addTooltip () {
+    return this.canAddToCurrentResource
+      ? 'Add a new item in the selected container'
+      : 'Select a container to add items here'
   }
 
   private async handlePaneSelected (pane: PaneDefinition) {
@@ -89,11 +104,12 @@ export default class StorageCreationMenu extends WebComponent {
       statusArea: this.getStatusArea?.() ?? this
     })
 
-    this.dispatchEvent(new CustomEvent('resource-selected', {
-      detail: { resource: newResource },
-      bubbles: true,
-      composed: true
-    }))
+    // Folder is the shell itself, so re-selecting it would nest the whole
+    // storage UI. Dokieli is mint-only here, so it also falls back.
+    const selectedPaneName = pane.name === 'folder' || pane.name === 'Dokieli'
+      ? undefined
+      : pane.name
+    this.storageContext.selectResource(newResource, selectedPaneName)
   }
 
   render () {
@@ -101,7 +117,7 @@ export default class StorageCreationMenu extends WebComponent {
 
     return html`
       <solid-ui-menu placement="bottom-end">
-        <solid-ui-button slot="trigger" variant="primary" ?disabled=${!isLoggedIn}>
+        <solid-ui-button slot="trigger" variant="primary" ?disabled=${!isLoggedIn || !this.canAddToCurrentResource} title=${this.addTooltip}>
           <icon-lucide-plus slot="left-icon"></icon-lucide-plus>
           Add
           <icon-lucide-chevron-down slot="right-icon"></icon-lucide-chevron-down>

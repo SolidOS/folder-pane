@@ -1,6 +1,6 @@
 import { customElement, DialogComponent } from 'solid-ui'
 import { html } from 'lit'
-import { property, state } from 'lit/decorators.js'
+import { property, query, state } from 'lit/decorators.js'
 import styles from './StorageCreationDialog.styles.css'
 import 'solid-ui/components/button'
 import 'solid-ui/components/dialog'
@@ -19,6 +19,9 @@ export default class StorageCreationDialog extends DialogComponent<string> {
   @state()
   accessor name = ''
 
+  @query('input')
+  private accessor nameInput: HTMLInputElement | null = null
+
   private cancel = () => this.close()
 
   private confirm = () => {
@@ -35,9 +38,17 @@ export default class StorageCreationDialog extends DialogComponent<string> {
     this.name = (event.target as HTMLInputElement).value
   }
 
+  protected firstUpdated () {
+    requestAnimationFrame(() => {
+      this.nameInput?.focus()
+      this.nameInput?.setSelectionRange(0, this.nameInput.value.length)
+    })
+  }
+
   protected render () {
     const paneLabel = this.label ?? 'Container'
     const fieldLabel = `${paneLabel} Name`
+    const placeholder = `Untitled ${paneLabel}`
 
     return html`
       <solid-ui-dialog>
@@ -52,7 +63,8 @@ export default class StorageCreationDialog extends DialogComponent<string> {
             <span>${fieldLabel}</span>
             <input
               type="text"
-              .value=${this.name || `Untitled ${paneLabel}`}
+              placeholder=${placeholder}
+              .value=${this.name}
               @input=${this.onNameInput}
             />
           </label>

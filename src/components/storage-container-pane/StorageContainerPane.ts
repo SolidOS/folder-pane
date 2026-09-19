@@ -353,7 +353,7 @@ export default class StorageContainerPane extends WebComponent {
     void this.ensureResourcePaneItems(resource)
     this.ensureResourceVisibility(resource)
     const isPublic = this.resourceVisibility.get(resource.id)
-    const { isContainer, getContainerMemberCount } = solidLogicSingleton.resource
+    const { isContainer, getContainerVisibleItemCount } = solidLogicSingleton.resource
 
     if (isContainer(resource.subject)) {
       return html`
@@ -380,7 +380,7 @@ export default class StorageContainerPane extends WebComponent {
           </span>
           <span class="resource-grid-label resource-grid-label--container">${utils.label(resource.subject)}</span>
           <div class="resource-grid-item-footer">
-            <span class="container-member-count">${getContainerMemberCount(resource.subject)} items</span>
+            <span class="container-member-count">${getContainerVisibleItemCount(resource.subject)} items</span>
             ${isPublic === undefined ? nothing : isPublic ? html`<icon-lucide-globe></icon-lucide-globe>` : html`<icon-lucide-lock-keyhole></icon-lucide-lock-keyhole>`}
           </div>
           ${this.renderResourceActionsMenu(resource, 'grid')}
@@ -415,7 +415,7 @@ export default class StorageContainerPane extends WebComponent {
         </div>
         <div class="resource-grid-item-footer">
           <span class="resource-grid-label">${utils.label(resource.subject)}</span>
-          ${isContainer(resource.subject) ? html`<span class="container-member-count">${getContainerMemberCount(resource.subject)} items</span>` : nothing}
+          ${isContainer(resource.subject) ? html`<span class="container-member-count">${getContainerVisibleItemCount(resource.subject)} items</span>` : nothing}
           ${isPublic === undefined ? nothing : isPublic ? html`<icon-lucide-globe></icon-lucide-globe>` : html`<icon-lucide-lock-keyhole></icon-lucide-lock-keyhole>`}
         </div>
       </li>
@@ -427,7 +427,7 @@ export default class StorageContainerPane extends WebComponent {
     void this.ensureResourcePaneItems(resource)
     this.ensureResourceVisibility(resource)
     const isPublic = this.resourceVisibility.get(resource.id)
-    const { isContainer, getContainerMemberCount } = solidLogicSingleton.resource
+    const { isContainer, getContainerVisibleItemCount } = solidLogicSingleton.resource
 
     return html`
       <li
@@ -452,7 +452,7 @@ export default class StorageContainerPane extends WebComponent {
           ${this.renderResourceIcon(resource)}
         </span>
         <span class="resource-list-label">${utils.label(resource.subject)}</span>
-        ${isContainer(resource.subject) ? html`<span class="container-member-count">${getContainerMemberCount(resource.subject)} items</span>` : nothing}
+        ${isContainer(resource.subject) ? html`<span class="container-member-count">${getContainerVisibleItemCount(resource.subject)} items</span>` : nothing}
         ${isPublic === undefined ? nothing : isPublic ? html`<icon-lucide-globe></icon-lucide-globe>` : html`<icon-lucide-lock-keyhole></icon-lucide-lock-keyhole>`}
         ${this.renderResourceActionsMenu(resource, 'list')}
       </li>

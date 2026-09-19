@@ -263,15 +263,6 @@ function handleContainerDragOver (event: DragEvent, store, container: NamedNode)
   return true
 }
 
-function isContainerResource (store, resource: NamedNode): boolean {
-  if (!store) return false
-
-  // A freshly minted container has no statements in the store yet.
-  if (resource.uri.endsWith('/')) return true
-
-  return store.each(resource, ns.ldp('contains')).length > 0 || store.holds(resource, ns.rdf('type'), ns.ldp('Container'))
-}
-
 function isStorageRoot (store, resource: NamedNode): boolean {
   if (!store) return false
 
@@ -292,7 +283,7 @@ async function renderSelectedResourceInContentView ({
   outliner,
   renderContainerPane,
 }: ContentViewRenderer): Promise<void> {
-  const isContainer = isContainerResource(store, selectedResource)
+  const isContainer = solidLogicSingleton.resource.isContainer(selectedResource)
 
   if (isContainer) {
     try {
@@ -330,7 +321,6 @@ export {
   loadResourcesForStorage,
   handleContainerDragOver,
   handleContainerDrop,
-  isContainerResource, 
   isStorageRoot, 
   noHiddenFiles, 
   parseDroppedUris,
