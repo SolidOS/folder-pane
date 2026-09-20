@@ -15,6 +15,7 @@ import { consume } from '@lit/context'
 import { DEFAULT_STORAGE_CONTEXT, StorageContext, storageContext } from '../storage-provider/context'
 import { LiveStore } from 'rdflib'
 import { getResourcesForContainer, handleContainerDragOver, handleContainerDrop, loadResourcesForContainer } from '../../helpers'
+import '~icons/lucide/trash-2'
 
 @customElement('storage-resource-sidebar')
 export default class StorageResourceSidebar extends WebComponent {
@@ -101,6 +102,10 @@ export default class StorageResourceSidebar extends WebComponent {
     return utils.label(resource.subject).toLowerCase() === 'public'
   }
 
+  private isTrashResource (resource: Resource) {
+    return utils.label(resource.subject).toLowerCase() === 'trash'
+  }
+
   private getHomeResource (): Resource | null {
     const subject = this.currentSubject
 
@@ -118,7 +123,7 @@ export default class StorageResourceSidebar extends WebComponent {
 
   private renderSpecialRootItem (
     label: string,
-    icon: 'folder' | 'globe',
+    icon: 'folder' | 'globe' | 'trash',
     selected: boolean,
     expanded: boolean,
     selectItem: () => void,
@@ -155,10 +160,56 @@ export default class StorageResourceSidebar extends WebComponent {
               toggleExpanded()
             }}
           ></icon-lucide-chevron-right>
-          ${icon === 'folder' ? html`<icon-lucide-folder></icon-lucide-folder>` : html`<icon-lucide-globe></icon-lucide-globe>`}
+          ${icon === 'folder'
+            ? html`<icon-lucide-folder></icon-lucide-folder>`
+            : icon === 'globe'
+              ? html`<icon-lucide-globe></icon-lucide-globe>`
+              : html`<icon-lucide-trash-2></icon-lucide-trash-2>`}
           ${label}
         </div>
         ${expanded ? children : nothing}
+      </li>
+    `
+  }
+
+  private renderTrashResource (resource: Resource) {
+    const selected = this.isSelectedResource(resource)
+    const isExpanded = this.expandedContainers.has(resource.id)
+    const children = resource.isContainer && isExpanded
+      ? getResourcesForContainer(this.store, resource.subject)
+      : null
+
+    return html`
+      <li
+        class=${selected ? 'resource-item selected' : 'resource-item'}
+        notSelectable="false"
+        role="treeitem"
+        aria-selected=${String(selected)}
+        aria-expanded=${resource.isContainer ? String(isExpanded) : nothing}
+        data-expanded=${String(isExpanded)}
+        about=${resource.subject.toNT()}
+        .subject=${resource.subject}
+        @dragover=${(event: DragEvent) => this.onContainerDragOver(resource, event)}
+        @drop=${(event: DragEvent) => this.onContainerDrop(resource, event)}
+      >
+        <div
+          class="resource-row resource-row-special"
+          tabindex="0"
+          @click=${() => this.selectResource(resource)}
+          @keydown=${(event: KeyboardEvent) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault()
+              this.selectResource(resource)
+            }
+          }}
+        >
+          <icon-lucide-chevron-right
+            @click=${(event: MouseEvent) => this.expandContainer(resource, event)}
+          ></icon-lucide-chevron-right>
+          <icon-lucide-trash-2></icon-lucide-trash-2>
+          Trash
+        </div>
+        ${children ? this.renderResourceGroup(children, false) : nothing}
       </li>
     `
   }
@@ -241,6 +292,12 @@ export default class StorageResourceSidebar extends WebComponent {
     const publicResource = publicResourceIndex >= 0
       ? orderedResources.splice(publicResourceIndex, 1)[0]
       : null
+    const trashResourceIndex = isRoot
+      ? orderedResources.findIndex((resource) => this.isTrashResource(resource))
+      : -1
+    const trashResource = trashResourceIndex >= 0
+      ? orderedResources.splice(trashResourceIndex, 1)[0]
+      : null
     const homeResource = this.getHomeResource()
 
     return html`
@@ -266,6 +323,7 @@ export default class StorageResourceSidebar extends WebComponent {
             (resource) => this.renderResourceItem(resource)
           )}
         ${isRoot && publicResource ? this.renderPublicResource(publicResource) : nothing}
+        ${isRoot && trashResource ? this.renderTrashResource(trashResource) : nothing}
       </ul>
     `
   }
@@ -315,9 +373,14 @@ export default class StorageResourceSidebar extends WebComponent {
   protected willUpdate (changedProperties: PropertyValues<this>) {
     super.willUpdate(changedProperties)
 
+    const previousStorageContext = changedProperties.get('storageContext') as StorageContext | undefined
+    const resourceRevisionChanged = changedProperties.has('storageContext') &&
+      previousStorageContext?.resourceRevision !== this.storageContext.resourceRevision
+
     if (
       changedProperties.has('store') ||
-      changedProperties.has('fileExplorerContext')
+      changedProperties.has('fileExplorerContext') ||
+      resourceRevisionChanged
     ) {
       void this.syncResources()
     }

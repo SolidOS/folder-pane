@@ -1,9 +1,8 @@
 import { html, nothing } from 'lit'
-import { property, query, state } from 'lit/decorators.js'
+import { property, state } from 'lit/decorators.js'
 import type { PropertyValues } from 'lit'
 import { consume } from '@lit/context'
 import '../storage-header'
-import '../storage-content-view'
 import '../storage-creation-area'
 import type { LiveStore, NamedNode } from 'rdflib'
 import type { DataBrowserContext } from 'pane-registry'
@@ -12,10 +11,10 @@ import type { FileExplorerContext } from 'solid-ui'
 import type { StorageContext } from '../storage-provider/context'
 import { storageContext, DEFAULT_STORAGE_CONTEXT } from '../storage-provider/context'
 import { solidLogicSingleton } from 'solid-logic'
-import { customElement, DEFAULT_STORE, fileExplorerContext, log, storeContext, utils, WebComponent } from 'solid-ui'
+import { customElement, DEFAULT_STORE, fileExplorerContext, storeContext, utils, WebComponent } from 'solid-ui'
 import type { PaneDefinition } from 'pane-registry'
 import { Resource, type ResourceMap, StoragePaneOutliner } from '../../types'
-import { getResourcesForContainer, getResourcesFromSearchQuery, handleContainerDragOver, handleContainerDrop, loadResourcesForContainer, renderSelectedResourceInContentView } from '../../helpers'
+import { getResourcesForContainer, getResourcesFromSearchQuery, handleContainerDragOver, handleContainerDrop, loadResourcesForContainer } from '../../helpers'
 import { getRelevantPanes, getRelevantPane } from 'solid-ui'
 import type { ResourceActionMenuItem as ResourcePaneMenuItem } from 'solid-ui/components/resource-actions-menu'
 import styles from './StorageContainerPane.styles.css'
@@ -52,7 +51,7 @@ export default class StorageContainerPane extends WebComponent {
   accessor resources: ResourceMap = new Map()
 
   @state()
-  accessor resourceVisibility: Map<string, boolean> = new Map()
+  accessor resourceAccess: Map<string, { isPublic: boolean, canDelete: boolean }> = new Map()
 
   @state()
   accessor resourcePaneIcons: Map<string, string> = new Map()
@@ -63,15 +62,12 @@ export default class StorageContainerPane extends WebComponent {
   @state()
   accessor resourceRelevantPanes: Map<string, PaneDefinition[]> = new Map()
 
-  private resourceVisibilityLoading = new Set<string>()
+  private resourceAccessLoading = new Set<string>()
   private resourcePaneLoading = new Set<string>()
   private resourceSyncGeneration = 0
 
   @state()
   accessor isLoadingResources = false
-
-  @query('storage-content-view')
-  private accessor contentView: HTMLElement | null = null
 
   protected createRenderRoot () {
     return this
@@ -91,27 +87,25 @@ export default class StorageContainerPane extends WebComponent {
     return this.storageContext.selectedResource ?? this.currentSubject
   }
 
-  private ensureResourceVisibility (resource: Resource) {
-    if (this.resourceVisibility.has(resource.id) || this.resourceVisibilityLoading.has(resource.id)) {
+  private ensureResourceAccess (resource: Resource) {
+    if (this.resourceAccess.has(resource.id) || this.resourceAccessLoading.has(resource.id)) {
       return
     }
 
-    this.resourceVisibilityLoading.add(resource.id)
+    this.resourceAccessLoading.add(resource.id)
 
     void solidLogicSingleton.resource.fetchMetadata(resource.subject)
       .then((metadata) => {
-        const nextVisibility = metadata.access.isPublic
-        if (this.resourceVisibility.get(resource.id) === nextVisibility) {
-          return
-        }
-
-        this.resourceVisibility = new Map(this.resourceVisibility).set(resource.id, nextVisibility)
+        this.resourceAccess = new Map(this.resourceAccess).set(resource.id, {
+          isPublic: metadata.access.isPublic,
+          canDelete: metadata.access.canDelete,
+        })
       })
       .catch(() => {
-        // Unknown visibility stays unknown; render nothing.
+        // Unknown access stays unknown; hide access-dependent actions and indicators.
       })
       .finally(() => {
-        this.resourceVisibilityLoading.delete(resource.id)
+        this.resourceAccessLoading.delete(resource.id)
       })
   }
 
@@ -149,7 +143,7 @@ export default class StorageContainerPane extends WebComponent {
     this.isLoadingResources = false
 
     for (const resource of this.resources.values()) {
-      this.ensureResourceVisibility(resource)
+      this.ensureResourceAccess(resource)
     }
   }
 
@@ -247,8 +241,43 @@ export default class StorageContainerPane extends WebComponent {
     this.storageContext.selectResource(resource.subject, pane.name)
   }
 
+  private async deleteResource (resource: Resource) {
+    try {
+      await this.storageContext.deleteResource(resource.subject)
+
+      const resources = new Map(this.resources)
+      resources.delete(resource.id)
+      this.resources = resources
+
+      const resourceAccess = new Map(this.resourceAccess)
+      resourceAccess.delete(resource.id)
+      this.resourceAccess = resourceAccess
+
+      const resourcePaneIcons = new Map(this.resourcePaneIcons)
+      resourcePaneIcons.delete(resource.id)
+      this.resourcePaneIcons = resourcePaneIcons
+
+      const resourcePaneItems = new Map(this.resourcePaneItems)
+      resourcePaneItems.delete(resource.id)
+      this.resourcePaneItems = resourcePaneItems
+
+      const resourceRelevantPanes = new Map(this.resourceRelevantPanes)
+      resourceRelevantPanes.delete(resource.id)
+      this.resourceRelevantPanes = resourceRelevantPanes
+    } catch (error) {
+      console.error('[storage-container-pane.deleteResource] failed', error)
+      globalThis.alert(this.currentSubject?.uri.endsWith('/Trash/')
+        ? 'Error deleting resource'
+        : 'Error moving resource to Trash')
+    }
+  }
+
   private renderResourceActionsMenu (resource: Resource, placement: 'grid' | 'list') {
     const sharingPane = byName('sharing')
+    const canDelete = this.resourceAccess.get(resource.id)?.canDelete ?? false
+    const deleteLabel = this.currentSubject?.uri.endsWith('/Trash/')
+      ? 'Permanently Delete'
+      : 'Move to Trash'
     const menuItems = [
       ...(this.resourcePaneItems.get(resource.id) ?? [])
     ]
@@ -262,6 +291,10 @@ export default class StorageContainerPane extends WebComponent {
                 this.storageContext.selectResource(resource.subject, sharingPane.name)
               }
             : undefined}
+          .handleDeleteClick=${canDelete
+            ? () => { void this.deleteResource(resource) }
+            : undefined}
+          .deleteLabel=${deleteLabel}
         ></solid-ui-resource-actions-menu>
       </div>
     `
@@ -281,38 +314,6 @@ export default class StorageContainerPane extends WebComponent {
     }
 
     handleContainerDrop(event, this.store, resource.subject, () => { void this.syncResources() })
-  }
-
-  private renderContainerPane (selectedResource: NamedNode) {
-    if (!this.contentView) return
-
-    const containerPane = document.createElement('storage-container-pane') as HTMLElement & {
-      outliner?: StoragePaneOutliner
-      browserContext?: DataBrowserContext | null
-      subject?: NamedNode
-    }
-
-    containerPane.subject = selectedResource
-    containerPane.outliner = this.outliner
-    containerPane.browserContext = this.browserContext
-
-    this.contentView.replaceChildren(containerPane)
-  }
-
-  private async showResourceInContentView (selectedResource: NamedNode) {
-    try {
-      if (this.contentView) {
-        await renderSelectedResourceInContentView({
-          store: this.store,
-          selectedResource,
-          contentView: this.contentView,
-          outliner: this.outliner,
-          renderContainerPane: this.renderContainerPane.bind(this),
-        })
-      }
-    } catch (error) {
-      log.error('Unable to render selected resource: ' + error)
-    }
   }
 
   private isSelectedResource (resource: Resource) {
@@ -351,8 +352,8 @@ export default class StorageContainerPane extends WebComponent {
   private renderResourceGridItem (resource: Resource, depth: number) {
     const selected = this.isSelectedResource(resource)
     void this.ensureResourcePaneItems(resource)
-    this.ensureResourceVisibility(resource)
-    const isPublic = this.resourceVisibility.get(resource.id)
+    this.ensureResourceAccess(resource)
+    const isPublic = this.resourceAccess.get(resource.id)?.isPublic
     const { isContainer, getContainerVisibleItemCount } = solidLogicSingleton.resource
 
     if (isContainer(resource.subject)) {
@@ -425,8 +426,8 @@ export default class StorageContainerPane extends WebComponent {
   private renderResourceListItem (resource: Resource, depth: number) {
     const selected = this.isSelectedResource(resource)
     void this.ensureResourcePaneItems(resource)
-    this.ensureResourceVisibility(resource)
-    const isPublic = this.resourceVisibility.get(resource.id)
+    this.ensureResourceAccess(resource)
+    const isPublic = this.resourceAccess.get(resource.id)?.isPublic
     const { isContainer, getContainerVisibleItemCount } = solidLogicSingleton.resource
 
     return html`
@@ -462,34 +463,17 @@ export default class StorageContainerPane extends WebComponent {
   protected willUpdate (changedProperties: PropertyValues<this>) {
     super.willUpdate(changedProperties)
 
+    const previousStorageContext = changedProperties.get('storageContext') as StorageContext | undefined
+    const resourceRevisionChanged = changedProperties.has('storageContext') &&
+      previousStorageContext?.resourceRevision !== this.storageContext.resourceRevision
+
     if (
       changedProperties.has('store') ||
       changedProperties.has('subject') ||
-      changedProperties.has('fileExplorerContext')
+      changedProperties.has('fileExplorerContext') ||
+      resourceRevisionChanged
     ) {
       void this.syncResources()
-    }
-  }
-
-  protected updated (changedProperties: PropertyValues<this>) {
-    if (!changedProperties.has('storageContext')) {
-      return
-    }
-
-    const previousStorageContext = changedProperties.get('storageContext') as StorageContext | undefined
-    const previousSelectedResourceUri = previousStorageContext?.selectedResource?.uri
-    const currentSelectedResourceUri = this.selectedResource?.uri
-    const currentSubjectUri = this.currentSubject?.uri
-
-    if (previousSelectedResourceUri !== currentSelectedResourceUri) {
-      if (!currentSelectedResourceUri || currentSelectedResourceUri === currentSubjectUri) {
-        this.contentView?.replaceChildren()
-        return
-      }
-
-      if (this.selectedResource) {
-        void this.showResourceInContentView(this.selectedResource)
-      }
     }
   }
 
@@ -526,21 +510,14 @@ export default class StorageContainerPane extends WebComponent {
   render () {
     const visibleResources = this.visibleResources
     const searchQuery = this.searchQuery
-    const selectedResource = this.selectedResource
-    const showContainerListAndCreationArea = !selectedResource || selectedResource.sameTerm(this.currentSubject ?? selectedResource)
 
     return html`
-      ${showContainerListAndCreationArea ? nothing : html`<storage-content-view></storage-content-view>`}
-      ${showContainerListAndCreationArea
-        ? html`
-            ${this.renderResourceListArea(searchQuery, visibleResources)}
-            <storage-creation-area
-              .subject=${this.currentSubject}
-              .message=${'Drop files or folder here'}
-              @resource-created=${this.syncResources}
-            ></storage-creation-area>
-          `
-        : nothing}
+      ${this.renderResourceListArea(searchQuery, visibleResources)}
+      <storage-creation-area
+        .subject=${this.currentSubject}
+        .message=${'Drop files or folder here'}
+        @resource-created=${this.syncResources}
+      ></storage-creation-area>
     `
   }
 }
