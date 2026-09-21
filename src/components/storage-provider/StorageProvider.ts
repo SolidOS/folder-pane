@@ -9,6 +9,7 @@ import { fileExplorerContext, type FileExplorerContext, storeContext, DEFAULT_ST
 import { solidLogicSingleton } from 'solid-logic'
 import type { LiveStore } from 'rdflib'
 import { DEFAULT_STORAGE_CONTEXT, storageContext, type StorageContext } from './context'
+import { DEFAULT_DISCOVER_CLASS } from 'solid-ui'
 
 @customElement('storage-provider')
 export default class StorageProvider extends WebComponent {
@@ -137,11 +138,14 @@ export default class StorageProvider extends WebComponent {
   }
 
   private refreshFileExplorerContextValue () {
+    const currentSubjectDiscoverClass = this.currentSubject ? solidLogicSingleton.resource.getContainerMintClass(this.currentSubject) : undefined
+
     this.fileExplorerContext = {
       subjectUri: this.currentSubject?.uri,
       onBack: this.goBack,
       deleteResource: this.deleteResource,
-      resourceRevision: this.resourceRevision
+      resourceRevision: this.resourceRevision,
+      discoverClass: currentSubjectDiscoverClass ?? this.parentFileExplorerContext?.discoverClass ?? DEFAULT_DISCOVER_CLASS
     }
   }
 

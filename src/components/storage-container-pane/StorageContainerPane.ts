@@ -16,7 +16,9 @@ import type { PaneDefinition } from 'pane-registry'
 import { Resource, type ResourceMap, StoragePaneOutliner } from '../../types'
 import { getResourcesForContainer, getResourcesFromSearchQuery, handleContainerDragOver, handleContainerDrop, loadResourcesForContainer } from '../../helpers'
 import { getRelevantPanes, getRelevantPane } from 'solid-ui'
+import { buildResourceActionsMenuBindings, loadDiscoveryState, toggleDiscoveryState } from 'solid-ui/components/resource-actions-menu'
 import type { ResourceActionMenuItem as ResourcePaneMenuItem } from 'solid-ui/components/resource-actions-menu'
+import { DEFAULT_DISCOVER_CLASS } from 'solid-ui'
 import styles from './StorageContainerPane.styles.css'
 import 'solid-ui/components/file-explorer-header'
 import 'solid-ui/components/resource-actions-menu'
@@ -62,8 +64,12 @@ export default class StorageContainerPane extends WebComponent {
   @state()
   accessor resourceRelevantPanes: Map<string, PaneDefinition[]> = new Map()
 
+  @state()
+  accessor resourceDiscovery: Map<string, { discoverClassUri?: string, public: boolean, private: boolean }> = new Map()
+
   private resourceAccessLoading = new Set<string>()
   private resourcePaneLoading = new Set<string>()
+  private resourceDiscoveryLoading = new Set<string>()
   private resourceSyncGeneration = 0
 
   @state()
@@ -232,8 +238,69 @@ export default class StorageContainerPane extends WebComponent {
 
       this.resourceRelevantPanes = new Map(this.resourceRelevantPanes).set(resource.id, relevantPanes)
       this.resourcePaneItems = new Map(this.resourcePaneItems).set(resource.id, menuItems)
+
+      const discoverClass = this.resolveResourceDiscoverClass(resource, selectedPane, relevantPanes)
+      await this.ensureResourceDiscovery(resource, discoverClass)
     } finally {
       this.resourcePaneLoading.delete(resource.id)
+    }
+  }
+
+  private resolveResourceDiscoverClass (resource: Resource, selectedPane: PaneDefinition | null, relevantPanes: PaneDefinition[]) {
+    return (
+      (resource.isContainer ? solidLogicSingleton.resource.getContainerMintClass(resource.subject) : undefined) ??
+      this.fileExplorerContext.discoverClass ??
+      selectedPane?.mintClass ??
+      relevantPanes.find((pane) => pane.mintClass)?.mintClass ??
+      DEFAULT_DISCOVER_CLASS
+    )
+  }
+
+  private async ensureResourceDiscovery (resource: Resource, discoverClass?: NamedNode) {
+    if (!this.browserContext || this.resourceDiscoveryLoading.has(resource.id)) {
+      return
+    }
+
+    const currentDiscovery = this.resourceDiscovery.get(resource.id)
+    if (currentDiscovery?.discoverClassUri === discoverClass?.uri) {
+      return
+    }
+
+    this.resourceDiscoveryLoading.add(resource.id)
+
+    try {
+      const discoveryState = await loadDiscoveryState(resource.subject)
+
+      this.resourceDiscovery = new Map(this.resourceDiscovery).set(resource.id, {
+        discoverClassUri: discoverClass?.uri,
+        public: discoveryState.public,
+        private: discoveryState.private,
+      })
+    } finally {
+      this.resourceDiscoveryLoading.delete(resource.id)
+    }
+  }
+
+  private async toggleResourceDiscovery (resource: Resource, visibility: 'public' | 'private') {
+    const discovery = this.resourceDiscovery.get(resource.id)
+    const resolvedDiscoverClassUri = discovery?.discoverClassUri ?? this.resolveResourceDiscoverClass(resource, null, this.resourceRelevantPanes.get(resource.id) ?? [])?.uri
+    if (!resolvedDiscoverClassUri) {
+      return
+    }
+
+    const discoverClass = this.store.sym(resolvedDiscoverClassUri)
+
+    try {
+      const updatedDiscovery = await toggleDiscoveryState(resource.subject, discoverClass, visibility, discovery)
+
+      this.resourceDiscovery = new Map(this.resourceDiscovery).set(resource.id, {
+        discoverClassUri: discoverClass.uri,
+        public: updatedDiscovery.public,
+        private: updatedDiscovery.private,
+      })
+    } catch (error) {
+      console.error('[storage-container-pane.toggleResourceDiscovery] failed', error)
+      globalThis.alert(`Error updating ${visibility} discovery`)
     }
   }
 
@@ -264,6 +331,10 @@ export default class StorageContainerPane extends WebComponent {
       const resourceRelevantPanes = new Map(this.resourceRelevantPanes)
       resourceRelevantPanes.delete(resource.id)
       this.resourceRelevantPanes = resourceRelevantPanes
+
+      const resourceDiscovery = new Map(this.resourceDiscovery)
+      resourceDiscovery.delete(resource.id)
+      this.resourceDiscovery = resourceDiscovery
     } catch (error) {
       console.error('[storage-container-pane.deleteResource] failed', error)
       globalThis.alert(this.currentSubject?.uri.endsWith('/Trash/')
@@ -275,26 +346,36 @@ export default class StorageContainerPane extends WebComponent {
   private renderResourceActionsMenu (resource: Resource, placement: 'grid' | 'list') {
     const sharingPane = byName('sharing')
     const canDelete = this.resourceAccess.get(resource.id)?.canDelete ?? false
-    const deleteLabel = this.currentSubject?.uri.endsWith('/Trash/')
-      ? 'Permanently Delete'
-      : 'Move to Trash'
     const menuItems = [
       ...(this.resourcePaneItems.get(resource.id) ?? [])
     ]
+
+    const discovery = this.resourceDiscovery.get(resource.id)
+    const resourceActions = buildResourceActionsMenuBindings({
+      subject: this.currentSubject,
+      discoveryState: discovery,
+      handleAccessClick: sharingPane
+        ? () => {
+            this.storageContext.selectResource(resource.subject, sharingPane.name)
+          }
+        : undefined,
+      canDelete,
+      handleDeleteClick: () => { void this.deleteResource(resource) },
+      handleDiscoverPublicClick: discovery ? () => { void this.toggleResourceDiscovery(resource, 'public') } : undefined,
+      handleDiscoverPrivateClick: discovery ? () => { void this.toggleResourceDiscovery(resource, 'private') } : undefined,
+    })
 
     return html`
       <div class="resource-actions-menu resource-actions-menu--${placement}" @click=${(event: MouseEvent) => event.stopPropagation()}>
         <solid-ui-resource-actions-menu
           .menuItems=${menuItems}
-          .handleAccessClick=${sharingPane
-            ? () => {
-                this.storageContext.selectResource(resource.subject, sharingPane.name)
-              }
-            : undefined}
-          .handleDeleteClick=${canDelete
-            ? () => { void this.deleteResource(resource) }
-            : undefined}
-          .deleteLabel=${deleteLabel}
+          .handleAccessClick=${resourceActions.handleAccessClick}
+          .handleDeleteClick=${resourceActions.handleDeleteClick}
+          .deleteLabel=${resourceActions.deleteLabel}
+          .discoverPublicly=${resourceActions.discoverPublicly}
+          .discoverPrivately=${resourceActions.discoverPrivately}
+          .handleDiscoverPublicClick=${resourceActions.handleDiscoverPublicClick}
+          .handleDiscoverPrivateClick=${resourceActions.handleDiscoverPrivateClick}
         ></solid-ui-resource-actions-menu>
       </div>
     `

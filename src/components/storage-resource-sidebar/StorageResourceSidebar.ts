@@ -10,12 +10,12 @@ import '~icons/lucide/chevron-right'
 import '~icons/lucide/folder'
 import '~icons/lucide/globe'
 import '~icons/lucide/circle-small'
+import '~icons/lucide/trash-2'
 import '../storage-creation-area'
 import { consume } from '@lit/context'
 import { DEFAULT_STORAGE_CONTEXT, StorageContext, storageContext } from '../storage-provider/context'
 import { LiveStore } from 'rdflib'
 import { getResourcesForContainer, handleContainerDragOver, handleContainerDrop, loadResourcesForContainer } from '../../helpers'
-import '~icons/lucide/trash-2'
 
 @customElement('storage-resource-sidebar')
 export default class StorageResourceSidebar extends WebComponent {
@@ -65,10 +65,6 @@ export default class StorageResourceSidebar extends WebComponent {
     this.resources = loadedResources
   }
 
-  refresh () {
-    void this.syncResources()
-  }
-
   protected firstUpdated () {
     void this.syncResources()
   }
@@ -76,6 +72,7 @@ export default class StorageResourceSidebar extends WebComponent {
   private async expandContainer (resource: Resource, event: MouseEvent) {
     event.preventDefault()
     event.stopPropagation()
+
     if (!resource.isContainer) {
       return
     }

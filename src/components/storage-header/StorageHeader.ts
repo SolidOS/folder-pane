@@ -69,7 +69,7 @@ export default class StorageHeader extends WebComponent {
         return decodeURIComponent(pathSegments[pathSegments.length - 1])
       }
 
-      return url.host || resource.uri
+      return 'Storage'
     } catch (_error) {
       return resource.uri
     }
