@@ -216,6 +216,7 @@ export default class StoragePaneView extends WebComponent {
       provider.relevantPanes = relevantPanes
       provider.pane = selectedPane
       provider.paneRenderOptions = {}
+      provider.showHeader = false
       provider.onBack = () => {
         const parentSubjectUri = this.fileExplorerContext?.subjectUri
         if (parentSubjectUri) {

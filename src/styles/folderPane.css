@@ -32,7 +32,6 @@
   max-width: none;
   margin-left: 0;
   margin-right: 0;
-  border-top: 0.2em solid #ccc;
   overflow-x: auto;
 }
 
@@ -182,5 +181,10 @@ storage-content-view {
   .storage-pane-explicit-drop-icon {
     width: var(--icon-sm, 1.5em);
     height: var(--icon-sm, 1.5em);
+  }
+
+  .folderPaneMainTable > tr > td.obj,
+  .folderPaneMainTable > tbody > tr > td.obj {
+    padding-left: 5px !important;
   }
 }
