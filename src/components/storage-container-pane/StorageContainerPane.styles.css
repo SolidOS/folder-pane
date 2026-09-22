@@ -58,6 +58,24 @@
   flex-direction: column;
 }
 
+.resource-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--solid-ui-color-gray-600, #4A5565);
+  font-size: var(--solid-ui-font-size-sm, .875rem);
+  font-weight: 500;
+  list-style: none;
+}
+
+.resource-list-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
 .resource-grid {
   display: flex;
   flex-wrap: wrap;

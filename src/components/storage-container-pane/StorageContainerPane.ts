@@ -403,10 +403,7 @@ export default class StorageContainerPane extends WebComponent {
       resourceDiscovery.delete(resource.id)
       this.resourceDiscovery = resourceDiscovery
     } catch (error) {
-      console.error('[storage-container-pane.deleteResource] failed', error)
-      globalThis.alert(this.currentSubject?.uri.endsWith('/Trash/')
-        ? 'Error deleting resource'
-        : 'Error moving resource to Trash')
+      // need error handling here
     }
   }
 
@@ -597,12 +594,14 @@ export default class StorageContainerPane extends WebComponent {
           }
         }}
       >
-        <span class=${isContainer(resource.subject) ? 'resource-list-icon resource-list-icon--container' : 'resource-list-icon'}>
-          ${this.renderResourceIcon(resource)}
+        <span class="resource-list-main">
+          <span class=${isContainer(resource.subject) ? 'resource-list-icon resource-list-icon--container' : 'resource-list-icon'}>
+            ${this.renderResourceIcon(resource)}
+          </span>
+          <span class="resource-list-label">${utils.label(resource.subject)}</span>
+          ${isContainer(resource.subject) ? html`<span class="container-member-count">${getContainerVisibleItemCount(resource.subject)} items</span>` : nothing}
+          ${isPublic === undefined ? nothing : isPublic ? html`<icon-lucide-globe></icon-lucide-globe>` : html`<icon-lucide-lock-keyhole></icon-lucide-lock-keyhole>`}
         </span>
-        <span class="resource-list-label">${utils.label(resource.subject)}</span>
-        ${isContainer(resource.subject) ? html`<span class="container-member-count">${getContainerVisibleItemCount(resource.subject)} items</span>` : nothing}
-        ${isPublic === undefined ? nothing : isPublic ? html`<icon-lucide-globe></icon-lucide-globe>` : html`<icon-lucide-lock-keyhole></icon-lucide-lock-keyhole>`}
         ${this.renderResourceActionsMenu(resource, 'list')}
       </li>
     `
@@ -628,6 +627,10 @@ export default class StorageContainerPane extends WebComponent {
   private renderListView () {
     return html`
       <ul class="resource-list" role="listbox">
+        <li class="resource-list-header" role="presentation" aria-hidden="true">
+          <span>Name</span>
+          <span>Action</span>
+        </li>
         ${this.visibleResources.map((resource) => this.renderResourceListItem(resource, 0))}
       </ul>
     `

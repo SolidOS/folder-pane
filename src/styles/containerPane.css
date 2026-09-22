@@ -28,6 +28,20 @@ storage-container-pane > .resource-grid {
   flex: 0 0 auto;
 }
 
+storage-container-pane .resource-list-header {
+  display: flex;
+  padding: 14px 12px;
+  align-items: center;
+  justify-content: space-between;
+  align-self: stretch;
+  color: var(--solid-ui-color-gray-600, #4A5565);
+  font-size: var(--solid-ui-font-size-sm, .875rem);
+  font-weight: 500;
+  list-style: none;
+  border-bottom: 1px solid var(--solid-ui-color-gray-200, #E5E7EB);
+  background: var(--solid-ui-color-white, #FFF);
+}
+
 storage-container-pane > storage-creation-area {
   order: 2;
 }
@@ -85,12 +99,20 @@ storage-container-pane .resource-list-item {
   background: var(--solid-ui-color-white, #FFF);
 }
 
+storage-container-pane .resource-list-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
 storage-container-pane .resource-list-label {
   color: var(--solid-ui-color-gray-700, #364153);
   font-size: var(--solid-ui-font-size-md, 1rem);
   font-weight: 500;
   min-width: 0;
-  flex: 1 1 auto;
+  flex: 0 1 auto;
 }
 
 storage-container-pane .resource-list-icon {
