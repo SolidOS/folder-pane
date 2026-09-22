@@ -125,6 +125,26 @@ export default class StoragePaneView extends WebComponent {
     this.fullView.replaceChildren(containerPane)
   }
 
+  private renderAccessDeniedScreen (targetView: HTMLElement) {
+    const message = document.createElement('div')
+    message.className = 'storage-pane-access-denied-message storage-container-pane-empty-message'
+
+    const body = document.createElement('p')
+    body.className = 'storage-pane-access-denied-message-body storage-container-pane-empty-message-body'
+    body.textContent = 'You do not have access to the contents of this container.'
+
+    message.appendChild(body)
+    targetView.replaceChildren(message)
+  }
+
+  private isAccessDeniedError (error: unknown) {
+    const status = typeof error === 'object' && error !== null
+      ? (error as { status?: number, response?: { status?: number } }).status ?? (error as { response?: { status?: number } }).response?.status
+      : undefined
+
+    return status === 401 || status === 403
+  }
+
   private async showResourceInFullView (selectedResource: NamedNode) {
     try {
       if (!this.fullView) {
@@ -136,7 +156,10 @@ export default class StoragePaneView extends WebComponent {
       try {
         await this.store.fetcher.load(selectedResource)
       } catch (_error) {
-        // Best-effort load: some resources render from metadata only.
+        if (this.isAccessDeniedError(_error)) {
+          this.renderAccessDeniedScreen(this.fullView)
+        }
+        return
       }
 
       const isContainer = solidLogicSingleton.resource.isContainer(selectedResource)
@@ -278,6 +301,7 @@ export default class StoragePaneView extends WebComponent {
           contentView: this.contentView,
           outliner: this.browserContext?.getOutliner(this.browserContext?.dom) as StoragePaneOutliner,
           renderContainerPane: this.renderContainerPane.bind(this),
+          renderAccessDeniedView: () => this.renderAccessDeniedScreen(this.contentView as HTMLElement),
         })
       }
     } catch (error) {

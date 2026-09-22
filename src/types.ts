@@ -26,4 +26,5 @@ export type ContentViewRenderer = {
   contentView: HTMLElement
   outliner?: StoragePaneOutliner
   renderContainerPane: (selectedResource: NamedNode) => void
+  renderAccessDeniedView?: () => void
 }

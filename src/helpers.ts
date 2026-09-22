@@ -290,7 +290,16 @@ async function renderSelectedResourceInContentView ({
   contentView,
   outliner,
   renderContainerPane,
+  renderAccessDeniedView,
 }: ContentViewRenderer): Promise<void> {
+  const isAccessDeniedError = (error: unknown) => {
+    const status = typeof error === 'object' && error !== null
+      ? (error as { status?: number, response?: { status?: number } }).status ?? (error as { response?: { status?: number } }).response?.status
+      : undefined
+
+    return status === 401 || status === 403
+  }
+
   const isContainer = solidLogicSingleton.resource.isContainer(selectedResource)
 
   if (isContainer) {
@@ -298,7 +307,10 @@ async function renderSelectedResourceInContentView ({
       await store.fetcher.load(selectedResource)
       await loadResourcesForContainer(store, selectedResource)
     } catch (_error) {
-      // Best-effort rendering: if loading fails, still try to show the container shell.
+      if (isAccessDeniedError(_error)) {
+        renderAccessDeniedView?.()
+      }
+      return
     }
 
     const hasIndexDocumentAfterLoad = containerHasIndexDocument(store, selectedResource)
@@ -310,6 +322,12 @@ async function renderSelectedResourceInContentView ({
       return
     }
     renderContainerPane(selectedResource)
+    return
+  }
+
+  try {
+    await store.fetcher.load(selectedResource)
+  } catch (_error) {
     return
   }
 
