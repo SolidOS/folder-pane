@@ -14,7 +14,8 @@ import '../storage-content-view'
 import { LiveStore, NamedNode } from 'rdflib'
 import { StoragePaneOutliner } from '../../types'
 import type { StorageContext } from '../storage-provider/context'
-import { renderSelectedResourceInContentView } from '../../helpers'
+import { containerHasIndexDocument, getContainerIndexThing, renderSelectedResourceInContentView } from '../../helpers'
+import { solidLogicSingleton } from 'solid-logic'
 @customElement('storage-pane-view')
 export default class StoragePaneView extends WebComponent {
 
@@ -33,6 +34,9 @@ export default class StoragePaneView extends WebComponent {
   @query('storage-content-view')
   private accessor contentView: HTMLElement | null = null
 
+  @query('.storage-pane-full-view')
+  private accessor fullView: HTMLElement | null = null
+
   @query('.storage-pane-status')
   private accessor statusArea: HTMLElement | null = null
 
@@ -46,22 +50,39 @@ export default class StoragePaneView extends WebComponent {
 
   protected updated (_changedProperties: PropertyValues<this>) {
     const selectedResource = this.currentSelectedResource
+    const selectedPaneName = this.storageContext.selectedPaneName
 
     if (!selectedResource) {
       return
     }
 
-    const selectionKey = `${selectedResource.uri}::${this.storageContext.selectedPaneName ?? ''}`
+    this.setOuterNavbarHidden(selectedPaneName === 'resource' || selectedPaneName === 'internal')
+
+    const selectionKey = `${selectedResource.uri}::${selectedPaneName ?? ''}`
 
     if (this.renderedSelectionKey !== selectionKey) {
       this.renderedSelectionKey = selectionKey
 
-      if (this.storageContext.selectedPaneName) {
-        void this.showSelectedPaneInContentView(selectedResource, this.storageContext.selectedPaneName)
+      if (selectedPaneName === 'resource') {
+        void this.showResourceInFullView(selectedResource)
+      } else if (selectedPaneName === 'internal') {
+        void this.showSelectedPaneInFullView(selectedResource, selectedPaneName)
+      } else if (selectedPaneName) {
+        void this.showSelectedPaneInContentView(selectedResource, selectedPaneName)
       } else {
         void this.showResourceInContentView(selectedResource)
       }
     }
+  }
+
+  private setOuterNavbarHidden (hidden: boolean) {
+    const navbar = document.querySelector<HTMLElement>('solid-panes-navbar')
+
+    if (!navbar) {
+      return
+    }
+
+    navbar.classList.toggle('navbar--hidden', hidden)
   }
 
   private get currentSelectedResource (): NamedNode | undefined {
@@ -88,6 +109,57 @@ export default class StoragePaneView extends WebComponent {
     this.contentView.replaceChildren(containerPane)
   }
 
+  private renderContainerPaneInFullView (selectedResource: NamedNode) {
+    if (!this.fullView) return
+
+    const containerPane = document.createElement('storage-container-pane') as HTMLElement & {
+      outliner?: StoragePaneOutliner
+      browserContext?: DataBrowserContext | null
+      subject?: NamedNode
+    }
+
+    containerPane.subject = selectedResource
+    containerPane.browserContext = this.browserContext
+    containerPane.outliner = this.browserContext?.getOutliner(this.browserContext?.dom) as StoragePaneOutliner
+
+    this.fullView.replaceChildren(containerPane)
+  }
+
+  private async showResourceInFullView (selectedResource: NamedNode) {
+    try {
+      if (!this.fullView) {
+        return
+      }
+
+      const outliner = this.browserContext?.getOutliner(this.browserContext?.dom) as StoragePaneOutliner | undefined
+
+      try {
+        await this.store.fetcher.load(selectedResource)
+      } catch (_error) {
+        // Best-effort load: some resources render from metadata only.
+      }
+
+      const isContainer = solidLogicSingleton.resource.isContainer(selectedResource)
+
+      if (isContainer) {
+        if (containerHasIndexDocument(this.store, selectedResource)) {
+          const indexThing = getContainerIndexThing(this.store, selectedResource)
+          this.fullView.replaceChildren()
+          outliner?.GotoSubject(indexThing, true, undefined, false, undefined, this.fullView)
+          return
+        }
+
+        this.renderContainerPaneInFullView(selectedResource)
+        return
+      }
+
+      this.fullView.replaceChildren()
+      outliner?.GotoSubject(selectedResource, true, undefined, false, undefined, this.fullView)
+    } catch (error) {
+      log.error('Unable to render selected resource in full view: ' + error)
+    }
+  }
+
   private async showSelectedPaneInContentView (selectedResource: NamedNode, selectedPaneName: string) {
     try {
       if (!this.contentView || !this.browserContext) {
@@ -99,7 +171,61 @@ export default class StoragePaneView extends WebComponent {
       const selectedPane = requestedPane ?? getRelevantPane(relevantPanes, selectedResource)
 
       if (!selectedPane) {
-        await this.showResourceInContentView(selectedResource)
+        await this.showResourceInFullView(selectedResource)
+        return
+      }
+
+      const paneElement = selectedPane.render(selectedResource, this.browserContext)
+      const provider = document.createElement('file-explorer-provider') as HTMLElement & {
+        context?: DataBrowserContext | null
+        subjectUri?: string
+        relevantPanes?: PaneDefinition[]
+        pane?: PaneDefinition
+        paneRenderOptions?: Record<string, unknown>
+        showHeader?: boolean
+        openPane?: (subject: NamedNode, paneName: string) => void
+        onBack?: () => void
+        handleAccessClick?: () => void
+      }
+
+      provider.context = this.browserContext
+      provider.subjectUri = selectedResource.uri
+      provider.relevantPanes = relevantPanes
+      provider.pane = selectedPane
+      provider.paneRenderOptions = {}
+      provider.onBack = () => {
+        const parentSubjectUri = this.fileExplorerContext?.subjectUri
+        if (parentSubjectUri) {
+          this.storageContext.selectResource(this.store.sym(parentSubjectUri))
+        }
+      }
+      provider.handleAccessClick = () => {
+        this.storageContext.selectResource(selectedResource, 'sharing')
+      }
+      provider.openPane = (paneSubject: NamedNode, paneName: string) => {
+        this.storageContext.selectResource(paneSubject, paneName)
+      }
+
+      paneElement.classList.add('paneDiv')
+      this.contentView.replaceChildren(provider)
+      provider.appendChild(paneElement)
+    } catch (error) {
+      log.error('Unable to render selected pane: ' + error)
+    }
+  }
+
+  private async showSelectedPaneInFullView (selectedResource: NamedNode, selectedPaneName: string) {
+    try {
+      if (!this.fullView || !this.browserContext) {
+        return
+      }
+
+      const relevantPanes = await getRelevantPanes(selectedResource, this.browserContext)
+      const requestedPane = byName(selectedPaneName)
+      const selectedPane = requestedPane ?? getRelevantPane(relevantPanes, selectedResource)
+
+      if (!selectedPane) {
+        await this.showResourceInFullView(selectedResource)
         return
       }
 
@@ -131,16 +257,15 @@ export default class StoragePaneView extends WebComponent {
       provider.handleAccessClick = () => {
         this.storageContext.selectResource(selectedResource, 'sharing')
       }
-      
       provider.openPane = (paneSubject: NamedNode, paneName: string) => {
         this.storageContext.selectResource(paneSubject, paneName)
       }
 
       paneElement.classList.add('paneDiv')
-      this.contentView.replaceChildren(provider)
+      this.fullView.replaceChildren(provider)
       provider.appendChild(paneElement)
     } catch (error) {
-      log.error('Unable to render selected pane: ' + error)
+      log.error('Unable to render selected pane in full view: ' + error)
     }
   }
 
@@ -163,6 +288,14 @@ export default class StoragePaneView extends WebComponent {
   private getStatusArea = () => this.statusArea
 
   render () {
+    const fullScreenMode = (this.storageContext.selectedPaneName === 'resource' || this.storageContext.selectedPaneName === 'internal') && this.browserContext
+
+    if (fullScreenMode) {
+      return html`
+        <div class="storage-pane-full-view"></div>
+      `
+    }
+
     return html`
       <storage-header
         .getStatusArea=${this.getStatusArea}

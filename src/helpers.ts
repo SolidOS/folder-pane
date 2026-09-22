@@ -1,7 +1,7 @@
 import { ns, utils, widgets } from 'solid-ui'
 import type { NamedNode, Statement } from 'rdflib'
 import { solidLogicSingleton } from 'solid-logic'
-import type { ContentViewRenderer, ResourceMap } from './types'
+import type { ContentViewRenderer, Resource, ResourceMap } from './types'
 
 const hiddenFileSuffixes = ['.acl', '~']
 
@@ -264,16 +264,24 @@ function handleContainerDragOver (event: DragEvent, store, container: NamedNode)
 }
 
 function isStorageRoot (store, resource: NamedNode): boolean {
-  if (!store) return false
+  if (!store || typeof store.holds !== 'function') return false
 
-  return store.holds(resource, ns.rdf('type'), ns.space('Storage'), resource.doc())
+  try {
+    return store.holds(resource, ns.rdf('type'), ns.space('Storage'), resource.doc())
+  } catch (_error) {
+    return false
+  }
 }
 
 function containerHasIndexDocument (store, container: NamedNode): boolean {
-  if (!store) return false
+  if (!store || typeof store.holds !== 'function') return false
 
-  const indexThing = getContainerIndexThing(store, container)
-  return store.holds(container, ns.ldp('contains'), indexThing.doc())
+  try {
+    const indexThing = getContainerIndexThing(store, container)
+    return store.holds(container, ns.ldp('contains'), indexThing.doc())
+  } catch (_error) {
+    return false
+  }
 }
 
 async function renderSelectedResourceInContentView ({
@@ -309,6 +317,36 @@ async function renderSelectedResourceInContentView ({
   outliner?.GotoSubject(selectedResource, true, undefined, false, undefined, contentView)
 }
 
+// Resource tree chevrons should mirror the legacy outline behavior:
+// shift opens the resource in the main view, alt opens the internal pane immediately.
+function handleResourceChevronClick (
+  event: MouseEvent,
+  resource: Resource | null,
+  selectResource: (resource: NamedNode, paneName?: string) => void,
+  toggleExpanded: () => void
+) {
+  if (!resource) {
+    return
+  }
+
+  event.preventDefault()
+  event.stopPropagation()
+
+  if (event.altKey) {
+    selectResource(resource.subject, 'internal')
+    return
+  }
+
+  if (event.shiftKey) {
+    selectResource(resource.subject, 'resource')
+    return
+  }
+
+  if (resource.isContainer) {
+    toggleExpanded()
+  }
+}
+
 export { 
   addUrisToContainer,
   canAcceptUploads,
@@ -321,6 +359,7 @@ export {
   loadResourcesForStorage,
   handleContainerDragOver,
   handleContainerDrop,
+  handleResourceChevronClick,
   isStorageRoot, 
   noHiddenFiles, 
   parseDroppedUris,

@@ -15,7 +15,7 @@ import '../storage-creation-area'
 import { consume } from '@lit/context'
 import { DEFAULT_STORAGE_CONTEXT, StorageContext, storageContext } from '../storage-provider/context'
 import { LiveStore } from 'rdflib'
-import { getResourcesForContainer, handleContainerDragOver, handleContainerDrop, loadResourcesForContainer } from '../../helpers'
+import { getResourcesForContainer, handleContainerDragOver, handleContainerDrop, handleResourceChevronClick, loadResourcesForContainer } from '../../helpers'
 
 @customElement('storage-resource-sidebar')
 export default class StorageResourceSidebar extends WebComponent {
@@ -69,10 +69,7 @@ export default class StorageResourceSidebar extends WebComponent {
     void this.syncResources()
   }
 
-  private async expandContainer (resource: Resource, event: MouseEvent) {
-    event.preventDefault()
-    event.stopPropagation()
-
+  private async expandContainer (resource: Resource) {
     if (!resource.isContainer) {
       return
     }
@@ -151,10 +148,10 @@ export default class StorageResourceSidebar extends WebComponent {
           }}
         >
           <icon-lucide-chevron-right
+            @mousedown=${(event: MouseEvent) => handleResourceChevronClick(event, resource, this.storageContext.selectResource, toggleExpanded)}
             @click=${(event: MouseEvent) => {
               event.preventDefault()
               event.stopPropagation()
-              toggleExpanded()
             }}
           ></icon-lucide-chevron-right>
           ${icon === 'folder'
@@ -201,7 +198,11 @@ export default class StorageResourceSidebar extends WebComponent {
           }}
         >
           <icon-lucide-chevron-right
-            @click=${(event: MouseEvent) => this.expandContainer(resource, event)}
+            @mousedown=${(event: MouseEvent) => handleResourceChevronClick(event, resource, this.storageContext.selectResource, () => { void this.expandContainer(resource) })}
+            @click=${(event: MouseEvent) => {
+              event.preventDefault()
+              event.stopPropagation()
+            }}
           ></icon-lucide-chevron-right>
           <icon-lucide-trash-2></icon-lucide-trash-2>
           Trash
@@ -243,7 +244,11 @@ export default class StorageResourceSidebar extends WebComponent {
           }}
         >
           <icon-lucide-chevron-right
-            @click=${(event: MouseEvent) => this.expandContainer(resource, event)}
+            @mousedown=${(event: MouseEvent) => handleResourceChevronClick(event, resource, this.storageContext.selectResource, () => { void this.expandContainer(resource) })}
+            @click=${(event: MouseEvent) => {
+              event.preventDefault()
+              event.stopPropagation()
+            }}
           ></icon-lucide-chevron-right>
           <icon-lucide-globe></icon-lucide-globe>
           Public
@@ -357,7 +362,11 @@ export default class StorageResourceSidebar extends WebComponent {
           }}
         >
           <icon-lucide-chevron-right
-            @click=${(event: MouseEvent) => this.expandContainer(resource, event)}
+            @mousedown=${(event: MouseEvent) => handleResourceChevronClick(event, resource, this.storageContext.selectResource, () => { void this.expandContainer(resource) })}
+            @click=${(event: MouseEvent) => {
+              event.preventDefault()
+              event.stopPropagation()
+            }}
           ></icon-lucide-chevron-right>
           <icon-lucide-circle-small></icon-lucide-circle-small>
           ${utils.label(resource.subject)}

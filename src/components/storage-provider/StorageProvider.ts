@@ -62,13 +62,16 @@ export default class StorageProvider extends WebComponent {
 
   private selectResource = (resource: NamedNode, paneName?: string) => {
     const currentResource = this.selectedResource ?? this.currentSubject
+    const selectedPaneName = paneName ?? (this.selectedPaneName === 'resource' || this.selectedPaneName === 'internal'
+      ? this.selectedPaneName
+      : undefined)
 
     if (currentResource && !currentResource.sameTerm(resource)) {
       this.history = [...this.history, currentResource]
     }
 
     this.selectedResource = resource
-    this.selectedPaneName = paneName
+    this.selectedPaneName = selectedPaneName
     this.searchQuery = ''
     this.refreshStorageContextValue()
   }
@@ -121,7 +124,7 @@ export default class StorageProvider extends WebComponent {
       this.refreshStorageContextValue()
     }
   }
-  
+
   private refreshStorageContextValue () {
     this.storageContext = {
       selectedResource: this.selectedResource ?? this.currentSubject,
@@ -162,13 +165,13 @@ export default class StorageProvider extends WebComponent {
     const parentFileExplorerContextChanged = changedProperties.has('parentFileExplorerContext')
     const selectedResourceChanged = changedProperties.has('selectedResource')
     const selectedPaneNameChanged = changedProperties.has('selectedPaneName')
-    const resourceRevisionChanged = changedProperties.has('resourceRevision')
     const storageContextShouldRefresh = subjectChanged || parentFileExplorerContextChanged || selectedResourceChanged || selectedPaneNameChanged
-    const fileExplorerContextShouldRefresh = subjectChanged || parentFileExplorerContextChanged || resourceRevisionChanged
+    const fileExplorerContextShouldRefresh = subjectChanged || parentFileExplorerContextChanged || changedProperties.has('resourceRevision')
 
     if (subjectChanged) {
-      this.selectedResource = this.currentSubject
-      this.selectedPaneName = undefined
+      if (this.selectedPaneName !== undefined) {
+        this.selectedPaneName = undefined
+      }
     }
 
     if (storageContextShouldRefresh) {
@@ -183,7 +186,7 @@ export default class StorageProvider extends WebComponent {
   render () {
     return html`
       <storage-pane-view
-      .browserContext=${this.browserContext}
+        .browserContext=${this.browserContext}
       ></storage-pane-view>
     `
   }
