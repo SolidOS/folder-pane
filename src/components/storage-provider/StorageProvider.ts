@@ -221,6 +221,7 @@ export default class StorageProvider extends WebComponent {
     const parentFileExplorerContextChanged = changedProperties.has('parentFileExplorerContext')
     const selectedResourceChanged = changedProperties.has('selectedResource')
     const selectedPaneNameChanged = changedProperties.has('selectedPaneName')
+    // const resourceRevisionChanged = changedProperties.has('resourceRevision')
     const storageContextShouldRefresh = subjectChanged || parentFileExplorerContextChanged || selectedResourceChanged || selectedPaneNameChanged
     const fileExplorerContextShouldRefresh = subjectChanged || parentFileExplorerContextChanged || changedProperties.has('resourceRevision')
 
