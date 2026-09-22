@@ -85,6 +85,15 @@ export default class StorageProvider extends WebComponent {
       await solidLogicSingleton.resource.moveToTrash(resource)
     }
 
+    const sourceContainer = resource.dir() ?? this.currentSubject
+    if (sourceContainer) {
+      try {
+        await this.store.fetcher.load(sourceContainer, { force: true, clearPreviousData: true })
+      } catch (_error) {
+        // Keep the UI responsive even if the source container reload fails.
+      }
+    }
+
     const selectedResource = this.selectedResource
     const deletedResourceUri = resource.uri.endsWith('/') ? resource.uri : `${resource.uri}/`
     const selectedResourceWasDeleted = selectedResource?.sameTerm(resource) ||
@@ -96,6 +105,52 @@ export default class StorageProvider extends WebComponent {
 
     if (selectedResourceWasDeleted) {
       this.selectedResource = resource.dir() ?? this.currentSubject
+      this.selectedPaneName = undefined
+    }
+
+    this.resourceRevision += 1
+    this.refreshStorageContextValue()
+  }
+
+  private moveResource = async (resource: NamedNode, targetContainer: NamedNode) => {
+    if (!this.store || !targetContainer) {
+      return
+    }
+
+    const sourceIsContainer = solidLogicSingleton.resource.isContainer(resource)
+    const sourceUriWithoutTrailingSlash = resource.uri.endsWith('/') ? resource.uri.slice(0, -1) : resource.uri
+    const resourceName = sourceUriWithoutTrailingSlash.substring(sourceUriWithoutTrailingSlash.lastIndexOf('/') + 1)
+    const targetUrl = sourceIsContainer
+      ? `${targetContainer.uri}${resourceName}/`
+      : `${targetContainer.uri}${resourceName}`
+
+    if (resource.sameTerm(targetContainer) || resource.dir()?.sameTerm(targetContainer)) {
+      return
+    }
+
+    if (sourceIsContainer && targetContainer.uri.startsWith(resource.uri)) {
+      return
+    }
+
+    await solidLogicSingleton.resource.moveResource(resource, targetUrl)
+
+    const sourceContainer = resource.dir()
+    const containersToReload = [sourceContainer, targetContainer].filter(
+      (container): container is NamedNode => Boolean(container)
+    )
+
+    if (containersToReload.length > 0) {
+      await Promise.all(containersToReload.map(async (container) => {
+        try {
+          await this.store.fetcher.load(container, { force: true, clearPreviousData: true })
+        } catch (_error) {
+          // Keep the move path resilient if a container reload fails.
+        }
+      }))
+    }
+
+    if (this.selectedResource?.sameTerm(resource)) {
+      this.selectedResource = targetContainer
       this.selectedPaneName = undefined
     }
 
@@ -131,6 +186,7 @@ export default class StorageProvider extends WebComponent {
       selectedPaneName: this.selectedPaneName,
       selectResource: this.selectResource,
       deleteResource: this.deleteResource,
+      moveResource: this.moveResource,
       resourceRevision: this.resourceRevision,
       view: this.view,
       setView: this.setView,

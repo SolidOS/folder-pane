@@ -57,6 +57,14 @@
     align-self: stretch;
   }
 
+  .resource-item.drop-target > .resource-row,
+  .resource-item.drop-target > .resource-row-special {
+    outline: 2px solid var(--solid-ui-color-lavender-300, #C4B5FD);
+    outline-offset: -2px;
+    background: color-mix(in srgb, var(--solid-ui-color-lavender-200, #DDD6FE) 35%, white);
+    border-radius: 5px;
+  }
+
   .resource-group {
     position: relative;
     display: flex;
@@ -94,6 +102,7 @@
     box-sizing: border-box;
     padding: 5px 15px 5px 10px;
     gap: 10px;
+    cursor: grab;
   }
 
   .resource-item.selected > .resource-row,

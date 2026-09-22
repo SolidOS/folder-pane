@@ -98,6 +98,14 @@ storage-creation-area {
   flex: 0 0 auto;
 }
 
+.storage-container-pane-resource-drop-zone {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+}
+
 .resource-actions-menu {
   display: flex;
   align-items: center;
@@ -117,6 +125,13 @@ storage-creation-area {
 
 .resource-grid-item {
   position: relative;
+}
+
+.resource-grid-item.drop-target,
+.resource-list-item.drop-target {
+  outline: 2px solid var(--solid-ui-color-lavender-300, #C4B5FD);
+  outline-offset: -2px;
+  background: color-mix(in srgb, var(--solid-ui-color-lavender-200, #DDD6FE) 35%, white);
 }
 
 .resource-grid-top {

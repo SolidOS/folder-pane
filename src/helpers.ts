@@ -3,6 +3,8 @@ import type { NamedNode, Statement } from 'rdflib'
 import { solidLogicSingleton } from 'solid-logic'
 import type { ContentViewRenderer, Resource, ResourceMap } from './types'
 
+const draggedResourceMimeType = 'application/x-solidos-resource-uri'
+
 const hiddenFileSuffixes = ['.acl', '~']
 
 function noHiddenFiles (obj) {
@@ -211,6 +213,33 @@ function parseDroppedUris (dataTransfer: DataTransfer | null | undefined): strin
   return []
 }
 
+function getDraggedResourceUri (dataTransfer: DataTransfer | null | undefined): string | undefined {
+  if (!dataTransfer) {
+    return undefined
+  }
+
+  const draggedResourceUri = dataTransfer.getData(draggedResourceMimeType).trim()
+  if (draggedResourceUri) {
+    return draggedResourceUri
+  }
+
+  const [uri] = parseDroppedUris(dataTransfer)
+  return uri
+}
+
+function setDraggedResource (event: DragEvent, resource: NamedNode) {
+  const dataTransfer = event.dataTransfer
+
+  if (!dataTransfer) {
+    return
+  }
+
+  dataTransfer.effectAllowed = 'move'
+  dataTransfer.setData(draggedResourceMimeType, resource.uri)
+  dataTransfer.setData('text/uri-list', resource.uri)
+  dataTransfer.setData('text/plain', resource.uri)
+}
+
 function addUrisToContainer (
   store,
   container: NamedNode,
@@ -253,6 +282,13 @@ function handleContainerDrop (
 }
 
 function handleContainerDragOver (event: DragEvent, store, container: NamedNode) {
+  if (event.dataTransfer?.types.includes(draggedResourceMimeType)) {
+    event.preventDefault()
+    event.stopPropagation()
+    event.dataTransfer!.dropEffect = 'move'
+    return true
+  }
+
   if (!canAcceptUploads(store, container)) {
     return false
   }
@@ -373,6 +409,7 @@ export {
   getContainerIndexThing, 
   getResourcesForContainer,
   getResourcesFromSearchQuery, 
+  getDraggedResourceUri,
   loadResourcesForContainer, 
   loadResourcesForStorage,
   handleContainerDragOver,
@@ -381,6 +418,7 @@ export {
   isStorageRoot, 
   noHiddenFiles, 
   parseDroppedUris,
+  setDraggedResource,
   uploadFilesIntoContainer,
   renderSelectedResourceInContentView 
 }

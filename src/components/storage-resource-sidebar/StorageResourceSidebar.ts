@@ -15,7 +15,7 @@ import '../storage-creation-area'
 import { consume } from '@lit/context'
 import { DEFAULT_STORAGE_CONTEXT, StorageContext, storageContext } from '../storage-provider/context'
 import { LiveStore } from 'rdflib'
-import { getResourcesForContainer, handleContainerDragOver, handleContainerDrop, handleResourceChevronClick, loadResourcesForContainer } from '../../helpers'
+import { getDraggedResourceUri, getResourcesForContainer, handleContainerDragOver, handleContainerDrop, handleResourceChevronClick, loadResourcesForContainer, setDraggedResource } from '../../helpers'
 
 @customElement('storage-resource-sidebar')
 export default class StorageResourceSidebar extends WebComponent {
@@ -41,6 +41,9 @@ export default class StorageResourceSidebar extends WebComponent {
 
   @state()
   accessor homeExpanded = true
+
+  @state()
+  accessor dropTargetResourceUri: string | undefined = undefined
 
   private get currentSubject (): NamedNode | undefined {
     if (!this.fileExplorerContext?.subjectUri || this.store === DEFAULT_STORE) {
@@ -127,18 +130,27 @@ export default class StorageResourceSidebar extends WebComponent {
   ) {
     return html`
       <li
-        class=${selected ? 'resource-item selected' : 'resource-item'}
+        class=${selected
+          ? 'resource-item selected'
+          : this.dropTargetResourceUri === resource?.id
+            ? 'resource-item drop-target'
+            : 'resource-item'}
         notSelectable="false"
         role="treeitem"
         aria-selected=${String(selected)}
         aria-expanded=${String(expanded)}
         data-expanded=${String(expanded)}
+        about=${resource?.subject.toNT() ?? nothing}
+        .subject=${resource?.subject ?? nothing}
         @dragover=${resource ? (event: DragEvent) => this.onContainerDragOver(resource, event) : undefined}
+        @dragleave=${() => { this.dropTargetResourceUri = undefined }}
         @drop=${resource ? (event: DragEvent) => this.onContainerDrop(resource, event) : undefined}
       >
         <div
-          class="resource-row resource-row-special"
+            class="resource-row resource-row-special"
+            draggable=${resource ? 'true' : 'false'}
           tabindex="0"
+            @dragstart=${resource ? (event: DragEvent) => setDraggedResource(event, resource.subject) : undefined}
           @click=${selectItem}
           @keydown=${(event: KeyboardEvent) => {
             if (event.key === 'Enter' || event.key === ' ') {
@@ -175,7 +187,11 @@ export default class StorageResourceSidebar extends WebComponent {
 
     return html`
       <li
-        class=${selected ? 'resource-item selected' : 'resource-item'}
+        class=${selected
+          ? 'resource-item selected'
+          : this.dropTargetResourceUri === resource.id
+            ? 'resource-item drop-target'
+            : 'resource-item'}
         notSelectable="false"
         role="treeitem"
         aria-selected=${String(selected)}
@@ -184,11 +200,14 @@ export default class StorageResourceSidebar extends WebComponent {
         about=${resource.subject.toNT()}
         .subject=${resource.subject}
         @dragover=${(event: DragEvent) => this.onContainerDragOver(resource, event)}
+        @dragleave=${() => { this.dropTargetResourceUri = undefined }}
         @drop=${(event: DragEvent) => this.onContainerDrop(resource, event)}
       >
         <div
           class="resource-row resource-row-special"
+          draggable="true"
           tabindex="0"
+          @dragstart=${(event: DragEvent) => setDraggedResource(event, resource.subject)}
           @click=${() => this.selectResource(resource)}
           @keydown=${(event: KeyboardEvent) => {
             if (event.key === 'Enter' || event.key === ' ') {
@@ -221,7 +240,11 @@ export default class StorageResourceSidebar extends WebComponent {
 
     return html`
       <li
-        class=${selected ? 'resource-item selected' : 'resource-item'}
+        class=${selected
+          ? 'resource-item selected'
+          : this.dropTargetResourceUri === resource.id
+            ? 'resource-item drop-target'
+            : 'resource-item'}
         notSelectable="false"
         role="treeitem"
         aria-selected=${String(selected)}
@@ -230,11 +253,14 @@ export default class StorageResourceSidebar extends WebComponent {
         about=${resource.subject.toNT()}
         .subject=${resource.subject}
         @dragover=${(event: DragEvent) => this.onContainerDragOver(resource, event)}
+        @dragleave=${() => { this.dropTargetResourceUri = undefined }}
         @drop=${(event: DragEvent) => this.onContainerDrop(resource, event)}
       >
         <div
           class="resource-row resource-row-special"
+          draggable="true"
           tabindex="0"
+          @dragstart=${(event: DragEvent) => setDraggedResource(event, resource.subject)}
           @click=${() => this.selectResource(resource)}
           @keydown=${(event: KeyboardEvent) => {
             if (event.key === 'Enter' || event.key === ' ') {
@@ -267,11 +293,44 @@ export default class StorageResourceSidebar extends WebComponent {
       return
     }
 
+    const draggedResourceUri = getDraggedResourceUri(event.dataTransfer)
+    if (draggedResourceUri) {
+      event.preventDefault()
+      event.stopPropagation()
+      event.dataTransfer!.dropEffect = 'move'
+      this.dropTargetResourceUri = resource.id
+      return
+    }
+
     handleContainerDragOver(event, this.store, resource.subject)
   }
 
   private onContainerDrop (resource: Resource, event: DragEvent) {
     if (!resource.isContainer) {
+      return
+    }
+
+    const draggedResourceUri = getDraggedResourceUri(event.dataTransfer)
+
+    if (draggedResourceUri && this.isTrashResource(resource)) {
+      event.preventDefault()
+      event.stopPropagation()
+      void (async () => {
+        await this.storageContext.deleteResource(this.store.sym(draggedResourceUri))
+        this.dropTargetResourceUri = undefined
+        await this.syncResources()
+      })()
+      return
+    }
+
+    if (draggedResourceUri) {
+      event.preventDefault()
+      event.stopPropagation()
+      void (async () => {
+        await this.storageContext.moveResource(this.store.sym(draggedResourceUri), resource.subject)
+        this.dropTargetResourceUri = undefined
+        await this.syncResources()
+      })()
       return
     }
 
@@ -352,7 +411,9 @@ export default class StorageResourceSidebar extends WebComponent {
       >
         <div
           class="resource-row"
+          draggable="true"
           tabindex="0"
+          @dragstart=${(event: DragEvent) => setDraggedResource(event, resource.subject)}
           @click=${() => this.selectResource(resource)}
           @keydown=${(event: KeyboardEvent) => {
             if (event.key === 'Enter' || event.key === ' ') {

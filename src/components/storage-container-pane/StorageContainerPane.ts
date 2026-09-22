@@ -14,7 +14,7 @@ import { solidLogicSingleton } from 'solid-logic'
 import { customElement, DEFAULT_STORE, fileExplorerContext, storeContext, utils, WebComponent, authContext, DEFAULT_AUTH_CONTEXT, type AuthContext } from 'solid-ui'
 import type { PaneDefinition } from 'pane-registry'
 import { Resource, type ResourceMap, StoragePaneOutliner } from '../../types'
-import { getResourcesForContainer, getResourcesFromSearchQuery, handleContainerDragOver, handleContainerDrop, loadResourcesForContainer } from '../../helpers'
+import { getDraggedResourceUri, getResourcesForContainer, getResourcesFromSearchQuery, handleContainerDragOver, handleContainerDrop, loadResourcesForContainer, setDraggedResource } from '../../helpers'
 import { getRelevantPanes, getRelevantPane } from 'solid-ui'
 import { buildResourceActionsMenuBindings, loadDiscoveryState, toggleDiscoveryState } from 'solid-ui/components/resource-actions-menu'
 import type { ResourceActionMenuItem as ResourcePaneMenuItem } from 'solid-ui/components/resource-actions-menu'
@@ -81,6 +81,9 @@ export default class StorageContainerPane extends WebComponent {
   @state()
   accessor isLoadingResources = false
 
+  @state()
+  accessor dropTargetResourceUri: string | undefined = undefined
+
   @query('storage-creation-area')
   private accessor storageCreationArea: StorageCreationArea | null = null
 
@@ -124,7 +127,7 @@ export default class StorageContainerPane extends WebComponent {
       })
   }
 
-  private syncResources = async () => {
+  private syncResources = async (forceReload = false) => {
     const subject = this.currentSubject
 
     if (!this.store || !subject) {
@@ -136,6 +139,10 @@ export default class StorageContainerPane extends WebComponent {
     this.resources = new Map()
 
     try {
+      if (forceReload) {
+        await this.store.fetcher.load(subject, { force: true, clearPreviousData: true })
+      }
+
       const loadedResources = await loadResourcesForContainer(this.store, subject)
 
       if (syncGeneration !== this.resourceSyncGeneration) {
@@ -227,11 +234,23 @@ export default class StorageContainerPane extends WebComponent {
     event.preventDefault()
     event.stopPropagation()
 
-    if (!this.store || !this.currentSubject || !this.auth.account) {
+    const subject = this.currentSubject
+
+    if (!this.store || !subject || !this.auth.account) {
       return
     }
 
-    if (handleContainerDrop(event, this.store, this.currentSubject, () => { void this.syncResources() })) {
+    const draggedResourceUri = getDraggedResourceUri(event.dataTransfer)
+    if (draggedResourceUri) {
+      void (async () => {
+        await this.storageContext.moveResource(this.store.sym(draggedResourceUri), subject)
+        this.dropTargetResourceUri = undefined
+        await this.syncResources(true)
+      })()
+      return
+    }
+
+    if (handleContainerDrop(event, this.store, subject, () => { void this.syncResources() })) {
       return
     }
   }
@@ -416,7 +435,7 @@ export default class StorageContainerPane extends WebComponent {
 
     const discovery = this.resourceDiscovery.get(resource.id)
     const resourceActions = buildResourceActionsMenuBindings({
-      subject: this.currentSubject,
+      subject: resource.subject,
       discoveryState: discovery,
       handleAccessClick: sharingPane
         ? () => {
@@ -450,6 +469,15 @@ export default class StorageContainerPane extends WebComponent {
       return
     }
 
+    const draggedResourceUri = getDraggedResourceUri(event.dataTransfer)
+    if (draggedResourceUri) {
+      event.preventDefault()
+      event.stopPropagation()
+      event.dataTransfer!.dropEffect = 'move'
+      this.dropTargetResourceUri = resource.id
+      return
+    }
+
     handleContainerDragOver(event, this.store, resource.subject)
   }
 
@@ -458,7 +486,58 @@ export default class StorageContainerPane extends WebComponent {
       return
     }
 
+    const draggedResourceUri = getDraggedResourceUri(event.dataTransfer)
+
+    if (draggedResourceUri) {
+      event.preventDefault()
+      event.stopPropagation()
+      void (async () => {
+        await this.storageContext.moveResource(this.store.sym(draggedResourceUri), resource.subject)
+        this.dropTargetResourceUri = undefined
+        await this.syncResources(true)
+      })()
+      return
+    }
+
     handleContainerDrop(event, this.store, resource.subject, () => { void this.syncResources() })
+  }
+
+  private onCurrentContainerDragOver = (event: DragEvent) => {
+    if (!this.currentSubject) {
+      return
+    }
+
+    const draggedResourceUri = getDraggedResourceUri(event.dataTransfer)
+    if (draggedResourceUri) {
+      event.preventDefault()
+      event.stopPropagation()
+      event.dataTransfer!.dropEffect = 'move'
+      return
+    }
+
+    handleContainerDragOver(event, this.store, this.currentSubject)
+  }
+
+  private onCurrentContainerDrop = (event: DragEvent) => {
+    const subject = this.currentSubject
+
+    if (!subject) {
+      return
+    }
+
+    const draggedResourceUri = getDraggedResourceUri(event.dataTransfer)
+    if (draggedResourceUri) {
+      event.preventDefault()
+      event.stopPropagation()
+      void (async () => {
+        await this.storageContext.moveResource(this.store.sym(draggedResourceUri), subject)
+        this.dropTargetResourceUri = undefined
+        await this.syncResources(true)
+      })()
+      return
+    }
+
+    handleContainerDrop(event, this.store, subject, () => { void this.syncResources() })
   }
 
   private isSelectedResource (resource: Resource) {
@@ -504,7 +583,12 @@ export default class StorageContainerPane extends WebComponent {
     if (isContainer(resource.subject)) {
       return html`
         <li
-          class=${selected ? 'resource-grid-item selected' : 'resource-grid-item'}
+          class=${selected
+            ? 'resource-grid-item selected'
+            : this.dropTargetResourceUri === resource.id
+              ? 'resource-grid-item drop-target'
+              : 'resource-grid-item'}
+          draggable="true"
           notSelectable="false"
           aria-selected=${String(selected)}
           about=${resource.subject.toNT()}
@@ -512,7 +596,9 @@ export default class StorageContainerPane extends WebComponent {
           tabindex="0"
           .subject=${resource.subject}
           @click=${() => this.selectResource(resource)}
+          @dragstart=${(event: DragEvent) => setDraggedResource(event, resource.subject)}
           @dragover=${(event: DragEvent) => this.onContainerDragOver(resource, event)}
+          @dragleave=${() => { this.dropTargetResourceUri = undefined }}
           @drop=${(event: DragEvent) => this.onContainerDrop(resource, event)}
           @keydown=${(event: KeyboardEvent) => {
             if (event.key === 'Enter' || event.key === ' ') {
@@ -537,6 +623,7 @@ export default class StorageContainerPane extends WebComponent {
     return html`
       <li
         class=${selected ? 'resource-grid-item selected' : 'resource-grid-item'}
+        draggable="true"
         notSelectable="false"
         aria-selected=${String(selected)}
         about=${resource.subject.toNT()}
@@ -544,6 +631,7 @@ export default class StorageContainerPane extends WebComponent {
         tabindex="0"
         .subject=${resource.subject}
         @click=${() => this.selectResource(resource)}
+        @dragstart=${(event: DragEvent) => setDraggedResource(event, resource.subject)}
         @dragover=${(event: DragEvent) => this.onContainerDragOver(resource, event)}
         @drop=${(event: DragEvent) => this.onContainerDrop(resource, event)}
         @keydown=${(event: KeyboardEvent) => {
@@ -577,7 +665,12 @@ export default class StorageContainerPane extends WebComponent {
 
     return html`
       <li
-        class=${selected ? 'resource-list-item selected' : 'resource-list-item'}
+        class=${selected
+          ? 'resource-list-item selected'
+          : this.dropTargetResourceUri === resource.id
+            ? 'resource-list-item drop-target'
+            : 'resource-list-item'}
+        draggable="true"
         notSelectable="false"
         aria-selected=${String(selected)}
         about=${resource.subject.toNT()}
@@ -585,7 +678,9 @@ export default class StorageContainerPane extends WebComponent {
         tabindex="0"
         .subject=${resource.subject}
         @click=${() => this.selectResource(resource)}
+        @dragstart=${(event: DragEvent) => setDraggedResource(event, resource.subject)}
         @dragover=${(event: DragEvent) => this.onContainerDragOver(resource, event)}
+        @dragleave=${() => { this.dropTargetResourceUri = undefined }}
         @drop=${(event: DragEvent) => this.onContainerDrop(resource, event)}
         @keydown=${(event: KeyboardEvent) => {
           if (event.key === 'Enter' || event.key === ' ') {
@@ -620,7 +715,7 @@ export default class StorageContainerPane extends WebComponent {
       changedProperties.has('fileExplorerContext') ||
       resourceRevisionChanged
     ) {
-      void this.syncResources()
+      void this.syncResources(resourceRevisionChanged)
     }
   }
 
@@ -679,7 +774,15 @@ export default class StorageContainerPane extends WebComponent {
     }
 
     if (visibleResources.length > 0) {
-      return this.storageContext.view === 'grid' ? this.renderGridView() : this.renderListView()
+      return html`
+        <div
+          class="storage-container-pane-resource-drop-zone"
+          @dragover=${this.onCurrentContainerDragOver}
+          @drop=${this.onCurrentContainerDrop}
+        >
+          ${this.storageContext.view === 'grid' ? this.renderGridView() : this.renderListView()}
+        </div>
+      `
     }
 
     if (searchQuery) {
