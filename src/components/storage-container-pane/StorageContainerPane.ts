@@ -1,5 +1,5 @@
 import { html, nothing } from 'lit'
-import { property, state } from 'lit/decorators.js'
+import { property, query, state } from 'lit/decorators.js'
 import type { PropertyValues } from 'lit'
 import { consume } from '@lit/context'
 import '../storage-header'
@@ -20,6 +20,7 @@ import { buildResourceActionsMenuBindings, loadDiscoveryState, toggleDiscoverySt
 import type { ResourceActionMenuItem as ResourcePaneMenuItem } from 'solid-ui/components/resource-actions-menu'
 import { DEFAULT_DISCOVER_CLASS } from 'solid-ui'
 import { createNewResource } from '../storage-creation-menu/mintPaneInstance'
+import StorageCreationArea from '../storage-creation-area/StorageCreationArea'
 import styles from './StorageContainerPane.styles.css'
 import 'solid-ui/components/file-explorer-header'
 import 'solid-ui/components/resource-actions-menu'
@@ -79,6 +80,9 @@ export default class StorageContainerPane extends WebComponent {
 
   @state()
   accessor isLoadingResources = false
+
+  @query('storage-creation-area')
+  private accessor storageCreationArea: StorageCreationArea | null = null
 
   protected createRenderRoot () {
     return this
@@ -183,6 +187,8 @@ export default class StorageContainerPane extends WebComponent {
   }
 
   private handleCreateNewFolder = async () => {
+    event?.stopPropagation()
+
     if (!this.browserContext || !this.currentSubject || !this.folderPane || !this.auth.account) {
       return
     }
@@ -194,6 +200,21 @@ export default class StorageContainerPane extends WebComponent {
       statusArea: this,
       storageContext: this.storageContext,
     })
+  }
+
+  private onEmptyStateClick = () => {
+    if (!this.auth.account) {
+      return
+    }
+
+    this.storageCreationArea?.openChooser()
+  }
+
+  private onEmptyStateKeyDown = (event: KeyboardEvent) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      this.onEmptyStateClick()
+    }
   }
 
   private onEmptyStateDragOver = (event: DragEvent) => {
@@ -624,8 +645,12 @@ export default class StorageContainerPane extends WebComponent {
     return html`
       <div
         class="storage-container-pane-empty-message"
-        title="Drop resource to upload"
-        aria-label="Drop resource to upload"
+        title="Drop files or folder here or click to choose"
+        aria-label="Drop files or folder here or click to choose"
+        role="button"
+        tabindex="0"
+        @click=${this.onEmptyStateClick}
+        @keydown=${this.onEmptyStateKeyDown}
         @dragover=${this.onEmptyStateDragOver}
         @drop=${this.onEmptyStateDrop}
       >
@@ -633,7 +658,7 @@ export default class StorageContainerPane extends WebComponent {
           <icon-lucide-file-box></icon-lucide-file-box>
         </div>
         <h2 class="storage-container-pane-empty-message-title">This folder is empty</h2>
-        <p class="storage-container-pane-empty-message-body">Create a folder or drop files and folders here to upload them.</p>
+        <p class="storage-container-pane-empty-message-body">Create a folder or drop files or folder here or click to choose.</p>
         <solid-ui-button
           class="storage-container-pane-empty-message-button"
           variant="primary"
@@ -669,7 +694,7 @@ export default class StorageContainerPane extends WebComponent {
       ${this.renderResourceListArea(searchQuery, visibleResources)}
       <storage-creation-area
         .subject=${this.currentSubject}
-        .message=${'Drop files or folder here'}
+        .message=${'Drop files or folder here or click to choose'}
         @resource-created=${this.syncResources}
       ></storage-creation-area>
     `

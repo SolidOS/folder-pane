@@ -20,6 +20,13 @@
     align-self: stretch;
     border-radius: var(--storage-creation-area-border-radius);
     background: rgba(139, 92, 246, 0.02);
+    cursor: pointer;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+  }
+
+  .storage-creation-area:hover,
+  .storage-creation-area:focus-visible {
+    border-color: var(--solid-ui-color-primary, #7c4dff);
   }
 
   .storage-creation-area-message {
