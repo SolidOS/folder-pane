@@ -11,7 +11,7 @@ import type { FileExplorerContext } from 'solid-ui'
 import type { StorageContext } from '../storage-provider/context'
 import { storageContext, DEFAULT_STORAGE_CONTEXT } from '../storage-provider/context'
 import { solidLogicSingleton } from 'solid-logic'
-import { customElement, DEFAULT_STORE, fileExplorerContext, storeContext, utils, WebComponent } from 'solid-ui'
+import { customElement, DEFAULT_STORE, fileExplorerContext, storeContext, utils, WebComponent, authContext, DEFAULT_AUTH_CONTEXT, type AuthContext } from 'solid-ui'
 import type { PaneDefinition } from 'pane-registry'
 import { Resource, type ResourceMap, StoragePaneOutliner } from '../../types'
 import { getResourcesForContainer, getResourcesFromSearchQuery, handleContainerDragOver, handleContainerDrop, loadResourcesForContainer } from '../../helpers'
@@ -19,6 +19,7 @@ import { getRelevantPanes, getRelevantPane } from 'solid-ui'
 import { buildResourceActionsMenuBindings, loadDiscoveryState, toggleDiscoveryState } from 'solid-ui/components/resource-actions-menu'
 import type { ResourceActionMenuItem as ResourcePaneMenuItem } from 'solid-ui/components/resource-actions-menu'
 import { DEFAULT_DISCOVER_CLASS } from 'solid-ui'
+import { createNewResource } from '../storage-creation-menu/mintPaneInstance'
 import styles from './StorageContainerPane.styles.css'
 import 'solid-ui/components/file-explorer-header'
 import 'solid-ui/components/resource-actions-menu'
@@ -26,6 +27,7 @@ import '~icons/lucide/folder'
 import '~icons/lucide/file'
 import '~icons/lucide/globe'
 import '~icons/lucide/lock-keyhole'
+import '~icons/lucide/file-box'
 
 @customElement('storage-container-pane')
 export default class StorageContainerPane extends WebComponent {
@@ -48,6 +50,9 @@ export default class StorageContainerPane extends WebComponent {
 
   @consume({ context: storageContext, subscribe: true })
   accessor storageContext: StorageContext = DEFAULT_STORAGE_CONTEXT
+
+  @consume({ context: authContext, subscribe: true })
+  accessor auth: AuthContext = DEFAULT_AUTH_CONTEXT
 
   @state()
   accessor resources: ResourceMap = new Map()
@@ -167,6 +172,47 @@ export default class StorageContainerPane extends WebComponent {
 
   private selectResource (resource: Resource) {
     this.storageContext.selectResource(resource.subject)
+  }
+
+  private get folderPane () {
+    return this.browserContext?.session.paneRegistry.byName('folder') ?? undefined
+  }
+
+  private get canCreateFolder () {
+    return !!this.auth.account && !!this.browserContext && !!this.currentSubject && !!this.folderPane
+  }
+
+  private handleCreateNewFolder = async () => {
+    if (!this.browserContext || !this.currentSubject || !this.folderPane || !this.auth.account) {
+      return
+    }
+
+    await createNewResource({
+      browserContext: this.browserContext,
+      container: this.currentSubject,
+      pane: this.folderPane,
+      statusArea: this,
+      storageContext: this.storageContext,
+    })
+  }
+
+  private onEmptyStateDragOver = (event: DragEvent) => {
+    event.preventDefault()
+    event.stopPropagation()
+    event.dataTransfer!.dropEffect = 'copy'
+  }
+
+  private onEmptyStateDrop = (event: DragEvent) => {
+    event.preventDefault()
+    event.stopPropagation()
+
+    if (!this.store || !this.currentSubject || !this.auth.account) {
+      return
+    }
+
+    if (handleContainerDrop(event, this.store, this.currentSubject, () => { void this.syncResources() })) {
+      return
+    }
   }
 
   private getPaneIconSource (pane: PaneDefinition, subject: NamedNode) {
@@ -574,6 +620,31 @@ export default class StorageContainerPane extends WebComponent {
     `
   }
 
+  private renderEmptyContainer(){
+    return html`
+      <div
+        class="storage-container-pane-empty-message"
+        title="Drop resource to upload"
+        aria-label="Drop resource to upload"
+        @dragover=${this.onEmptyStateDragOver}
+        @drop=${this.onEmptyStateDrop}
+      >
+        <div class="storage-container-pane-empty-message-icon">
+          <icon-lucide-file-box></icon-lucide-file-box>
+        </div>
+        <h2 class="storage-container-pane-empty-message-title">This folder is empty</h2>
+        <p class="storage-container-pane-empty-message-body">Create a folder or drop files and folders here to upload them.</p>
+        <solid-ui-button
+          class="storage-container-pane-empty-message-button"
+          variant="primary"
+          ?disabled=${!this.canCreateFolder}
+          @click=${this.handleCreateNewFolder}
+        >
+          Create New Folder
+        </solid-ui-button>
+      </div>`
+  }
+  
   private renderResourceListArea (searchQuery: string, visibleResources: Resource[]) {
     if (this.isLoadingResources && !searchQuery) {
       return html`<div class="storage-container-pane-empty-message">Loading resources...</div>`
@@ -583,9 +654,11 @@ export default class StorageContainerPane extends WebComponent {
       return this.storageContext.view === 'grid' ? this.renderGridView() : this.renderListView()
     }
 
-    return html`<div class="storage-container-pane-empty-message">
-      ${searchQuery ? 'No resources match this search.' : 'No resources found in this container.'}
-    </div>`
+    if (searchQuery) {
+      return html`<div class="storage-container-pane-empty-message storage-container-pane-empty-message--centered storage-container-pane-empty-message--search">No resources match this search.</div>`
+    }
+
+    return this.renderEmptyContainer()
   }
 
   render () {

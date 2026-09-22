@@ -1,7 +1,9 @@
 import { authn } from 'solid-logic'
 import { DataBrowserContext, PaneDefinition } from 'pane-registry'
 import { NamedNode } from 'rdflib'
-import { ns, utils } from 'solid-ui'
+import { ns, showDialog, utils } from 'solid-ui'
+import StorageCreationDialog from '../storage-creation-dialog'
+import type { StorageContext } from '../storage-provider/context'
 
 // This code was from newThingUI in solid-ui, we don't need the UI part
 // anymore we just need to create the new instance and add it to the container.
@@ -54,6 +56,49 @@ export async function makeNewAppInstance (options: MakeNewAppInstanceOptions): P
   const newResource = created.newInstance
 
   kb.add(container, ns.ldp('contains'), newResource, container.doc())
+
+  return newResource
+}
+
+export type CreateNewResourceOptions = {
+  browserContext: DataBrowserContext
+  container: NamedNode
+  pane: PaneDefinition
+  statusArea: HTMLElement
+  storageContext: StorageContext
+}
+
+export async function createNewResource (options: CreateNewResourceOptions): Promise<NamedNode | undefined> {
+  const { browserContext, container, pane, statusArea, storageContext } = options
+
+  statusArea.replaceChildren()
+
+  const name = await new Promise<string | undefined>((resolve) => {
+    showDialog(StorageCreationDialog, {
+      props: {
+        label: getPaneLabel(pane)
+      },
+      onClose: (result) => resolve(result)
+    })
+  })
+
+  if (!name) {
+    return undefined
+  }
+
+  const newResource = await makeNewAppInstance({
+    browserContext,
+    container,
+    pane,
+    name,
+    statusArea
+  })
+
+  const selectedPaneName = pane.name === 'folder' || pane.name === 'Dokieli'
+    ? undefined
+    : pane.name
+
+  storageContext.selectResource(newResource, selectedPaneName)
 
   return newResource
 }

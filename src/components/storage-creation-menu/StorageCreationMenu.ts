@@ -1,4 +1,4 @@
-import { customElement, WebComponent, authContext, DEFAULT_AUTH_CONTEXT, login, showDialog } from 'solid-ui'
+import { customElement, WebComponent, authContext, DEFAULT_AUTH_CONTEXT, login } from 'solid-ui'
 import { html, nothing } from 'lit'
 import { consume } from '@lit/context'
 import { property, state } from 'lit/decorators.js'
@@ -13,8 +13,7 @@ import 'solid-ui/components/menu'
 import 'solid-ui/components/menu-item'
 import '~icons/lucide/chevron-down'
 import '~icons/lucide/plus'
-import { getPaneLabel, makeNewAppInstance } from './mintPaneInstance'
-import StorageCreationDialog from '../storage-creation-dialog'
+import { createNewResource, getPaneLabel } from './mintPaneInstance'
 import styles from './StorageCreationMenu.styles.css'
 
 
@@ -81,35 +80,13 @@ export default class StorageCreationMenu extends WebComponent {
       return
     }
 
-    this.getStatusArea?.()?.replaceChildren()
-
-    const name = await new Promise<string | undefined>((resolve) => {
-      showDialog(StorageCreationDialog, {
-        props: {
-          label: getPaneLabel(pane)
-        },
-        onClose: (result) => resolve(result)
-      })
-    })
-
-    if (!name) {
-      return
-    }
-
-    const newResource = await makeNewAppInstance({
+    await createNewResource({
       browserContext: this.browserContext,
       container: this.container,
       pane,
-      name,
-      statusArea: this.getStatusArea?.() ?? this
+      statusArea: this.getStatusArea?.() ?? this,
+      storageContext: this.storageContext
     })
-
-    // Folder is the shell itself, so re-selecting it would nest the whole
-    // storage UI. Dokieli is mint-only here, so it also falls back.
-    const selectedPaneName = pane.name === 'folder' || pane.name === 'Dokieli'
-      ? undefined
-      : pane.name
-    this.storageContext.selectResource(newResource, selectedPaneName)
   }
 
   render () {

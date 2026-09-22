@@ -143,3 +143,63 @@ icon-lucide-lock-keyhole {
   width: 15px;
   height: 15px;
 }
+
+.storage-container-pane-empty-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  min-height: 100%;
+  text-align: center;
+  color: var(--solid-ui-color-gray-700, #364153);
+}
+
+.storage-container-pane-empty-message-icon {
+  display: flex;
+  width: 64px;
+  height: 64px;
+  padding: 0 16.785px;
+  justify-content: center;
+  align-items: center;
+  border-radius: 16px;
+  border: 1px solid var(--solid-ui-color-slate-200, #E2E8F0);
+  background: var(--solid-ui-color-white, #FFF);
+}
+
+.storage-container-pane-empty-message-icon icon-lucide-file-box {
+  width: 32px;
+  height: 32px;
+  color: var(--solid-ui-color-gray-300, #D1D5DC);
+  stroke-width: 2px;
+}
+
+.storage-container-pane-empty-message-title {
+  margin: 0;
+  color: var(--solid-ui-color-gray-900, #030712);
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.storage-container-pane-empty-message-body {
+  max-width: 24rem;
+  margin: 0;
+  color: var(--solid-ui-color-gray-600, #4A5565);
+  font-size: var(--solid-ui-font-size-sm, .875rem);
+  line-height: 21.125px;
+}
+
+.storage-container-pane-empty-message--search {
+  min-height: 100%;
+}
+
+.storage-container-pane-empty-message-button {
+  --text-color: var(--solid-ui-color-primary);
+  --border-color: var(--solid-ui-color-gray-200, #e5e7eb);
+  --background-color: var(--solid-ui-color-white, #ffffff);
+  --hover-text-color: var(--solid-ui-color-primary);
+  --hover-border-color: var(--solid-ui-color-gray-300, #d1d5db);
+  --hover-background-color: var(--solid-ui-color-white, #ffffff);
+  align-self: center;
+}
