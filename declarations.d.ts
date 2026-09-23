@@ -1,4 +1,4 @@
-declare module '*.css' {
-  const classes: Record<string, string>;
-  export default classes;
-}
+/// <reference types="unplugin-icons/types/web-components" />
+
+declare module '*.css';
+declare module '~icons/*';

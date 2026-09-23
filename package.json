@@ -1,6 +1,6 @@
 {
   "name": "folder-pane",
-  "version": "4.0.0-0",
+  "version": "4.0.0-1",
   "description": "Solid-compatible Panes: File browser",
   "main": "dist/index.cjs.js",
   "types": "dist/index.d.ts",
@@ -12,7 +12,8 @@
     }
   },
   "sideEffects": [
-    "**/*.css"
+    "**/*.css",
+    "src/components/**/*.ts"
   ],
   "scripts": {
     "clean": "rm -rf dist",
@@ -58,6 +59,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.3",
     "@eslint/js": "^10.0.1",
+    "@iconify-json/lucide": "^1.2.116",
     "@types/node": "^24.13.3",
     "@typescript-eslint/parser": "^8.53.1",
     "@vitest/coverage-v8": "^4.0.18",
@@ -67,9 +69,11 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
-    "rdflib": "2.4.0",
-    "solid-logic": "6.0.0-0",
-    "solid-ui": "5.0.0-0",
+    "@lit/context": "^1.1.6",
+    "pane-registry": "5.0.0-1",
+    "rdflib": "2.4.1",
+    "solid-logic": "6.0.0-2",
+    "solid-ui": "5.0.0-2",
     "vite": "^8.0.16",
     "vitest": "^4.0.18",
     "vitest-axe": "^0.1.0"
