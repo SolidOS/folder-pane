@@ -797,7 +797,9 @@ export default class StorageContainerPane extends WebComponent {
     const searchQuery = this.searchQuery
 
     return html`
-      ${this.renderResourceListArea(searchQuery, visibleResources)}
+      <div class="storage-container-pane-content">
+        ${this.renderResourceListArea(searchQuery, visibleResources)}
+      </div>
       <storage-creation-area
         .subject=${this.currentSubject}
         .message=${'Drop files or folder here or click to choose'}

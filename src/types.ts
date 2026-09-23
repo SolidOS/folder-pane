@@ -1,4 +1,4 @@
-import { NamedNode } from "rdflib"
+import { NamedNode } from 'rdflib'
 
 export type Resource = {
   id: string

@@ -15,6 +15,47 @@ storage-container-pane {
   min-height: 0;
 }
 
+storage-container-pane > .storage-container-pane-content {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  width: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+storage-container-pane > .storage-container-pane-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+storage-container-pane > .storage-container-pane-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+storage-container-pane > .storage-container-pane-content::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 999px;
+}
+
+storage-container-pane > .storage-container-pane-content:hover {
+  scrollbar-color: #c7cbd1 transparent;
+}
+
+storage-container-pane > .storage-container-pane-content:hover::-webkit-scrollbar-thumb {
+  background: #c7cbd1;
+}
+
+storage-container-pane > .storage-container-pane-content > .storage-container-pane-resource-drop-zone {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  width: 100%;
+}
+
 storage-container-pane > storage-content-view {
   order: 0;
   flex: 1 1 0%;
@@ -49,40 +90,12 @@ storage-container-pane > storage-creation-area {
 storage-container-pane .resource-list,
 storage-container-pane .resource-grid {
   display: flex;
-  flex: 1 1 0%;
+  flex: 1 1 auto;
   width: 100%;
-  overflow: auto;
+  overflow: visible;
   min-height: 0;
   margin: 0;
   padding: 20px;
-  scrollbar-width: thin;
-  scrollbar-color: transparent transparent;
-}
-
-storage-container-pane .resource-list::-webkit-scrollbar,
-storage-container-pane .resource-grid::-webkit-scrollbar {
-  width: 6px;
-}
-
-storage-container-pane .resource-list::-webkit-scrollbar-track,
-storage-container-pane .resource-grid::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-storage-container-pane .resource-list::-webkit-scrollbar-thumb,
-storage-container-pane .resource-grid::-webkit-scrollbar-thumb {
-  background: transparent;
-  border-radius: 999px;
-}
-
-storage-container-pane .resource-list:hover,
-storage-container-pane .resource-grid:hover {
-  scrollbar-color: #c7cbd1 transparent;
-}
-
-storage-container-pane .resource-list:hover::-webkit-scrollbar-thumb,
-storage-container-pane .resource-grid:hover::-webkit-scrollbar-thumb {
-  background: #c7cbd1;
 }
 
 storage-container-pane .resource-list {
@@ -347,6 +360,20 @@ storage-container-pane .storage-container-pane-empty-message-button {
 
 storage-container-pane .storage-container-pane-empty-message--search {
   min-height: 100%;
+}
+
+storage-container-pane storage-creation-area {
+  margin-top: auto;
+  align-self: stretch;
+  width: 100%;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  padding: 10px 20px;
+  --storage-creation-area-message-font-size: var(--solid-ui-font-size-sm, .875rem);
+  --storage-creation-area-padding: 28px 20px;
+  --storage-creation-icon-size: 26px;
+  --storage-creation-gap: 10px;
+  --storage-creation-area-border-radius: 12px;
 }
 
 storage-container-pane icon-lucide-globe {
