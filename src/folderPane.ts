@@ -4,12 +4,13 @@
  */
 
 import { authn } from 'solid-logic'
-import * as UI from 'solid-ui'
+import './components/storage-pane-view'
+import { aclControl, create, createTypes, icons, login, ns, widgets } from 'solid-ui'
 import './styles/folderPane.css'
 import './styles/utilities.css'
 
 export default {
-  icon: UI.icons.iconBase + 'noun_973694_expanded.svg',
+  icon: icons.iconBase + 'noun_973694_expanded.svg',
   name: 'folder',
 
   // Create a new folder in a Solid system,
@@ -26,18 +27,17 @@ export default {
     return kb.fetcher
       .webOperation('PUT', newInstance.uri)
       .then(function () {
-        console.log('New container created: ' + newInstance.uri)
         return newPaneOptions
       })
   },
 
   label: function (subject, context) {
     const kb = context.session.store
-    const n = kb.each(subject, UI.ns.ldp('contains')).length
+    const n = kb.each(subject, ns.ldp('contains')).length
     if (n > 0) {
       return 'Contents (' + n + ')' // Show how many in hover text
     }
-    if (kb.holds(subject, UI.ns.rdf('type'), UI.ns.ldp('Container'))) {
+    if (kb.holds(subject, ns.rdf('type'), ns.ldp('Container'))) {
       // It is declared as being a container
       return 'Container (0)'
     }
@@ -46,90 +46,45 @@ export default {
 
   // Render a file folder in a LDP/solid system
   render: function (subject, context) {
-    function noHiddenFiles (obj) {
-      // @@ This hiddenness should actually be server defined
-      const pathEnd = obj.uri.slice(obj.dir().uri.length)
-      return !(
-        pathEnd.startsWith('.') ||
-        pathEnd.endsWith('.acl') ||
-        pathEnd.endsWith('~')
-      )
-    }
-
-    function refresh () {
-      let objs = kb.each(subject, UI.ns.ldp('contains')).filter(noHiddenFiles)
-      objs = objs.map(obj => [UI.utils.label(obj).toLowerCase(), obj])
-      objs.sort() // Sort by label case-insensitive
-      objs = objs.map(pair => pair[1])
-      UI.utils.syncTableToArray(mainTable, objs, function (obj) {
-        const st = kb.statementsMatching(subject, UI.ns.ldp('contains'), obj)[0]
-        const defaultpropview = outliner.VIEWAS_boring_default
-        const tr = outliner.propertyTR(dom, st, false)
-        const predicateCell = tr.firstChild as HTMLElement
-        predicateCell.textContent = '' // Was initialized to 'Contains'
-        predicateCell.classList.add('folderPanePredicateCell')
-        tr.appendChild(
-          outliner.outlineObjectTD(obj, defaultpropview, undefined, st)
-        )
-        // UI.widgets.makeDraggable(tr, obj)
-        return tr
-      })
-    }
 
     const dom = context.dom
     const outliner = context.getOutliner(dom)
     const kb = context.session.store
-    let mainTable // This is a live synced table
     const div = dom.createElement('div')
-    div.classList.add('instancePane', 'folderPaneInstancePane')
-    
-    const thisDir = subject.uri.endsWith('/') ? subject.uri : subject.uri + '/'
-    const indexThing = kb.sym(thisDir + 'index.ttl#this')
-    if (kb.holds(subject, UI.ns.ldp('contains'), indexThing.doc())) {
-      console.log(
-        'View of folder will be view of indexThing. Loading ' + indexThing
-      )
-      const packageDiv = div.appendChild(dom.createElement('div'))
-      packageDiv.classList.add('folderPanePackageDiv')
-      kb.fetcher.load(indexThing.doc()).then(function () {
-        mainTable = packageDiv.appendChild(dom.createElement('table'))
-        mainTable.classList.add('folderPaneMainTable')
-        context
-          .getOutliner(dom)
-          .GotoSubject(indexThing, true, undefined, false, undefined, mainTable)
-      })
-      return div
-    } else {
-      mainTable = div.appendChild(dom.createElement('table'))
-      mainTable.classList.add('folderPaneMainTable')
-      mainTable.refresh = refresh
-      refresh()
-      // addDownstreamChangeListener is a high level function which when someone else changes the resource,
-      // reloads it into the kb, then must call addDownstreamChangeListener to be able to update the folder pane.
-      kb.updater.addDownstreamChangeListener(subject, refresh) // Update store and call me if folder changes
-    }
+    div.classList.add('instancePane', 'storage-pane')
+    const storagePaneView = div.appendChild(dom.createElement('storage-pane-view'))
+    storagePaneView.dom = dom
+    storagePaneView.outliner = outliner
+    storagePaneView.store = kb
+    storagePaneView.subject = subject
+    storagePaneView.resourceLogic = context.session.logic.resource
+
+    // The pane registry is needed to open the internal pane on Alt-click.
+    // addDownstreamChangeListener is a high level function which when someone else changes the resource,
+    // reloads it into the kb, then must call addDownstreamChangeListener to be able to update the folder pane.
+    // SAM need to figure out how to add this line later kb.updater.addDownstreamChangeListener(subject, refresh) // Update store and call me if folder changes
 
     // Allow user to create new things within the folder
     const creationDiv = div.appendChild(dom.createElement('div'))
-    creationDiv.classList.add('folderPaneCreationDiv')
+    creationDiv.classList.add('storage-pane-creation-div')
     const me = authn.currentUser() // @@ respond to login events
     if (!me) {
       return div // Cannot create new things without being logged in
     }
-    const creationContext: UI.createTypes.CreateContext = {
+    const creationContext: createTypes.CreateContext = {
       folder: subject,
       div: creationDiv,
       dom: dom,
       statusArea: creationDiv,
       me: me
     }
-    creationContext.refreshTarget = mainTable
-    UI.login
+    // creationContext.refreshTarget = contentView
+    login
       .filterAvailablePanes(context.session.paneRegistry.list)
       .then(function (relevantPanes) {
-        UI.create.newThingUI(creationContext, context, relevantPanes) // Have to pass panes down  newUI
+        create.newThingUI(creationContext, context, relevantPanes) // Have to pass panes down  newUI
 
-        UI.aclControl.preventBrowserDropEvents(dom)
+        aclControl.preventBrowserDropEvents(dom)
 
         const explicitDropIcon = false
         let target
@@ -138,26 +93,26 @@ export default {
             dom.createElement('img'),
             creationDiv.firstChild
           )
-          target.classList.add('folderPaneExplicitDropIcon')
-          target.setAttribute('src', UI.icons.iconBase + 'noun_748003.svg')
+          target.classList.add('storage-pane-explicit-drop-icon')
+          target.setAttribute('src', icons.iconBase + 'noun_748003.svg')
         } else {
           target = creationDiv.firstChild // Overload drop target semantics onto the plus sign
         }
 
         if (target instanceof HTMLElement) {
-          target.classList.add('folderPaneDropTarget')
+          target.classList.add('storage-pane-drop-target')
         }
 
-        creationDiv.classList.add('folderPaneDropZone')
+        creationDiv.classList.add('storage-pane-drop-zone')
 
         // /////////// Allow new file to be Uploaded
-        UI.widgets.makeDropTarget(creationDiv, null, droppedFileHandler)
+        widgets.makeDropTarget(creationDiv, null, droppedFileHandler)
       })
 
     return div
 
     function droppedFileHandler (files) {
-      UI.widgets.uploadFiles(
+      widgets.uploadFiles(
         kb.fetcher,
         files,
         subject.uri,
@@ -165,9 +120,7 @@ export default {
         function (file, uri) {
           // A file has been uploaded
           const destination = kb.sym(uri)
-          console.log(' Upload: put OK: ' + destination)
-          kb.add(subject, UI.ns.ldp('contains'), destination, subject.doc())
-          mainTable.refresh()
+          kb.add(subject, ns.ldp('contains'), destination, subject.doc())
         }
       )
     }
