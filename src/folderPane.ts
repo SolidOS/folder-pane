@@ -148,8 +148,10 @@ export default {
           target.classList.add('folderPaneDropTarget')
         }
 
+        creationDiv.classList.add('folderPaneDropZone')
+
         // /////////// Allow new file to be Uploaded
-        UI.widgets.makeDropTarget(target, null, droppedFileHandler)
+        UI.widgets.makeDropTarget(creationDiv, null, droppedFileHandler)
       })
 
     return div
