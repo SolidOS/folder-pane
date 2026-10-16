@@ -1,4 +1,4 @@
-import { customElement, FILE_EXPLORER_BACK_EVENT, FILE_EXPLORER_OPEN_PANE_EVENT, log, login, ns, WebComponent } from 'solid-ui'
+import { customElement, FILE_EXPLORER_BACK_EVENT, FILE_EXPLORER_OPEN_PANE_EVENT, getRelevantPanes, log, ns, WebComponent } from 'solid-ui'
 import { html } from 'lit'
 import { property, query, state } from 'lit/decorators.js'
 import type { PropertyValues } from 'lit'
@@ -120,22 +120,6 @@ export default class FolderPaneView extends WebComponent {
     }
   }
 
-  private async getRelevantPanes (subject: NamedNode): Promise<PaneDefinition[]> {
-    const paneRegistry = this.browserContext?.session.paneRegistry
-    if (!paneRegistry || !this.browserContext) return []
-
-    const relevantPanes = paneRegistry.list.filter(
-      pane => pane.label(subject, this.browserContext as DataBrowserContext) && !pane.global && pane.name !== 'sharing'
-    )
-    if (relevantPanes.length === 0) {
-      const internalPane = paneRegistry.byName('internal')
-      return internalPane ? [internalPane] : []
-    }
-
-    const filteredPanes = await login.filterAvailablePanes(relevantPanes)
-    return filteredPanes.length > 0 ? filteredPanes : [relevantPanes[0]]
-  }
-
   private getPaneForSubject (subject: NamedNode, relevantPanes: PaneDefinition[]) {
     const mintClass = this.store && (
       this.store.any(subject, ns.ui('mintClass'), undefined, subject.doc()) ||
@@ -157,7 +141,12 @@ export default class FolderPaneView extends WebComponent {
   ) {
     if (!this.browserContext) return
 
-    const relevantPanes = await this.getRelevantPanes(subject)
+    const relevantPanes = this.browserContext
+      ? await getRelevantPanes(subject, this.browserContext, {
+          excludedPaneNames: ['sharing'],
+          fallbackPaneName: 'internal'
+        })
+      : []
     if (options.isCurrent && !options.isCurrent()) return
     const selectedPane = pane || this.getPaneForSubject(subject, relevantPanes)
     if (!selectedPane) return
