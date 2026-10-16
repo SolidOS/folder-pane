@@ -2,17 +2,16 @@ import { customElement, log, WebComponent } from 'solid-ui'
 import { html } from 'lit'
 import { property, query, state } from 'lit/decorators.js'
 import type { PropertyValues } from 'lit'
-import '../container-content-view'
-import '../storage-sidebar'
-import '../storage-content-view'
+import '../folder-pane-container'
+import '../folder-pane-sidebar'
+import '../folder-pane-content'
 import type { LiveStore, NamedNode } from 'rdflib'
 import type { StoragePaneOutliner } from '../../types'
 import type { SolidLogic } from 'solid-logic'
-import { renderSelectedResourceInContentView } from '../../helpers'
 
 
-@customElement('storage-pane-view')
-export default class StoragePaneView extends WebComponent {
+@customElement('folder-pane-view')
+export default class FolderPaneView extends WebComponent {
   @property({ attribute: false })
   accessor dom: HTMLDocument | null = null
 
@@ -33,7 +32,7 @@ export default class StoragePaneView extends WebComponent {
 
   private renderGeneration = 0
 
-  @query('storage-content-view')
+  @query('folder-pane-content')
   private accessor contentView: HTMLElement | null = null
 
   protected createRenderRoot () {
@@ -49,15 +48,11 @@ export default class StoragePaneView extends WebComponent {
   private renderContainerView (selectedResource: NamedNode) {
     if (!this.contentView) return
 
-    const containerView = document.createElement('container-content-view') as HTMLElement & {
-      outliner?: StoragePaneOutliner
-      store?: LiveStore | null
+    const containerView = document.createElement('folder-pane-container') as HTMLElement & {
       subject?: NamedNode
       resourceLogic?: SolidLogic['resource'] | null
     }
 
-    containerView.outliner = this.outliner
-    containerView.store = this.store
     containerView.subject = selectedResource
     containerView.resourceLogic = this.resourceLogic
 
@@ -68,17 +63,39 @@ export default class StoragePaneView extends WebComponent {
     const renderGeneration = ++this.renderGeneration
 
     try {
-      if (this.contentView) {
-        await renderSelectedResourceInContentView({
-          store: this.store,
-          resourceLogic: this.resourceLogic,
-          selectedResource,
-          contentView: this.contentView,
-          outliner: this.outliner,
-          renderContainerView: this.renderContainerView.bind(this),
-          isCurrentSelection: (candidate) => renderGeneration === this.renderGeneration && this.selectedResource?.sameTerm(candidate) === true,
-        })
+      if (!this.contentView || !this.store || !this.resourceLogic) return
+
+      const isCurrentSelection = (candidate: NamedNode) =>
+        renderGeneration === this.renderGeneration &&
+        this.selectedResource?.sameTerm(candidate) === true
+
+      if (!isCurrentSelection(selectedResource)) return
+
+      if (this.resourceLogic.isContainer(selectedResource)) {
+        try {
+          await this.store.fetcher.load(selectedResource)
+        } catch (error) {
+          if (!isCurrentSelection(selectedResource)) return
+          log.error('Unable to load selected container: ' + error)
+          this.renderContainerView(selectedResource)
+          return
+        }
+
+        if (!isCurrentSelection(selectedResource)) return
+
+        if (this.resourceLogic.containerHasIndexDocument(selectedResource)) {
+          const indexThing = this.resourceLogic.getContainerIndexThing(selectedResource)
+          this.contentView.replaceChildren()
+          this.outliner?.GotoSubject(indexThing, true, undefined, false, undefined, this.contentView)
+          return
+        }
+
+        this.renderContainerView(selectedResource)
+        return
       }
+
+      this.contentView.replaceChildren()
+      this.outliner?.GotoSubject(selectedResource, true, undefined, false, undefined, this.contentView)
     } catch (error) {
       log.error('Unable to render selected resource: ' + error)
     }
@@ -92,16 +109,15 @@ export default class StoragePaneView extends WebComponent {
 
   render () {
     return html`
-      <div class="storage-pane-main-content" @resource-selected=${this.handleResourceSelected}>
-        <div class="storage-pane-section">
-          <storage-sidebar
+      <div class="folder-pane-main-content" @resource-selected=${this.handleResourceSelected}>
+        <div class="folder-pane-section">
+          <folder-pane-sidebar
             .dom=${this.dom}
             .store=${this.store}
             .resourceLogic=${this.resourceLogic}
             .subject=${this.subject}
-            @resource-selected=${this.handleResourceSelected}
-          ></storage-sidebar>
-          <storage-content-view></storage-content-view>
+            ></folder-pane-sidebar>
+          <folder-pane-content></folder-pane-content>
         </div>
       </div>
     `

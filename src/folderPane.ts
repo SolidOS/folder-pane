@@ -4,7 +4,7 @@
  */
 
 import { authn } from 'solid-logic'
-import './components/storage-pane-view'
+import './components/folder-pane-view'
 import { aclControl, create, createTypes, icons, login, ns, widgets } from 'solid-ui'
 import './styles/folderPane.css'
 import './styles/utilities.css'
@@ -51,13 +51,13 @@ export default {
     const outliner = context.getOutliner(dom)
     const kb = context.session.store
     const div = dom.createElement('div')
-    div.classList.add('instancePane', 'storage-pane')
-    const storagePaneView = div.appendChild(dom.createElement('storage-pane-view'))
-    storagePaneView.dom = dom
-    storagePaneView.outliner = outliner
-    storagePaneView.store = kb
-    storagePaneView.subject = subject
-    storagePaneView.resourceLogic = context.session.logic.resource
+    div.classList.add('instancePane', 'folder-pane')
+    const folderPaneView = div.appendChild(dom.createElement('folder-pane-view'))
+    folderPaneView.dom = dom
+    folderPaneView.outliner = outliner
+    folderPaneView.store = kb
+    folderPaneView.subject = subject
+    folderPaneView.resourceLogic = context.session.logic.resource
 
     // The pane registry is needed to open the internal pane on Alt-click.
     // addDownstreamChangeListener is a high level function which when someone else changes the resource,
@@ -66,7 +66,7 @@ export default {
 
     // Allow user to create new things within the folder
     const creationDiv = div.appendChild(dom.createElement('div'))
-    creationDiv.classList.add('storage-pane-creation-div')
+    creationDiv.classList.add('folder-pane-creation-div')
     const me = authn.currentUser() // @@ respond to login events
     if (!me) {
       return div // Cannot create new things without being logged in
@@ -93,17 +93,17 @@ export default {
             dom.createElement('img'),
             creationDiv.firstChild
           )
-          target.classList.add('storage-pane-explicit-drop-icon')
+          target.classList.add('folder-pane-explicit-drop-icon')
           target.setAttribute('src', icons.iconBase + 'noun_748003.svg')
         } else {
           target = creationDiv.firstChild // Overload drop target semantics onto the plus sign
         }
 
         if (target instanceof HTMLElement) {
-          target.classList.add('storage-pane-drop-target')
+          target.classList.add('folder-pane-drop-target')
         }
 
-        creationDiv.classList.add('storage-pane-drop-zone')
+        creationDiv.classList.add('folder-pane-drop-zone')
 
         // /////////// Allow new file to be Uploaded
         widgets.makeDropTarget(creationDiv, null, droppedFileHandler)

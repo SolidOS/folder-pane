@@ -1,5 +1,5 @@
 :host {
-  .storage-pane-section {
+  .folder-pane-section {
     display: flex;
     align-items: flex-start;
     gap: var(--spacing-lg, 1.5625rem);

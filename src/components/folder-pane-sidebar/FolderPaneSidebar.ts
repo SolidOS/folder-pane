@@ -4,7 +4,7 @@ import { html } from 'lit'
 import { repeat } from 'lit/directives/repeat.js'
 import { property, state } from 'lit/decorators.js'
 import type { PropertyValues } from 'lit'
-import styles from './StorageSidebar.styles.css'
+import styles from './FolderPaneSidebar.styles.css'
 import type { LiveStore, NamedNode } from 'rdflib'
 import type { Resource, ResourceMap } from '../../types'
 import '~icons/lucide/chevron-right'
@@ -15,8 +15,8 @@ type VisibleResource = {
   depth: number
 }
 
-@customElement('storage-sidebar')
-export default class StorageSidebar extends WebComponent {
+@customElement('folder-pane-sidebar')
+export default class FolderPaneSidebar extends WebComponent {
   static styles = styles
 
   @property({ attribute: false })
@@ -115,7 +115,7 @@ export default class StorageSidebar extends WebComponent {
     const expandControl = resource.isContainer
       ? html`
           <button
-            class="storage-sidebar-expand-button"
+            class="folder-pane-sidebar-expand-button"
             type="button"
             aria-label=${isExpanded ? 'Collapse container' : 'Expand container'}
             aria-expanded=${String(isExpanded)}
@@ -125,7 +125,7 @@ export default class StorageSidebar extends WebComponent {
           </button>
         `
       : html`
-          <span class="storage-sidebar-expand-spacer" aria-hidden="true">
+          <span class="folder-pane-sidebar-expand-spacer" aria-hidden="true">
             <icon-lucide-chevron-right></icon-lucide-chevron-right>
           </span>
         `

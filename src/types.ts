@@ -1,5 +1,4 @@
-import type { LiveStore, NamedNode } from 'rdflib'
-import type { SolidLogic } from 'solid-logic'
+import type { NamedNode } from 'rdflib'
 
 export type Resource = {
   id: string
@@ -19,14 +18,4 @@ export type StoragePaneOutliner = {
     source?: unknown,
     targetView?: HTMLElement
   ) => void
-}
-
-export type ContentViewRenderer = {
-  store: LiveStore | null
-  resourceLogic: SolidLogic['resource'] | null
-  selectedResource: NamedNode
-  contentView: HTMLElement
-  outliner?: StoragePaneOutliner
-  renderContainerView: (selectedResource: NamedNode) => void
-  isCurrentSelection: (selectedResource: NamedNode) => boolean
 }

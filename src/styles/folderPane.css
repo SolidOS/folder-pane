@@ -1,4 +1,4 @@
-.storage-pane {
+.folder-pane {
   box-sizing: border-box;
   align-self: stretch;
   text-align: left;
@@ -16,7 +16,7 @@
   padding-bottom: 1rem;
 }
 
-.storage-pane-package-div {
+.folder-pane-package-div {
   display: block;
   text-align: left;
   width: 100%;
@@ -27,7 +27,7 @@
   overflow-x: auto;
 }
 
-storage-pane-view {
+folder-pane-view {
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -35,7 +35,7 @@ storage-pane-view {
   min-height: 0;
 }
 
-.storage-pane-main-content {
+.folder-pane-main-content {
   display: flex;
   flex-direction: row;
   width: 100%;
@@ -47,7 +47,7 @@ storage-pane-view {
   background: var(--solid-ui-color-white, #fff);
 }
 
-.storage-pane-section {
+.folder-pane-section {
   display: flex;
   align-items: flex-start;
   gap: var(--spacing-lg, 1.5625rem);
@@ -59,18 +59,18 @@ storage-pane-view {
   margin-bottom: var(--spacing-lg, 1.5625rem);
 }
 
-storage-sidebar {
+folder-pane-sidebar {
   display: block;
   flex: 0 0 25%;
   min-width: 16rem;
 }
 
-storage-content-view {
+folder-pane-content {
   flex: 1 1 75%;
   min-width: 0;
 }
 
-.storage-pane-predicate-cell {
+.folder-pane-predicate-cell {
   width: 0;
   min-width: 0;
   max-width: 0;
@@ -81,7 +81,7 @@ storage-content-view {
 }
 
 
-.storage-pane-creation-div {
+.folder-pane-creation-div {
   display: flex;
   align-items: flex-start;
   justify-content: flex-start;
@@ -92,13 +92,13 @@ storage-content-view {
   margin-right: 0;
 }
 
-.storage-pane-drop-zone {
+.folder-pane-drop-zone {
   padding: 0.5rem 0.25rem;
   min-height: calc(var(--icon-base, 2em) + 1rem);
   box-sizing: border-box;
 }
 
-.storage-pane-drop-target {
+.folder-pane-drop-target {
   display: inline-block;
   width: var(--icon-base, 2em);
   min-width: var(--icon-base, 2em);
@@ -112,14 +112,14 @@ storage-content-view {
   flex: 0 0 var(--icon-base, 2em);
 }
 
-.storage-pane-explicit-drop-icon {
+.folder-pane-explicit-drop-icon {
   width: var(--icon-base, 2em);
   height: var(--icon-base, 2em);
 }
 
 
 @media (max-width: 700px) {
-  .storage-pane {
+  .folder-pane {
     border-top: solid 1px #777;
     border-bottom: solid 1px #777;
     margin-top: var(--spacing-2xs, 0.25em);

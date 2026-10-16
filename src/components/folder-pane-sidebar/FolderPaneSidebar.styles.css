@@ -7,14 +7,14 @@
     font-size: 14px;
   }
 
-  .storage-sidebar-expand-button,
-  .storage-sidebar-expand-spacer {
+  .folder-pane-sidebar-expand-button,
+  .folder-pane-sidebar-expand-spacer {
     flex: 0 0 16px;
     width: 16px;
     height: 16px;
   }
 
-  .storage-sidebar-expand-button {
+  .folder-pane-sidebar-expand-button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -24,18 +24,18 @@
     cursor: pointer;
   }
 
-  .storage-sidebar-expand-button icon-lucide-chevron-right {
+  .folder-pane-sidebar-expand-button icon-lucide-chevron-right {
     width: 16px;
     height: 16px;
     transition: transform 120ms ease;
   }
 
-  .storage-sidebar-expand-spacer icon-lucide-chevron-right {
+  .folder-pane-sidebar-expand-spacer icon-lucide-chevron-right {
     width: 16px;
     height: 16px;
   }
 
-  .storage-sidebar-expand-button[aria-expanded='true'] icon-lucide-chevron-right {
+  .folder-pane-sidebar-expand-button[aria-expanded='true'] icon-lucide-chevron-right {
     transform: rotate(90deg);
   }
 }
