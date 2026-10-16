@@ -1,26 +1,13 @@
-import type { LiveStore, NamedNode } from 'rdflib'
-import { ns, utils } from 'solid-ui'
+import type { NamedNode } from 'rdflib'
+import { utils } from 'solid-ui'
+import type { ResourceLogic } from 'solid-logic'
 import type { ContentViewRenderer, ResourceMap } from './types'
 
-// move this to solid-logic resource logic
-function noHiddenFiles (obj: NamedNode): boolean {
-  // @@ This hiddenness should actually be server defined
-  const directory = obj.dir()
-  if (!directory) return true
-  const pathEnd = obj.uri.slice(directory.uri.length)
-  return !(
-    pathEnd.startsWith('.') ||
-    pathEnd.endsWith('.acl') ||
-    pathEnd.endsWith('~')
-  )
-}
+function getResourcesForContainer (container: NamedNode, resourceLogic: ResourceLogic | null): ResourceMap {
+  if (!resourceLogic) return new Map()
 
-function getResourcesForContainer (store: LiveStore | null, container: NamedNode, resourceLogic: ResourceLogic | null): ResourceMap {
-  if (!store) return new Map()
-
-  const containedResources = store.each(container, ns.ldp('contains')).filter(
-    (resource): resource is NamedNode =>
-      resource.termType === 'NamedNode' && noHiddenFiles(resource as NamedNode)
+  const containedResources = resourceLogic.getContainerMembers(container).filter(
+    (resource) => !resourceLogic.isHiddenFile(resource)
   ).filter((containedResource, index, allContainedResources) => {
     return allContainedResources.findIndex(other => other.sameTerm(containedResource)) === index
   })
@@ -34,22 +21,8 @@ function getResourcesForContainer (store: LiveStore | null, container: NamedNode
     id: resource.value,
     subject: resource,
     parentId: container.value,
-    isContainer: resourceLogic?.isContainer?.(resource) ?? false
+    isContainer: resourceLogic.isContainer(resource)
   }]))
-}
-
-function getContainerIndexThing (store: LiveStore, container: NamedNode): NamedNode {
-  const folderUri = container.uri.endsWith('/') ? container.uri : container.uri + '/'
-  return store.sym(folderUri + 'index.ttl#this')
-}
-
-function containerHasIndexDocument (store: LiveStore, container: NamedNode): boolean {
-  const indexThing = getContainerIndexThing(store, container)
-  return store.holds(container, ns.ldp('contains'), indexThing.doc())
-}
-
-function isStorageRoot (store: LiveStore, resource: NamedNode): boolean {
-  return store.holds(resource, ns.rdf('type'), ns.space('Storage'), resource.doc())
 }
 
 async function renderSelectedResourceInContentView ({
@@ -65,7 +38,11 @@ async function renderSelectedResourceInContentView ({
     return
   }
 
-  const isContainer = resourceLogic?.isContainer?.(selectedResource)
+  if (!resourceLogic) {
+    return
+  }
+
+  const isContainer = resourceLogic.isContainer(selectedResource)
 
   if (isContainer) {
     try {
@@ -84,10 +61,10 @@ async function renderSelectedResourceInContentView ({
       return
     }
 
-    const hasIndexDocumentAfterLoad = containerHasIndexDocument(store, selectedResource)
+    const hasIndexDocumentAfterLoad = resourceLogic.containerHasIndexDocument(selectedResource)
 
     if (hasIndexDocumentAfterLoad) {
-      const indexThing = getContainerIndexThing(store, selectedResource)
+      const indexThing = resourceLogic.getContainerIndexThing(selectedResource)
       contentView.replaceChildren()
       outliner?.GotoSubject(indexThing, true, undefined, false, undefined, contentView)
       return
@@ -102,8 +79,6 @@ async function renderSelectedResourceInContentView ({
 }
 
 export { 
-  noHiddenFiles, 
   getResourcesForContainer,
-  renderSelectedResourceInContentView,
-  isStorageRoot
+  renderSelectedResourceInContentView
 }

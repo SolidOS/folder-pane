@@ -1,4 +1,5 @@
 import { customElement, utils, WebComponent } from 'solid-ui'
+import type { SolidLogic } from 'solid-logic'
 import { html } from 'lit'
 import { repeat } from 'lit/directives/repeat.js'
 import { property, state } from 'lit/decorators.js'
@@ -28,7 +29,7 @@ export default class StorageSidebar extends WebComponent {
   accessor subject: NamedNode | null = null
 
   @property({ attribute: false })
-  accessor resourceLogic: ResourceLogic | null = null
+  accessor resourceLogic: SolidLogic['resource'] | null = null
 
   @state()
   accessor resources: ResourceMap = new Map()
@@ -43,7 +44,7 @@ export default class StorageSidebar extends WebComponent {
     if (!this.store || !this.subject) return
 
     this.expandedContainers = new Set()
-    this.resources = getResourcesForContainer(this.store, this.subject, this.resourceLogic)
+    this.resources = getResourcesForContainer(this.subject, this.resourceLogic)
   }
 
   private getVisibleResources (): VisibleResource[] {
@@ -54,7 +55,7 @@ export default class StorageSidebar extends WebComponent {
         visibleResources.push({ resource, depth })
 
         if (resource.isContainer && this.expandedContainers.has(resource.id)) {
-          appendResources(getResourcesForContainer(this.store, resource.subject, this.resourceLogic), depth + 1)
+          appendResources(getResourcesForContainer(resource.subject, this.resourceLogic), depth + 1)
         }
       }
     }

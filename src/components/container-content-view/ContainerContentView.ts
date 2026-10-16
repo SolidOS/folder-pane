@@ -61,7 +61,7 @@ export default class ContainerContentView extends WebComponent {
     const renderGeneration = ++this.renderGeneration
 
     try {
-      if (this.contentView) {
+      if (this.contentView && this.resourceLogic) {
         await renderSelectedResourceInContentView({
           store: this.store,
           resourceLogic: this.resourceLogic,
@@ -113,8 +113,8 @@ export default class ContainerContentView extends WebComponent {
   }
 
   render () {
-    const resources = this.store && this.subject
-      ? getResourcesForContainer(this.store, this.subject, this.resourceLogic)
+    const resources = this.subject
+      ? getResourcesForContainer(this.subject, this.resourceLogic)
       : new Map<string, Resource>()
 
     return html`
