@@ -9,6 +9,10 @@ import { aclControl, create, createTypes, icons, login, ns, widgets } from 'soli
 import './styles/folderPane.css'
 import './styles/utilities.css'
 
+type FolderPaneRenderOptions = {
+  fullView?: boolean
+}
+
 export default {
   icon: icons.iconBase + 'noun_973694_expanded.svg',
   name: 'folder',
@@ -45,19 +49,23 @@ export default {
   },
 
   // Render a file folder in a LDP/solid system
-  render: function (subject, context) {
+  render: function (subject, context, paneOptions?: unknown) {
 
     const dom = context.dom
-    const outliner = context.getOutliner(dom)
     const kb = context.session.store
     const div = dom.createElement('div')
     div.classList.add('instancePane', 'folder-pane')
     const folderPaneView = div.appendChild(dom.createElement('folder-pane-view'))
+    const renderOptions = paneOptions && typeof paneOptions === 'object'
+      ? paneOptions as FolderPaneRenderOptions
+      : {}
     folderPaneView.dom = dom
-    folderPaneView.outliner = outliner
+    folderPaneView.browserContext = context
     folderPaneView.store = kb
     folderPaneView.subject = subject
     folderPaneView.resourceLogic = context.session.logic.resource
+    // `solo` only means "top-level navigation" in solid-panes, so it must not switch to full view.
+    folderPaneView.fullView = renderOptions.fullView === true
 
     // The pane registry is needed to open the internal pane on Alt-click.
     // addDownstreamChangeListener is a high level function which when someone else changes the resource,

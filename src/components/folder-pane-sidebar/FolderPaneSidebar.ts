@@ -1,6 +1,6 @@
 import { customElement, utils, WebComponent } from 'solid-ui'
 import type { SolidLogic } from 'solid-logic'
-import { html } from 'lit'
+import { html, nothing } from 'lit'
 import { repeat } from 'lit/directives/repeat.js'
 import { property, state } from 'lit/decorators.js'
 import type { PropertyValues } from 'lit'
@@ -8,12 +8,13 @@ import styles from './FolderPaneSidebar.styles.css'
 import type { LiveStore, NamedNode } from 'rdflib'
 import type { Resource, ResourceMap } from '../../types'
 import '~icons/lucide/chevron-right'
+import '~icons/lucide/circle-small'
+import '~icons/lucide/folder'
+import '~icons/lucide/globe'
+import '~icons/lucide/trash-2'
 import { getResourcesForContainer } from '../../helpers'
 
-type VisibleResource = {
-  resource: Resource
-  depth: number
-}
+type SpecialIcon = 'folder' | 'globe' | 'trash'
 
 @customElement('folder-pane-sidebar')
 export default class FolderPaneSidebar extends WebComponent {
@@ -31,6 +32,9 @@ export default class FolderPaneSidebar extends WebComponent {
   @property({ attribute: false })
   accessor resourceLogic: SolidLogic['resource'] | null = null
 
+  @property({ attribute: false })
+  accessor selectedResource: NamedNode | undefined = undefined
+
   @state()
   accessor resources: ResourceMap = new Map()
 
@@ -38,66 +42,55 @@ export default class FolderPaneSidebar extends WebComponent {
   accessor expandedContainers: Set<string> = new Set()
 
   @state()
-  accessor selectedResource: NamedNode | undefined = undefined
+  accessor homeExpanded = true
 
   private loadResources () {
     if (!this.store || !this.subject) return
 
-    this.expandedContainers = new Set()
     this.resources = getResourcesForContainer(this.subject, this.resourceLogic)
   }
 
-  private getVisibleResources (): VisibleResource[] {
-    const visibleResources: VisibleResource[] = []
-
-    const appendResources = (resources: ResourceMap, depth: number) => {
-      for (const resource of resources.values()) {
-        visibleResources.push({ resource, depth })
-
-        if (resource.isContainer && this.expandedContainers.has(resource.id)) {
-          appendResources(getResourcesForContainer(resource.subject, this.resourceLogic), depth + 1)
-        }
-      }
-    }
-
-    appendResources(this.resources, 0)
-    return visibleResources
+  refreshResources () {
+    this.loadResources()
   }
 
-  private async expandContainer (resource: Resource, event: MouseEvent) {
-    event.preventDefault()
-    event.stopPropagation()
-    if (!resource.isContainer) {
-      return
-    }
+  private async toggleContainer (resource: Resource) {
+    if (!resource.isContainer) return
 
     const nextExpandedContainers = new Set(this.expandedContainers)
-
     if (nextExpandedContainers.has(resource.id)) {
       nextExpandedContainers.delete(resource.id)
       this.expandedContainers = nextExpandedContainers
       return
     }
 
-    if (this.store?.fetcher?.load) {
-      try {
-        await this.store.fetcher.load(resource.subject)
-      } catch (e) {
-        // will handle error handling later
-        return
-       }
+    try {
+      await this.store?.fetcher?.load(resource.subject)
+    } catch (_error) {
+      return
     }
 
     nextExpandedContainers.add(resource.id)
     this.expandedContainers = nextExpandedContainers
   }
 
-  private handleExpandClick (resource: Resource, event: MouseEvent) {
-    void this.expandContainer(resource, event)
+  private isSelected (resource: Resource | null) {
+    return resource ? this.selectedResource?.sameTerm(resource.subject) ?? false : false
   }
 
-  private isSelectedResource (resource: Resource) {
-    return this.selectedResource?.sameTerm(resource.subject) ?? false
+  private isNamed (resource: Resource, name: string) {
+    return utils.label(resource.subject).toLowerCase() === name
+  }
+
+  private getHomeResource (): Resource | null {
+    if (!this.subject) return null
+
+    return {
+      id: this.subject.value,
+      subject: this.subject,
+      parentId: null,
+      isContainer: true,
+    }
   }
 
   private selectResource (resource: Resource) {
@@ -109,58 +102,157 @@ export default class FolderPaneSidebar extends WebComponent {
     }))
   }
 
-  private renderResourceItem (resource: Resource, depth: number) {
-    const selected = this.isSelectedResource(resource)
-    const isExpanded = this.expandedContainers.has(resource.id)
-    const expandControl = resource.isContainer
+  private renderRow (
+    resource: Resource,
+    label: string,
+    icon: unknown,
+    expanded: boolean,
+    toggle: () => void,
+    special = false
+  ) {
+    const chevron = resource.isContainer
       ? html`
           <button
-            class="folder-pane-sidebar-expand-button"
+            class="resource-expand-button"
             type="button"
-            aria-label=${isExpanded ? 'Collapse container' : 'Expand container'}
-            aria-expanded=${String(isExpanded)}
-            @click=${(event: MouseEvent) => this.handleExpandClick(resource, event)}
+            tabindex="-1"
+            aria-label=${expanded ? `Collapse ${label}` : `Expand ${label}`}
+            @click=${(event: MouseEvent) => {
+              event.preventDefault()
+              event.stopPropagation()
+              toggle()
+            }}
           >
             <icon-lucide-chevron-right></icon-lucide-chevron-right>
           </button>
         `
-      : html`
-          <span class="folder-pane-sidebar-expand-spacer" aria-hidden="true">
-            <icon-lucide-chevron-right></icon-lucide-chevron-right>
-          </span>
-        `
+      : html`<span class="resource-expand-spacer" aria-hidden="true"></span>`
 
     return html`
-      <li
-        class=${selected ? 'obj selected' : 'obj'}
-        notSelectable="false"
-        aria-selected=${String(selected)}
-        data-expanded=${String(isExpanded)}
-        style=${`padding-left: ${depth * 1.25}rem`}
-        about=${resource.subject.toNT()}
-        role="option"
+      <div
+        class=${special ? 'resource-row resource-row-special' : 'resource-row'}
         tabindex="0"
-        .subject=${resource.subject}
         @click=${() => this.selectResource(resource)}
         @keydown=${(event: KeyboardEvent) => {
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault()
             this.selectResource(resource)
+          } else if (resource.isContainer && (event.key === 'ArrowRight' || event.key === 'ArrowLeft')) {
+            const shouldExpand = event.key === 'ArrowRight'
+            if (shouldExpand !== expanded) {
+              event.preventDefault()
+              toggle()
+            }
           }
         }}
       >
-        ${expandControl}
-        ${utils.label(resource.subject)}
+        ${chevron}
+        ${icon}
+        <span class="resource-label">${label}</span>
+      </div>
+    `
+  }
+
+  private renderItem (
+    resource: Resource,
+    label: string,
+    icon: unknown,
+    expanded: boolean,
+    toggle: () => void,
+    children: unknown,
+    special = false
+  ) {
+    const selected = this.isSelected(resource)
+
+    return html`
+      <li
+        class=${selected ? 'resource-item selected' : 'resource-item'}
+        notSelectable="false"
+        role="treeitem"
+        aria-label=${label}
+        aria-selected=${String(selected)}
+        aria-expanded=${resource.isContainer ? String(expanded) : nothing}
+        data-expanded=${String(expanded)}
+        about=${resource.subject.toNT()}
+        .subject=${resource.subject}
+      >
+        ${this.renderRow(resource, label, icon, expanded, toggle, special)}
+        ${expanded ? children : nothing}
       </li>
     `
   }
 
-  protected updated (changedProperties: PropertyValues<this>) {
-    super.updated(changedProperties)
+  private renderSpecialIcon (icon: SpecialIcon) {
+    if (icon === 'globe') return html`<icon-lucide-globe></icon-lucide-globe>`
+    if (icon === 'trash') return html`<icon-lucide-trash-2></icon-lucide-trash-2>`
+    return html`<icon-lucide-folder></icon-lucide-folder>`
+  }
+
+  private renderResourceItem (resource: Resource, label = utils.label(resource.subject), specialIcon?: SpecialIcon) {
+    const expanded = this.expandedContainers.has(resource.id)
+    const children = resource.isContainer && expanded
+      ? this.renderResourceGroup(getResourcesForContainer(resource.subject, this.resourceLogic))
+      : nothing
+    const icon = specialIcon
+      ? this.renderSpecialIcon(specialIcon)
+      : html`<icon-lucide-circle-small></icon-lucide-circle-small>`
+
+    return this.renderItem(
+      resource,
+      label,
+      icon,
+      expanded,
+      () => { void this.toggleContainer(resource) },
+      children,
+      Boolean(specialIcon)
+    )
+  }
+
+  private renderResourceGroup (resources: ResourceMap | Resource[]) {
+    const list = Array.isArray(resources) ? resources : [...resources.values()]
+
+    return html`
+      <ul role="group" class="resource-group">
+        ${repeat(list, (resource) => resource.id, (resource) => this.renderResourceItem(resource))}
+      </ul>
+    `
+  }
+
+  private renderTree () {
+    const homeResource = this.getHomeResource()
+    if (!homeResource) return nothing
+
+    const orderedResources = [...this.resources.values()]
+    const takeNamed = (name: string) => {
+      const index = orderedResources.findIndex(resource => this.isNamed(resource, name))
+      return index >= 0 ? orderedResources.splice(index, 1)[0] : null
+    }
+    const publicResource = takeNamed('public')
+    const trashResource = takeNamed('trash')
+
+    return html`
+      <ul role="tree" class="resource-tree" aria-label="Storage resources">
+        ${this.renderItem(
+          homeResource,
+          'Home',
+          this.renderSpecialIcon('folder'),
+          this.homeExpanded,
+          () => { this.homeExpanded = !this.homeExpanded },
+          this.renderResourceGroup(orderedResources),
+          true
+        )}
+        ${publicResource ? this.renderResourceItem(publicResource, 'Public', 'globe') : nothing}
+        ${trashResource ? this.renderResourceItem(trashResource, 'Trash', 'trash') : nothing}
+      </ul>
+    `
   }
 
   protected willUpdate (changedProperties: PropertyValues<this>) {
     super.willUpdate(changedProperties)
+    if (changedProperties.has('subject')) {
+      this.expandedContainers = new Set()
+      this.homeExpanded = true
+    }
     if (
       changedProperties.has('store') ||
       changedProperties.has('subject') ||
@@ -171,13 +263,9 @@ export default class FolderPaneSidebar extends WebComponent {
   }
 
   render () {
-    const visibleResources = this.getVisibleResources()
-
     return html`
       <aside>
-        <ul role="listbox">
-          ${repeat(visibleResources, (item) => item.resource.id, (item) => this.renderResourceItem(item.resource, item.depth))}
-        </ul>
+        ${this.renderTree()}
       </aside>
     `
   }

@@ -1,19 +1,24 @@
+/*
+ * Light-DOM layout for the folder pane shell (adapted from SolidOS/folder-pane#237).
+ * folder-pane-view renders into light DOM because legacy panes rendered into
+ * folder-pane-content are styled by global stylesheets. Shadow-DOM components
+ * (folder-pane-sidebar, folder-pane-container, folder-pane-content) keep their
+ * styles in their own *.styles.css files.
+ */
+
 .folder-pane {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   box-sizing: border-box;
+  height: 100%;
+  min-height: 0;
   align-self: stretch;
   text-align: left;
   width: 100%;
   max-width: none;
   margin-left: 0;
   margin-right: 0;
-  border-top: solid 1px #777;
-  border-bottom: solid 1px #777;
-  margin-top: var(--spacing-xs, 0.5em);
-  margin-bottom: var(--spacing-xs, 0.5em);
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  padding-top: 1rem;
-  padding-bottom: 1rem;
 }
 
 .folder-pane-package-div {
@@ -23,13 +28,13 @@
   max-width: none;
   margin-left: 0;
   margin-right: 0;
-  border-top: 0.2em solid #ccc;
   overflow-x: auto;
 }
 
 folder-pane-view {
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
   width: 100%;
   height: 100%;
   min-height: 0;
@@ -40,34 +45,108 @@ folder-pane-view {
   flex-direction: row;
   width: 100%;
   flex: 1 1 auto;
-  min-height: 0;
+  /* Bounded height so the sidebar and content columns scroll independently. */
+  height: 80vh;
+  min-height: 32rem;
   overflow: hidden;
   border-radius: 5px;
-  border: 1px solid var(--solid-ui-color-gray-200, #E5E7EB);
-  background: var(--solid-ui-color-white, #fff);
+  border: 1px solid var(--solid-ui-color-gray-200, #cbd5e1);
+  background: var(--solid-ui-color-white, #ffffff);
 }
 
-.folder-pane-section {
+.folder-pane-view-controls {
   display: flex;
-  align-items: flex-start;
-  gap: var(--spacing-lg, 1.5625rem);
-  width: 100%;
-  max-width: none;
-  text-align: left;
-  margin-left: 0;
-  margin-right: auto;
-  margin-bottom: var(--spacing-lg, 1.5625rem);
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.35rem;
+  padding: 10px 0;
+}
+
+.folder-pane-view-controls button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--solid-ui-clickable-area, 42px);
+  height: var(--solid-ui-clickable-area, 42px);
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--solid-ui-color-gray-500, #6a7282);
+  cursor: pointer;
+}
+
+.folder-pane-view-controls button[aria-pressed='true'],
+.folder-pane-view-controls button:hover {
+  background: var(--solid-ui-color-primary-selected, #cbb9ff);
+  color: var(--solid-ui-color-primary, #7c4dff);
+}
+
+.folder-pane-view-controls button:focus-visible {
+  outline: 2px solid var(--solid-ui-color-primary, #7c4dff);
+  outline-offset: -2px;
+}
+
+.folder-pane-view-controls icon-lucide-layout-grid,
+.folder-pane-view-controls icon-lucide-list {
+  width: 16px;
+  height: 16px;
 }
 
 folder-pane-sidebar {
-  display: block;
-  flex: 0 0 25%;
-  min-width: 16rem;
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 256px;
+  min-width: 256px;
+  min-height: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+  border-right: 1px solid var(--solid-ui-color-gray-200, #cbd5e1);
 }
 
-folder-pane-content {
-  flex: 1 1 75%;
+.folder-pane-content-column {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0%;
   min-width: 0;
+  min-height: 0;
+}
+
+.folder-pane-full-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* Explorer frame rendered by FolderPaneView.renderExplorerInto */
+solid-ui-file-explorer-provider {
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+
+solid-ui-file-explorer-provider > solid-ui-file-explorer-header {
+  display: block;
+  width: 100%;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--solid-ui-color-white, #ffffff);
+}
+
+solid-ui-file-explorer-provider > .paneDiv,
+solid-ui-file-explorer-provider > .exceptionPane {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 .folder-pane-predicate-cell {
@@ -79,7 +158,6 @@ folder-pane-content {
   border: 0 !important;
   overflow: hidden;
 }
-
 
 .folder-pane-creation-div {
   display: flex;
@@ -117,7 +195,6 @@ folder-pane-content {
   height: var(--icon-base, 2em);
 }
 
-
 @media (max-width: 700px) {
   .folder-pane {
     border-top: solid 1px #777;
@@ -126,7 +203,7 @@ folder-pane-content {
     margin-bottom: var(--spacing-2xs, 0.25em);
   }
 
-  .storage-pane-explicit-drop-icon {
+  .folder-pane-explicit-drop-icon {
     width: var(--icon-sm, 1.5em);
     height: var(--icon-sm, 1.5em);
   }

@@ -8,14 +8,3 @@ export type Resource = {
 }
 
 export type ResourceMap = Map<string, Resource>
-
-export type StoragePaneOutliner = {
-  GotoSubject: (
-    subject: NamedNode,
-    openPane: boolean,
-    focus?: unknown,
-    replace?: boolean,
-    source?: unknown,
-    targetView?: HTMLElement
-  ) => void
-}

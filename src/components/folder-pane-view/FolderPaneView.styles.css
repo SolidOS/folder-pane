@@ -1,13 +1,13 @@
+/*
+ * Future shadow-DOM layout for folder-pane-view.
+ * folder-pane-view currently renders into light DOM, so the live layout lives in
+ * src/styles/folderPane.css. Move those shell rules here if the view moves to shadow DOM.
+ */
+
 :host {
-  .folder-pane-section {
-    display: flex;
-    align-items: flex-start;
-    gap: var(--spacing-lg, 1.5625rem);
-    width: 100%;
-    max-width: none;
-    text-align: left;
-    margin-left: 0;
-    margin-right: auto;
-    margin-bottom: var(--spacing-lg, 1.5625rem);
-  }
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
 }
