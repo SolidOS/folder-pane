@@ -4,10 +4,18 @@
  */
 
 import { authn } from 'solid-logic'
+import type { PaneDefinition } from 'pane-registry'
 import './components/folder-pane-view'
-import { aclControl, create, createTypes, icons, login, ns, widgets } from 'solid-ui'
+import FolderPaneCreateDialog from './components/folder-pane-storage-header/FolderPaneCreateDialog'
+import type FolderPaneStorageHeader from './components/folder-pane-storage-header/FolderPaneStorageHeader'
+import type FolderPaneView from './components/folder-pane-view/FolderPaneView'
+import { aclControl, icons, ns, showDialog, widgets } from 'solid-ui'
+import { getPaneLabel, isJavaScriptFile } from './helpers'
+import { mintPaneInstance, PaneMintError, setMintStatus } from './mintPaneInstance'
 import './styles/folderPane.css'
 import './styles/utilities.css'
+
+export { getCreationNoun, getCreationPanes, getPaneLabel } from './helpers'
 
 type FolderPaneRenderOptions = {
   fullView?: boolean
@@ -36,6 +44,7 @@ export default {
   },
 
   label: function (subject, context) {
+    if (isJavaScriptFile(subject)) return null
     const kb = context.session.store
     const n = kb.each(subject, ns.ldp('contains')).length
     if (n > 0) {
@@ -55,15 +64,12 @@ export default {
     const kb = context.session.store
     const div = dom.createElement('div')
     div.classList.add('instancePane', 'folder-pane')
-    const folderPaneView = div.appendChild(dom.createElement('folder-pane-view'))
+    const folderPaneView = div.appendChild(dom.createElement('folder-pane-view')) as FolderPaneView
     const renderOptions = paneOptions && typeof paneOptions === 'object'
       ? paneOptions as FolderPaneRenderOptions
       : {}
-    folderPaneView.dom = dom
     folderPaneView.browserContext = context
-    folderPaneView.store = kb
     folderPaneView.subject = subject
-    folderPaneView.resourceLogic = context.session.logic.resource
     // `solo` only means "top-level navigation" in solid-panes, so it must not switch to full view.
     folderPaneView.fullView = renderOptions.fullView === true
 
@@ -73,62 +79,86 @@ export default {
     // SAM need to figure out how to add this line later kb.updater.addDownstreamChangeListener(subject, refresh) // Update store and call me if folder changes
 
     // Allow user to create new things within the folder
-    const creationDiv = div.appendChild(dom.createElement('div'))
-    creationDiv.classList.add('folder-pane-creation-div')
     const me = authn.currentUser() // @@ respond to login events
     if (!me) {
       return div // Cannot create new things without being logged in
     }
-    const creationContext: createTypes.CreateContext = {
-      folder: subject,
-      div: creationDiv,
-      dom: dom,
-      statusArea: creationDiv,
-      me: me
-    }
-    // creationContext.refreshTarget = contentView
-    login
-      .filterAvailablePanes(context.session.paneRegistry.list)
-      .then(function (relevantPanes) {
-        create.newThingUI(creationContext, context, relevantPanes) // Have to pass panes down  newUI
 
+    void folderPaneView.updateComplete.then(() => {
+      const storageHeader = folderPaneView.querySelector(
+        'folder-pane-storage-header'
+      ) as FolderPaneStorageHeader | null
+      if (!storageHeader) return
+      return storageHeader.updateComplete.then(() => {
         aclControl.preventBrowserDropEvents(dom)
-
-        const explicitDropIcon = false
-        let target
-        if (explicitDropIcon) {
-          target = creationDiv.insertBefore(
-            dom.createElement('img'),
-            creationDiv.firstChild
-          )
-          target.classList.add('folder-pane-explicit-drop-icon')
-          target.setAttribute('src', icons.iconBase + 'noun_748003.svg')
-        } else {
-          target = creationDiv.firstChild // Overload drop target semantics onto the plus sign
-        }
-
-        if (target instanceof HTMLElement) {
-          target.classList.add('folder-pane-drop-target')
-        }
-
-        creationDiv.classList.add('folder-pane-drop-zone')
-
-        // /////////// Allow new file to be Uploaded
-        widgets.makeDropTarget(creationDiv, null, droppedFileHandler)
+        folderPaneView.addEventListener('folder-pane-upload', () => {
+          const input = dom.createElement('input')
+          input.type = 'file'
+          input.multiple = true
+          input.addEventListener('change', () => {
+            if (input.files) droppedFileHandler(Array.from(input.files), folderPaneView.getActiveContainer() ?? subject)
+          })
+          input.click()
+        })
+        folderPaneView.addEventListener('folder-pane-create-pane', (event: Event) => {
+          const pane = (event as CustomEvent<{ pane?: PaneDefinition }>).detail?.pane
+          if (!pane?.mintNew) return
+          const paneName = getPaneLabel(pane)
+          const container = folderPaneView.getActiveContainer() ?? subject
+          void new Promise<string | undefined>(resolve => {
+            showDialog(FolderPaneCreateDialog, {
+              props: { label: paneName },
+              onClose: resolve
+            })
+          }).then(async name => {
+            if (!name) return
+            const statusArea = folderPaneView.statusArea
+            if (!statusArea) throw new Error('Folder-pane view did not render a status area')
+            folderPaneView.clearContentForCreation()
+            const created = await mintPaneInstance({
+              context,
+              container,
+              pane,
+              name,
+              noun: paneName,
+              statusArea,
+              me,
+              dom
+            })
+            await folderPaneView.showCreatedResource({ container, ...created, pane })
+          }).catch(error => {
+            // mintPaneInstance has already reported mint failures in the status area.
+            console.error('Unable to create folder-pane resource', error)
+            const statusArea = folderPaneView.statusArea
+            if (statusArea && !(error instanceof PaneMintError)) {
+              setMintStatus(statusArea, 'error', `Unable to create ${paneName}: ${error instanceof Error ? error.message : String(error)}`)
+            }
+          })
+        })
       })
+    }).catch(error => {
+      console.error('Unable to initialize folder-pane creation actions', error)
+    })
 
     return div
 
-    function droppedFileHandler (files) {
+    function droppedFileHandler (files, container = folderPaneView.getActiveContainer() ?? subject) {
       widgets.uploadFiles(
         kb.fetcher,
         files,
-        subject.uri,
-        subject.uri,
-        function (file, uri) {
+        container.uri,
+        container.uri,
+        function (_file, uri) {
           // A file has been uploaded
           const destination = kb.sym(uri)
-          kb.add(subject, ns.ldp('contains'), destination, subject.doc())
+          void folderPaneView.showCreatedResource({
+            container,
+            containedResource: destination
+          })
+        },
+        function (_file, message) {
+          const statusArea = folderPaneView.statusArea
+          if (statusArea) setMintStatus(statusArea, 'error', message)
         }
       )
     }

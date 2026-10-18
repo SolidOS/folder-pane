@@ -1,5 +1,4 @@
 import { customElement, utils, WebComponent } from 'solid-ui'
-import type { SolidLogic } from 'solid-logic'
 import { html, nothing } from 'lit'
 import { repeat } from 'lit/directives/repeat.js'
 import { property, state } from 'lit/decorators.js'
@@ -12,7 +11,7 @@ import '~icons/lucide/circle-small'
 import '~icons/lucide/folder'
 import '~icons/lucide/globe'
 import '~icons/lucide/trash-2'
-import { getResourcesForContainer } from '../../helpers'
+import { getResourcesForContainer, type FolderPaneResourceLogic } from '../../helpers'
 
 type SpecialIcon = 'folder' | 'globe' | 'trash'
 
@@ -21,16 +20,13 @@ export default class FolderPaneSidebar extends WebComponent {
   static styles = styles
 
   @property({ attribute: false })
-  accessor dom: HTMLDocument | null = null
-
-  @property({ attribute: false })
   accessor store: LiveStore | null = null
 
   @property({ attribute: false })
-  accessor subject: NamedNode | null = null
+  accessor subject: NamedNode | undefined = undefined
 
   @property({ attribute: false })
-  accessor resourceLogic: SolidLogic['resource'] | null = null
+  accessor resourceLogic: FolderPaneResourceLogic | null = null
 
   @property({ attribute: false })
   accessor selectedResource: NamedNode | undefined = undefined
@@ -50,8 +46,19 @@ export default class FolderPaneSidebar extends WebComponent {
     this.resources = getResourcesForContainer(this.subject, this.resourceLogic)
   }
 
-  refreshResources () {
+  refreshResources (container?: NamedNode) {
     this.loadResources()
+    if (!container || !this.subject || container.sameTerm(this.subject)) return
+
+    const expanded = new Set(this.expandedContainers)
+    let current = container
+    while (!current.sameTerm(this.subject)) {
+      expanded.add(current.value)
+      const parent = current.dir()
+      if (!parent || parent.sameTerm(current)) break
+      current = parent
+    }
+    this.expandedContainers = expanded
   }
 
   private async toggleContainer (resource: Resource) {
@@ -66,7 +73,8 @@ export default class FolderPaneSidebar extends WebComponent {
 
     try {
       await this.store?.fetcher?.load(resource.subject)
-    } catch (_error) {
+    } catch (error) {
+      console.error('Unable to expand storage container', error)
       return
     }
 
@@ -94,7 +102,6 @@ export default class FolderPaneSidebar extends WebComponent {
   }
 
   private selectResource (resource: Resource) {
-    this.selectedResource = resource.subject
     this.dispatchEvent(new CustomEvent('resource-selected', {
       detail: { resource: resource.subject },
       bubbles: true,

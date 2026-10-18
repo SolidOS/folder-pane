@@ -20,6 +20,16 @@
     scrollbar-color: transparent transparent;
   }
 
+  .folder-pane-container-loading {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    justify-content: center;
+    min-height: 8rem;
+    color: var(--solid-ui-color-gray-500, #6a7282);
+    font-size: var(--solid-ui-font-size-sm, 0.875rem);
+  }
+
   .folder-pane-container-content::-webkit-scrollbar {
     width: 6px;
   }
@@ -44,8 +54,9 @@
   .resource-list {
     display: flex;
     flex-direction: column;
-    flex: 0 0 auto;
+    flex: 1 1 auto;
     width: 100%;
+    min-height: 0;
     box-sizing: border-box;
     margin: 0;
     padding: 20px;
@@ -55,6 +66,7 @@
   .resource-grid {
     display: flex;
     flex-wrap: wrap;
+    flex: 1 1 auto;
     align-content: flex-start;
     align-items: flex-start;
     gap: 20px;
@@ -64,6 +76,7 @@
     margin: 0;
     padding: 20px;
     list-style: none;
+    overflow: visible;
   }
 
   .resource-grid-item {
@@ -79,6 +92,23 @@
     background: var(--solid-ui-color-white, #ffffff);
     cursor: pointer;
     overflow: hidden;
+  }
+
+  .resource-actions-menu {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: flex-end;
+  }
+
+  .resource-actions-menu--grid {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+  }
+
+  .resource-actions-menu--list {
+    margin-left: auto;
   }
 
   .resource-grid-icon {
@@ -141,8 +171,8 @@
     font-size: var(--solid-ui-font-size-sm, .875rem);
     font-weight: 500;
     list-style: none;
-    border-bottom: 1px solid var(--solid-ui-color-gray-200, #cbd5e1);
-    background: var(--solid-ui-color-white, #ffffff);
+    border-bottom: 1px solid var(--solid-ui-color-gray-200, #E5E7EB);
+    background: var(--white, #FFF);
   }
 
   .resource-list-item {
@@ -151,8 +181,8 @@
     align-items: center;
     gap: 10px;
     align-self: stretch;
-    border-bottom: 1px solid var(--solid-ui-color-gray-200, #cbd5e1);
-    background: var(--solid-ui-color-white, #ffffff);
+    border-bottom: 1px solid var(--solid-ui-color-gray-200, #E5E7EB);
+    background: var(--white, #FFF);
     cursor: pointer;
   }
 
@@ -201,7 +231,9 @@
   }
 
   icon-lucide-folder,
-  icon-lucide-file {
+  icon-lucide-file,
+  icon-lucide-globe,
+  icon-lucide-lock-keyhole {
     width: 15px;
     height: 15px;
     flex-shrink: 0;
@@ -209,6 +241,30 @@
     fill: rgba(224, 231, 255, 0.50);
     stroke: var(--solid-ui-color-gray-500, #6a7282);
     stroke-width: 1.25px;
+  }
+
+  .resource-access-indicator {
+    width: 15px;
+    height: 15px;
+    flex: 0 0 auto;
+    color: var(--solid-ui-color-gray-500, #6a7282);
+  }
+
+  /*
+   * WCAG 1.4.11 Non-text Contrast: these icons are the only visual indicator
+   * of a resource's public/private access state, so they need >= 3:1 contrast
+   * against the white item background. --blue-400/--yellow-600 (as used
+   * elsewhere against tinted pill backgrounds) only reach ~2.6:1/~2.9:1 here;
+   * --blue-600/--yellow-700 keep the same hue family at ~5.2:1/~4.9:1.
+   */
+  .resource-access-indicator--public {
+    color: var(--blue-600, #2563eb);
+    stroke: var(--blue-600, #2563eb);
+  }
+
+  .resource-access-indicator--private {
+    color: var(--yellow-700, #a16207);
+    stroke: var(--yellow-700, #a16207);
   }
 
   .folder-pane-container-empty-message {
@@ -219,8 +275,6 @@
     justify-content: center;
     gap: 20px;
     min-height: 100%;
-    padding: 2rem;
-    box-sizing: border-box;
     text-align: center;
     color: var(--solid-ui-color-gray-700, #364153);
   }
@@ -231,7 +285,7 @@
     justify-content: center;
     width: 64px;
     height: 64px;
-    box-sizing: border-box;
+    padding: 0 16.785px;
     border-radius: 16px;
     border: 1px solid var(--solid-ui-color-slate-200, #e2e8f0);
     background: var(--solid-ui-color-white, #ffffff);
@@ -246,7 +300,7 @@
 
   .folder-pane-container-empty-message-title {
     margin: 0;
-    color: var(--solid-ui-color-gray-900, #101828);
+    color: var(--solid-ui-color-gray-900, #030712);
     font-size: 1.25rem;
     font-weight: 700;
     line-height: 1.2;

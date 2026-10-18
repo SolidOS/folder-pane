@@ -22,7 +22,7 @@
     "lint": "eslint",
     "lint-fix": "eslint --fix",
     "typecheck": "tsc --noEmit",
-    "test": "echo \"No tests specified\" && exit 0",
+    "test": "vitest run",
     "prepublishOnly": "npm run build && npm run lint",
     "preversion": "npm run typecheck && npm run lint",
     "postpublish": "git push origin staging",
@@ -69,6 +69,7 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
+    "lit": "^3.3.3",
     "rdflib": "2.4.1",
     "solid-logic": "6.0.0",
     "solid-ui": "5.0.1",
