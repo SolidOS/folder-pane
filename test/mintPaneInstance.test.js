@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { sym } from 'rdflib'
 import { getContainedResource, getNewInstanceBase, isExtensionlessSourceFile, mintPaneInstance, PaneMintError } from '../src/mintPaneInstance'
+import { invalidCreationNameMessage, normalizeCreationName } from '../src/creationSafety'
 import { getIndexedContainer, getResourcesForContainer } from '../src/helpers'
 
 vi.mock('solid-ui', () => ({ utils: { label: resource => resource.uri }, ns: {}, icons: { iconBase: '' }, widgets: {} }))
@@ -55,6 +56,46 @@ const message = statusArea => statusArea.querySelector(':scope > .folder-pane-st
 const paneOutput = statusArea => statusArea.querySelector(':scope > .folder-pane-status-pane-output')
 
 describe('mintPaneInstance', () => {
+  it.each(['', ' ', '.', '..', 'nested/name', 'nested\\name'])('rejects unsafe creation name %j before minting', async name => {
+    const { dom, statusArea } = setup()
+    const mintNew = vi.fn()
+    await expect(mintPaneInstance({
+      context, container, pane: { name: 'issue', mintNew }, name, noun: 'tracker', statusArea, dom
+    })).rejects.toThrow(invalidCreationNameMessage)
+    expect(mintNew).not.toHaveBeenCalled()
+  })
+
+  it('normalizes surrounding whitespace without changing the legacy pane contract', async () => {
+    const { dom, statusArea } = setup()
+    const mintNew = vi.fn(async (_context, options) => ({ ...options, newInstance: sym(options.newBase) }))
+    await mintPaneInstance({ context, container, pane: { name: 'issue', mintNew }, name: '  Notes  ', noun: 'tracker', statusArea, dom })
+    expect(mintNew.mock.calls[0][1].newBase).toBe('https://pod.example/storage/Notes/')
+  })
+
+  it('rejects a known destination conflict without invoking the pane', async () => {
+    const { dom, statusArea } = setup()
+    const existing = sym('https://pod.example/storage/Notes/')
+    const conflictContext = {
+      session: {
+        store: {
+          sym,
+          each: vi.fn(() => [existing])
+        }
+      }
+    }
+    const mintNew = vi.fn()
+    await expect(mintPaneInstance({
+      context: conflictContext,
+      container,
+      pane: { name: 'folder', mintNew },
+      name: 'Notes',
+      noun: 'folder',
+      statusArea,
+      dom
+    })).rejects.toThrow('replacement is not enabled')
+    expect(mintNew).not.toHaveBeenCalled()
+  })
+
   it('uses the legacy newThingUI contract and never supplies newInstance', async () => {
     const { dom, statusArea } = setup()
     const nestedContainer = sym('https://pod.example/storage/projects/')
@@ -203,9 +244,29 @@ describe('mintPaneInstance', () => {
       statusArea,
       dom,
       mintTimeoutMs: 1
-    })).rejects.toThrow('did not finish creating')
-    expect(message(statusArea).children[0].tagName).toBe('SOLID-UI-ERROR-STATE')
-  })
+  })).rejects.toThrow('result is uncertain')
+  expect(message(statusArea).children[0].tagName).toBe('SOLID-UI-ERROR-STATE')
+})
+
+it('clears the timeout after a successful mint', async () => {
+  vi.useFakeTimers()
+  try {
+    const { dom, statusArea } = setup()
+    const pane = { name: 'folder', mintNew: async (_ctx, options) => ({ ...options, newInstance: sym(options.newBase) }) }
+    await mintPaneInstance({ context, container, pane, name: 'done', noun: 'folder', statusArea, dom, mintTimeoutMs: 10 })
+    await vi.advanceTimersByTimeAsync(20)
+    expect(statusArea.children).toHaveLength(0)
+  } finally {
+    vi.useRealTimers()
+  }
+})
+})
+
+describe('creation safety', () => {
+it('returns a normalized single path segment', () => {
+  expect(normalizeCreationName('  report.ttl ')).toBe('report.ttl')
+  expect(() => normalizeCreationName('../report.ttl')).toThrow(invalidCreationNameMessage)
+})
 })
 
 describe('created resource containment', () => {

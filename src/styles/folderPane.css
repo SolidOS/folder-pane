@@ -118,6 +118,11 @@ folder-pane-sidebar {
   padding: 1rem;
 }
 
+/* A resource explorer owns its own header/content frame; do not inset it. */
+.folder-pane-content-column > folder-pane-content:has(> solid-ui-file-explorer-provider) {
+  padding: 0;
+}
+
 .folder-pane-full-view {
   display: flex;
   flex-direction: column;
@@ -173,7 +178,12 @@ folder-pane-sidebar {
 
 /* Explorer frame rendered by FolderPaneView.renderExplorerInto */
 solid-ui-file-explorer-provider {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
   width: 100%;
   min-width: 0;
 }
@@ -190,11 +200,15 @@ solid-ui-file-explorer-provider > solid-ui-file-explorer-header {
 solid-ui-file-explorer-provider > .paneDiv,
 solid-ui-file-explorer-provider > .exceptionPane {
   display: block;
+  flex: 1 1 auto;
+  margin: 0;
   width: 100%;
   max-width: 100%;
   min-width: 0;
+  min-height: 0;
   box-sizing: border-box;
   overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .folder-pane-predicate-cell {

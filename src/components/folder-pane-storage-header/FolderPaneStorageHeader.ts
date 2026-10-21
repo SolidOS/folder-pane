@@ -39,6 +39,9 @@ export default class FolderPaneStorageHeader extends WebComponent {
   @property()
   accessor searchQuery = ''
 
+  @property({ type: Boolean })
+  accessor canCreate = false
+
   @state()
   accessor availablePanes: PaneDefinition[] = []
 
@@ -179,7 +182,7 @@ export default class FolderPaneStorageHeader extends WebComponent {
               <icon-lucide-list slot="icon" aria-hidden="true"></icon-lucide-list>
             </solid-ui-button>
           </div>
-          <solid-ui-menu class="folder-pane-storage-header-add-menu" placement="bottom-end">
+          ${this.canCreate ? html`<solid-ui-menu class="folder-pane-storage-header-add-menu" placement="bottom-end">
             <solid-ui-button
               slot="trigger"
               variant="primary"
@@ -205,7 +208,7 @@ export default class FolderPaneStorageHeader extends WebComponent {
               <icon-lucide-upload slot="left-icon" aria-hidden="true"></icon-lucide-upload>
               Upload
             </solid-ui-menu-item>
-          </solid-ui-menu>
+          </solid-ui-menu>` : nothing}
         </div>
       </header>
     `

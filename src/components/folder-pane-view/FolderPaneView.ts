@@ -1,4 +1,5 @@
-import { composeExplorer, customElement, FILE_EXPLORER_BACK_EVENT, FILE_EXPLORER_OPEN_PANE_EVENT, getRelevantPanes, isExplorerEvent, log, ns, WebComponent } from 'solid-ui'
+import { aclControl, composeExplorer, customElement, FILE_EXPLORER_BACK_EVENT, FILE_EXPLORER_OPEN_PANE_EVENT, getRelevantPanes, isExplorerEvent, log, ns, showDialog, WebComponent, widgets } from 'solid-ui'
+import { authn, authSession } from 'solid-logic'
 import { html, nothing } from 'lit'
 import { property, query, state } from 'lit/decorators.js'
 import type { PropertyValues } from 'lit'
@@ -13,7 +14,12 @@ import type FileExplorerProvider from 'solid-ui/components/file-explorer-provide
 import 'solid-ui/components/error-state'
 import 'solid-ui/components/file-explorer-header'
 import type FolderPaneContainer from '../folder-pane-container/FolderPaneContainer'
-import { getIndexedContainer, isAccessDeniedError, isContainerResource, isJavaScriptFile, type FolderPaneResourceLogic } from '../../helpers'
+import { getIndexedApplicationSubject, getIndexedContainer, isAccessDeniedError, isContainerResource, isJavaScriptFile, type FolderPaneResourceLogic } from '../../helpers'
+import { invalidateRenderRequest, isCurrentRenderRequest, type RenderRequest } from './renderRequest'
+import FolderPaneCreateDialog from '../folder-pane-storage-header/FolderPaneCreateDialog'
+import { getPaneLabel } from '../../helpers'
+import { isSafeCreationName, invalidCreationNameMessage } from '../../creationSafety'
+import { mintPaneInstance, PaneMintError, setMintStatus } from '../../mintPaneInstance'
 
 type CreatedResource = {
   container: NamedNode
@@ -62,6 +68,9 @@ export default class FolderPaneView extends WebComponent {
 
   private initialLoadGeneration = 0
   private renderGeneration = 0
+  private creationInFlight = false
+  private authListenersAttached = false
+  private dropProtectionAttached = false
 
   @query('folder-pane-content')
   private accessor contentView: HTMLElement | null = null
@@ -80,14 +89,150 @@ export default class FolderPaneView extends WebComponent {
     return this
   }
 
+  connectedCallback () {
+    super.connectedCallback()
+    if (!this.dropProtectionAttached) {
+      aclControl.preventBrowserDropEvents(this.ownerDocument)
+      this.dropProtectionAttached = true
+    }
+    this.addEventListener('folder-pane-create-pane', this.handleCreatePane)
+    this.addEventListener('folder-pane-upload', this.handleUpload)
+    if (!this.authListenersAttached) {
+      authSession.events.on('login', this.handleAuthChange)
+      authSession.events.on('logout', this.handleAuthChange)
+      this.authListenersAttached = true
+    }
+  }
+
+  disconnectedCallback () {
+    // Invalidate awaited renders before detaching listeners. A late response
+    // must never replace content in a detached view.
+    this.renderGeneration = invalidateRenderRequest(this.renderGeneration)
+    this.initialLoadGeneration++
+    this.removeEventListener('folder-pane-create-pane', this.handleCreatePane)
+    this.removeEventListener('folder-pane-upload', this.handleUpload)
+    if (this.authListenersAttached) {
+      authSession.events.off('login', this.handleAuthChange)
+      authSession.events.off('logout', this.handleAuthChange)
+      this.authListenersAttached = false
+    }
+    super.disconnectedCallback()
+  }
+
+  private handleAuthChange = () => {
+    this.requestUpdate()
+  }
+
+  private handleCreatePane = async (event: Event) => {
+    event.stopPropagation()
+    if (this.creationInFlight || !authn.currentUser()) return
+    const pane = (event as CustomEvent<{ pane?: PaneDefinition }>).detail?.pane
+    if (!pane?.mintNew) return
+    const container = this.getActiveContainer()
+    const dom = this.ownerDocument
+    const statusArea = this.statusArea
+    if (!container || !statusArea) return
+    this.creationInFlight = true
+    const operationGeneration = ++this.renderGeneration
+    const paneName = getPaneLabel(pane)
+    try {
+      const name = await new Promise<string | undefined>(resolve => {
+        showDialog(FolderPaneCreateDialog, {
+          props: { label: paneName },
+          onClose: resolve
+        })
+      })
+      if (!name || !authn.currentUser()) return
+      if (operationGeneration !== this.renderGeneration ||
+        this.getActiveContainer()?.sameTerm(container) !== true) return
+      if (!isSafeCreationName(name)) {
+        setMintStatus(statusArea, 'error', invalidCreationNameMessage)
+        return
+      }
+      this.clearContentForCreation()
+      const created = await mintPaneInstance({
+        context: this.browserContext!,
+        container,
+        pane,
+        name,
+        noun: paneName,
+        statusArea,
+        me: authn.currentUser() ?? undefined,
+        dom
+      })
+      const stillOwnsNavigation = operationGeneration === this.renderGeneration &&
+        this.getActiveContainer()?.sameTerm(container) === true
+      await this.showCreatedResource({
+        container,
+        ...created,
+        pane,
+        newInstance: stillOwnsNavigation ? created.newInstance : undefined
+      })
+    } catch (error) {
+      console.error('Unable to create folder-pane resource', error)
+      if (!(error instanceof PaneMintError) && this.statusArea) {
+        setMintStatus(this.statusArea, 'error', `Unable to create ${paneName}: ${error instanceof Error ? error.message : String(error)}`)
+      }
+    } finally {
+      this.creationInFlight = false
+    }
+  }
+
+  private handleUpload = (event: Event) => {
+    event.stopPropagation()
+    if (this.creationInFlight || !authn.currentUser()) return
+    const container = this.getActiveContainer()
+    const statusArea = this.statusArea
+    if (!container || !statusArea || !this.store) return
+    const input = this.ownerDocument.createElement('input')
+    input.type = 'file'
+    input.multiple = true
+    input.addEventListener('change', () => {
+      const files = Array.from(input.files ?? [])
+      const validFiles = files.filter(file => isSafeCreationName(file.name))
+      const invalidFiles = files.filter(file => !isSafeCreationName(file.name))
+      invalidFiles.forEach(file => setMintStatus(statusArea, 'error', `${file.name}: ${invalidCreationNameMessage}`))
+      if (!validFiles.length) return
+      this.creationInFlight = true
+      let remaining = validFiles.length
+      let refreshes = Promise.resolve()
+      setMintStatus(statusArea, 'progress', `Uploading ${validFiles.length} file${validFiles.length === 1 ? '' : 's'}`)
+      const finish = () => {
+        remaining--
+        if (remaining === 0) {
+          this.creationInFlight = false
+          if (statusArea.dataset.status === 'progress') statusArea.replaceChildren()
+        }
+      }
+      widgets.uploadFiles(
+        this.store!.fetcher,
+        validFiles,
+        container.uri,
+        container.uri,
+        (_file: File, uri: string) => {
+          refreshes = refreshes.then(() => this.showCreatedResource({
+            container,
+            containedResource: this.store!.sym(uri)
+          })).finally(finish)
+        },
+        (_file: File, message: string) => {
+          setMintStatus(statusArea, 'error', message)
+          finish()
+        }
+      )
+    })
+    input.click()
+  }
+
   protected updated (changedProperties: PropertyValues<this>) {
     if (
       (changedProperties.has('subject') || changedProperties.has('browserContext')) &&
       this.subject
     ) {
-      if (changedProperties.has('subject')) {
+      if (changedProperties.has('subject') || changedProperties.has('browserContext')) {
         this.selectedResource = undefined
         this.renderGeneration++
+        this.initialLoadGeneration++
       }
       void this.showInitialContainer(this.subject)
       return
@@ -124,6 +269,18 @@ export default class FolderPaneView extends WebComponent {
     this.contentError = undefined
   }
 
+  private retryContent = () => {
+    const selectedResource = this.selectedResource
+    const subject = this.subject
+    if (!selectedResource && !subject) return
+    this.clearContentError()
+    if (selectedResource) {
+      void this.showResourceInContentView(selectedResource)
+    } else if (subject) {
+      void this.showInitialContainer(subject)
+    }
+  }
+
   /**
    * Select the resource returned by a pane's mintNew implementation. Some
    * panes (notably long chat) mint a resource inside the new document rather
@@ -140,14 +297,22 @@ export default class FolderPaneView extends WebComponent {
   /**
    * The storage header belongs to the explorer, while its actions apply to
    * the container currently being viewed. A document selection has no
-   * writable container of its own, so retain the explorer's root in that
-   * case.
+   * writable container of its own, so use its parent when it remains within
+   * the explorer root; otherwise retain the last browsed container.
    */
   getActiveContainer (): NamedNode | undefined {
     const selected = this.selectedResource
     if (selected && this.resourceLogic && isContainerResource(selected, this.resourceLogic)) {
       return selected
     }
+
+    const root = this.subject
+    const parent = selected?.dir()
+    const rootUri = root?.uri.endsWith('/') ? root.uri : `${root?.uri}/`
+    if (root && parent && rootUri && parent.uri.startsWith(rootUri)) {
+      return parent
+    }
+
     return this.subject
   }
 
@@ -162,18 +327,18 @@ export default class FolderPaneView extends WebComponent {
   async showCreatedResource ({ container, containedResource, newInstance, pane }: CreatedResource) {
     const store = this.store
     if (!store) return
-    const reload = async (resource: NamedNode) => {
+    const navigationGeneration = this.renderGeneration
+    const navigationContext = this.browserContext
+    const reload = async (resource: NamedNode): Promise<boolean> => {
       try {
         await store.fetcher.load(resource, { force: true, clearPreviousData: true })
+        return true
       } catch (error) {
         log.warn('Unable to reload ' + resource.uri + ': ' + error)
+        return false
       }
     }
-    await reload(container)
-    if (!store.holds(container, ns.ldp('contains'), containedResource, container.doc())) {
-      // Keep the new resource reachable even if the listing has not caught up.
-      store.add(container, ns.ldp('contains'), containedResource, container.doc())
-    }
+    const confirmed = await reload(container)
     if (containedResource.uri.endsWith('/')) {
       await reload(containedResource)
       // Panes may probe their new documents before writing them; forget those
@@ -188,9 +353,21 @@ export default class FolderPaneView extends WebComponent {
 
     this.sidebar?.refreshResources?.(container)
     const containerView = this.resourceTarget?.querySelector('folder-pane-container') as
-      (HTMLElement & { refresh?: () => void }) | null
-    containerView?.refresh?.()
-    if (newInstance) this.openCreatedResource(newInstance, pane)
+      (HTMLElement & { refresh?: () => void, addOptimisticResource?: (resource: NamedNode) => void }) | null
+    if (!confirmed && containerView?.addOptimisticResource) {
+      containerView.addOptimisticResource(containedResource)
+    }
+    if (confirmed) {
+      containerView?.refresh?.()
+    }
+    if (
+      newInstance &&
+      this.isConnected &&
+      this.renderGeneration === navigationGeneration &&
+      this.browserContext === navigationContext
+    ) {
+      this.openCreatedResource(newInstance, pane)
+    }
   }
 
   private renderContainerView (selectedResource: NamedNode) {
@@ -232,13 +409,17 @@ export default class FolderPaneView extends WebComponent {
         return
       }
       log.error('Unable to load storage container: ' + error)
+      this.showContentError({
+        title: 'Unable to load this folder',
+        message: 'The folder could not be loaded. Try again.'
+      })
       return
     }
 
     if (generation !== this.initialLoadGeneration || !this.subject?.sameTerm(subject)) return
     this.sidebar?.refreshResources?.()
     if (!this.selectedResource) {
-      this.renderContainerView(subject)
+      this.showSubject(subject)
     }
   }
 
@@ -314,7 +495,20 @@ export default class FolderPaneView extends WebComponent {
       const paneName = (event as CustomEvent<{ paneName: string }>).detail?.paneName
       const nextPane = paneName ? this.browserContext?.session.paneRegistry.byName(paneName) : undefined
       if (nextPane) {
-        this.renderExplorerInto(target, subject, nextPane, options).catch(error => {
+        const request: RenderRequest = {
+          generation: ++this.renderGeneration,
+          subjectUri: subject.uri,
+          context: this.browserContext
+        }
+        this.renderExplorerInto(target, subject, nextPane, {
+          ...options,
+          isCurrent: () => isCurrentRenderRequest(
+            request,
+            this.renderGeneration,
+            this.selectedResource?.uri,
+            this.browserContext
+          )
+        }).catch(error => {
           log.error('Unable to switch selected pane: ' + error)
         })
       }
@@ -330,6 +524,7 @@ export default class FolderPaneView extends WebComponent {
         : { paneIcon: selectedPane.icon, menuItems },
       paneElement
     })
+    if (options.isCurrent && !options.isCurrent()) return
     this.contentError = undefined
     target.replaceChildren(provider)
   }
@@ -349,9 +544,18 @@ export default class FolderPaneView extends WebComponent {
       const target = this.resourceTarget
       if (!target || !this.store || !this.resourceLogic) return
 
+      const request: RenderRequest = {
+        generation: renderGeneration,
+        subjectUri: selectedResource.uri,
+        context: this.browserContext
+      }
       const isCurrentSelection = (candidate: NamedNode) =>
-        renderGeneration === this.renderGeneration &&
-        this.selectedResource?.sameTerm(candidate) === true
+        isCurrentRenderRequest(
+          request,
+          this.renderGeneration,
+          this.selectedResource?.uri,
+          this.browserContext
+        ) && candidate.uri === request.subjectUri
 
       if (!isCurrentSelection(selectedResource)) return
 
@@ -370,7 +574,10 @@ export default class FolderPaneView extends WebComponent {
             return
           }
           log.error('Unable to load selected container: ' + error)
-          this.renderContainerView(selectedResource)
+          this.showContentError({
+            title: 'Unable to load this folder',
+            message: 'The folder could not be loaded. Try again.'
+          })
           return
         }
 
@@ -378,9 +585,11 @@ export default class FolderPaneView extends WebComponent {
         this.sidebar?.refreshResources?.()
 
         if (indexRequested || this.resourceLogic.containerHasIndexDocument(selectedResource)) {
-          const indexThing = this.resourceLogic.getContainerIndexThing(selectedResource)
+          const applicationSubject = this.store.sym(
+            getIndexedApplicationSubject(selectedResource, pane?.name)
+          )
           try {
-            await this.store.fetcher.load(indexThing.doc())
+            await this.store.fetcher.load(applicationSubject.doc())
           } catch (error) {
             if (!isCurrentSelection(selectedResource)) return
             if (isAccessDeniedError(error)) {
@@ -389,8 +598,7 @@ export default class FolderPaneView extends WebComponent {
             }
             log.error('Unable to load container index document: ' + error)
           }
-          target.replaceChildren()
-          await this.renderExplorerInto(target, indexThing, pane, {
+          await this.renderExplorerInto(target, applicationSubject, pane, {
             isCurrent: () => isCurrentSelection(selectedResource),
             showHeader: false
           })
@@ -413,7 +621,6 @@ export default class FolderPaneView extends WebComponent {
       }
 
       if (!isCurrentSelection(selectedResource)) return
-      target.replaceChildren()
       const sourcePane = isJavaScriptFile(selectedResource)
         ? this.browserContext?.session.paneRegistry.byName('source')
         : undefined
@@ -444,9 +651,13 @@ export default class FolderPaneView extends WebComponent {
       ? this.store.sym(indexedContainerUri)
       : undefined
     const subject = indexedContainer ?? resource
+    const indexRequested = !indexedContainer &&
+      !!this.resourceLogic &&
+      isContainerResource(resource, this.resourceLogic) &&
+      this.resourceLogic.containerHasIndexDocument(resource)
     this.selectedResource = subject
     // Render directly so re-selecting the same resource still replaces the content target.
-    void this.showResourceInContentView(subject, pane, !!indexedContainer)
+    void this.showResourceInContentView(subject, pane, !!indexedContainer || indexRequested)
   }
 
   private handleResourceSelected = (event: CustomEvent<{ resource: NamedNode }>) => {
@@ -522,6 +733,7 @@ export default class FolderPaneView extends WebComponent {
         .paneList=${this.browserContext?.session.paneRegistry.list ?? []}
         .view=${this.containerView}
         .searchQuery=${this.searchQuery}
+        .canCreate=${Boolean(authn.currentUser())}
         @folder-pane-select-home=${this.handleSelectHome}
         @folder-pane-select-resource=${this.handleSelectBreadcrumbResource}
         @folder-pane-change-view=${this.handleContainerViewChange}
@@ -555,7 +767,9 @@ export default class FolderPaneView extends WebComponent {
             .title=${this.contentError.title}
             .message=${this.contentError.message}
             @close=${this.clearContentError}
-          ></solid-ui-error-state>
+          >
+            <button type="button" @click=${this.retryContent}>Retry</button>
+          </solid-ui-error-state>
         </div>
       `
     }

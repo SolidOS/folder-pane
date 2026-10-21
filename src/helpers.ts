@@ -13,6 +13,13 @@ function isJavaScriptFile (resource: NamedNode): boolean {
   return /\.[cm]?js$/i.test(new URL(resource.uri).pathname)
 }
 
+type ResourceAccessMetadata = { isPublic?: boolean, isPublicKnown?: boolean }
+
+function getResourceAccessState (access: ResourceAccessMetadata): 'public' | 'private' | 'unknown' {
+  if (access.isPublicKnown === false) return 'unknown'
+  return access.isPublic ? 'public' : 'private'
+}
+
 function getCreationNoun (paneName?: string): string {
   if (paneName?.toLowerCase() === 'source') return 'file'
   return paneName || 'item'
@@ -62,6 +69,12 @@ function getIndexedContainer (resource: NamedNode): string | null {
   return match ? match[1] : null
 }
 
+function getIndexedApplicationSubject (container: NamedNode, paneName?: string): string {
+  return paneName?.toLowerCase() === 'schedule'
+    ? `${container.uri}details.ttl#event`
+    : `${container.uri}index.ttl#this`
+}
+
 function getResourcesForContainer (container: NamedNode, resourceLogic: FolderPaneResourceLogic | null): ResourceMap {
   if (!resourceLogic) return new Map()
 
@@ -92,8 +105,10 @@ export {
   getCreationPanes,
   getCreationDialogText,
   getContainerMemberCountLabel,
+  getIndexedApplicationSubject,
   getIndexedContainer,
   getPaneLabel,
+  getResourceAccessState,
   getResourcesForContainer,
   isAccessDeniedError,
   isContainerResource,

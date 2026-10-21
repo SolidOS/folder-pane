@@ -3,10 +3,9 @@ import { property } from 'lit/decorators.js'
 import { state } from 'lit/decorators.js'
 import type { DataBrowserContext } from 'pane-registry'
 import type { NamedNode } from 'rdflib'
-import { solidLogicSingleton } from 'solid-logic'
 import { customElement, FILE_EXPLORER_MANAGE_ACCESS_EVENT, getRelevantPanes, utils, WebComponent } from 'solid-ui'
 import type { Resource } from '../../types'
-import { getContainerMemberCountLabel, getResourcesForContainer, type FolderPaneResourceLogic } from '../../helpers'
+import { getContainerMemberCountLabel, getResourceAccessState, getResourcesForContainer, type FolderPaneResourceLogic } from '../../helpers'
 import 'solid-ui/components/resource-actions-menu'
 import '~icons/lucide/file'
 import '~icons/lucide/file-box'
@@ -17,6 +16,7 @@ import '~icons/lucide/lock-keyhole'
 
 type ResourceActionMenuItem = {
   label: string
+  icon?: string
   action: (event: Event) => void
 }
 
@@ -47,12 +47,18 @@ export default class FolderPaneContainer extends WebComponent {
 
   @state()
   private accessor resources: Resource[] = []
+  @state()
+  private accessor optimisticResources: Resource[] = []
 
   @state()
-  private accessor resourceAccess = new Map<string, { isPublic: boolean }>()
+  private accessor resourceAccess = new Map<string, { state: 'public' | 'private' | 'unknown' | 'error' }>()
+  @state()
+  private accessor memberLoad = new Map<string, 'loading' | 'loaded' | 'error'>()
 
   @state()
   private accessor loading = true
+  @state()
+  private accessor loadError: string | undefined = undefined
 
   private actionMenuGeneration = 0
   private resourceGeneration = 0
@@ -66,6 +72,8 @@ export default class FolderPaneContainer extends WebComponent {
   }
 
   private handleResourceKeyDown (event: KeyboardEvent, resource: Resource) {
+    if (event.target !== event.currentTarget) return
+
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault()
       this.selectResource(resource)
@@ -91,9 +99,24 @@ export default class FolderPaneContainer extends WebComponent {
       ? [...getResourcesForContainer(this.subject, this.resourceLogic).values()]
       : []
 
+    const optimistic = this.optimisticResources.filter(resource =>
+      !resources.some(confirmed => confirmed.id === resource.id))
+    const combined = [...resources, ...optimistic]
     return this.hideRootSpecialFolders
-      ? resources.filter(resource => !this.isRootSpecialFolder(resource))
-      : resources
+      ? combined.filter(resource => !this.isRootSpecialFolder(resource))
+      : combined
+  }
+
+  addOptimisticResource (subject: NamedNode) {
+    if (!this.resourceLogic || this.optimisticResources.some(resource => resource.id === subject.value)) return
+    const next: Resource = {
+      id: subject.value,
+      subject,
+      parentId: this.subject?.value ?? null,
+      isContainer: subject.uri.endsWith('/') || this.resourceLogic.isContainer(subject)
+    }
+    this.optimisticResources = [...this.optimisticResources, next]
+    void this.loadResources()
   }
 
   private get visibleResources () {
@@ -104,38 +127,46 @@ export default class FolderPaneContainer extends WebComponent {
 
   private async loadResources () {
     const generation = ++this.resourceGeneration
-    this.loading = true
     const resources = this.getResourcesFromStore()
+    this.resources = resources
+    this.loading = false
+    this.loadError = undefined
+    this.memberLoad = new Map(resources.filter(resource => resource.isContainer).map(resource => [resource.id, 'loading']))
 
     if (this.browserContext) {
-      await Promise.all(resources
+      void Promise.all(resources
         .filter(resource => resource.isContainer)
         .map(async resource => {
           try {
             await this.browserContext?.session.store.fetcher.load(resource.subject)
+            if (generation !== this.resourceGeneration) return
+            this.memberLoad = new Map(this.memberLoad).set(resource.id, 'loaded')
           } catch (error) {
-            // The resource remains visible even when its member count cannot be loaded.
             console.warn('Unable to load folder-pane container member count', error)
+            if (generation !== this.resourceGeneration) return
+            this.memberLoad = new Map(this.memberLoad).set(resource.id, 'error')
           }
         }))
     }
 
     if (generation !== this.resourceGeneration) return
     this.resources = this.getResourcesFromStore()
-    this.loading = false
-    for (const resource of this.resources) void this.loadResourceAccess(resource)
-    void this.loadResourceActionMenuItems()
+    // These are advisory and must not delay the server listing.
+    for (const resource of this.resources) void this.loadResourceAccess(resource, generation)
+    void this.loadResourceActionMenuItems(generation)
   }
 
-  private async loadResourceAccess (resource: Resource) {
-    if (this.resourceAccess.has(resource.id)) return
+  private async loadResourceAccess (resource: Resource, generation = this.resourceGeneration) {
+    if (this.resourceAccess.has(resource.id) || !this.browserContext) return
     try {
-      const metadata = await solidLogicSingleton.resource.fetchMetadata(resource.subject)
-      this.resourceAccess = new Map(this.resourceAccess).set(resource.id, {
-        isPublic: metadata.access.isPublic
-      })
+      const metadata = await this.browserContext.session.logic.resource.fetchMetadata(resource.subject)
+      if (generation !== this.resourceGeneration) return
+      const state = getResourceAccessState(metadata.access)
+      this.resourceAccess = new Map(this.resourceAccess).set(resource.id, { state })
     } catch {
-      // Access metadata is advisory; do not hide otherwise readable resources.
+      if (generation === this.resourceGeneration) {
+        this.resourceAccess = new Map(this.resourceAccess).set(resource.id, { state: 'error' })
+      }
     }
   }
 
@@ -146,17 +177,37 @@ export default class FolderPaneContainer extends WebComponent {
     // exposed to assistive technology (WCAG 1.1.1 Non-text Content). Giving it
     // an explicit img role and label ensures the public/private state is
     // announced, not just shown as a mouse-hover tooltip.
-    return access.isPublic
+    return access.state === 'public'
       ? html`<icon-lucide-globe class="resource-access-indicator resource-access-indicator--public" role="img" aria-label="Public" title="Public"></icon-lucide-globe>`
-      : html`<icon-lucide-lock-keyhole class="resource-access-indicator resource-access-indicator--private" role="img" aria-label="Private" title="Private"></icon-lucide-lock-keyhole>`
+      : access.state === 'private'
+        ? html`<icon-lucide-lock-keyhole class="resource-access-indicator resource-access-indicator--private" role="img" aria-label="Private" title="Private"></icon-lucide-lock-keyhole>`
+        : nothing
   }
 
-  refresh () {
-    void this.loadResources()
+  async refresh (reloadFromServer = true) {
+    this.resourceGeneration++
+    this.resourceAccess = new Map()
+    this.memberLoad = new Map()
+    this.resourceActionMenuItems = new Map()
+    this.optimisticResources = []
+    if (reloadFromServer && this.subject && this.browserContext) {
+      try {
+        await this.browserContext.session.store.fetcher.load(this.subject, {
+          force: true,
+          clearPreviousData: true
+        })
+      } catch (error) {
+        await this.loadResources()
+        this.loadError = 'The folder could not be refreshed. Showing the last known listing.'
+        console.warn('Unable to refresh folder-pane container', error)
+        return
+      }
+    }
+    await this.loadResources()
   }
 
-  private async loadResourceActionMenuItems () {
-    const generation = ++this.actionMenuGeneration
+  private async loadResourceActionMenuItems (resourceGeneration = this.resourceGeneration) {
+    const actionGeneration = ++this.actionMenuGeneration
     if (!this.browserContext) {
       this.resourceActionMenuItems = new Map()
       return
@@ -167,19 +218,31 @@ export default class FolderPaneContainer extends WebComponent {
         excludedPaneNames: ['sharing'],
         fallbackPaneName: 'internal'
       })
-      return [resource.id, panes.map(pane => ({
-        label: pane.label(resource.subject, this.browserContext!) || pane.name,
-        action: () => {
-          this.dispatchEvent(new CustomEvent('resource-open-pane', {
-            detail: { resource: resource.subject, paneName: pane.name },
-            bubbles: true,
-            composed: true
-          }))
+      const items = await Promise.all(panes.map(async pane => {
+        const label = pane.label(resource.subject, this.browserContext!) || pane.name
+        const paneWithIcon = pane as Omit<typeof pane, 'icon'> & {
+          icon?: string | ((subject: NamedNode, context: DataBrowserContext) => string | undefined | Promise<string | undefined>)
         }
-      }))] as const
+        const iconValue = paneWithIcon.icon
+        const iconSource = typeof iconValue === 'function'
+          ? await iconValue(resource.subject, this.browserContext!)
+          : iconValue
+        return {
+          label,
+          icon: iconSource,
+          action: () => {
+            this.dispatchEvent(new CustomEvent('resource-open-pane', {
+              detail: { resource: resource.subject, paneName: pane.name },
+              bubbles: true,
+              composed: true
+            }))
+          }
+        }
+      }))
+      return [resource.id, items] as const
     }))
 
-    if (generation === this.actionMenuGeneration) {
+    if (resourceGeneration === this.resourceGeneration && actionGeneration === this.actionMenuGeneration) {
       this.resourceActionMenuItems = new Map(menuItems)
     }
   }
@@ -191,6 +254,9 @@ export default class FolderPaneContainer extends WebComponent {
       changedProperties.has('browserContext') ||
       changedProperties.has('hideRootSpecialFolders')
     ) {
+      this.resourceAccess = new Map()
+      this.memberLoad = new Map()
+      this.resourceActionMenuItems = new Map()
       void this.loadResources()
     }
   }
@@ -222,7 +288,9 @@ export default class FolderPaneContainer extends WebComponent {
 
   private renderResourceItem (resource: Resource) {
     const label = utils.label(resource.subject)
-    const memberCount = this.getVisibleMemberCount(resource)
+    const memberCount = resource.isContainer && this.memberLoad.get(resource.id) === 'loaded'
+      ? this.getVisibleMemberCount(resource)
+      : -1
 
     return html`
       <li
@@ -268,7 +336,9 @@ export default class FolderPaneContainer extends WebComponent {
 
   private renderGridItem (resource: Resource) {
     const label = utils.label(resource.subject)
-    const memberCount = this.getVisibleMemberCount(resource)
+    const memberCount = resource.isContainer && this.memberLoad.get(resource.id) === 'loaded'
+      ? this.getVisibleMemberCount(resource)
+      : -1
 
     return html`
       <li
@@ -292,9 +362,11 @@ export default class FolderPaneContainer extends WebComponent {
           ? html`<span class="resource-grid-label resource-grid-label--container">${label}</span>`
           : nothing}
         <div class="resource-grid-item-footer">
-          ${resource.isContainer
+          ${resource.isContainer && memberCount >= 0
             ? html`<span class="container-member-count">${getContainerMemberCountLabel(memberCount)}</span>`
-            : html`<span class="resource-grid-label">${label}</span>`}
+            : !resource.isContainer
+              ? html`<span class="resource-grid-label">${label}</span>`
+              : nothing}
           ${this.renderAccessIndicator(resource)}
         </div>
         ${this.renderResourceActionsMenu(resource, 'grid')}
@@ -333,6 +405,7 @@ export default class FolderPaneContainer extends WebComponent {
     const resources = this.visibleResources
     return html`
       <div class="folder-pane-container-content">
+        ${this.loadError ? html`<div class="folder-pane-container-error" role="alert">${this.loadError}</div>` : nothing}
         ${this.loading
           ? html`<div class="folder-pane-container-loading" role="status">Loading resources…</div>`
           : resources.length > 0

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { sym } from 'rdflib'
-import { getContainerMemberCountLabel, getCreationDialogText, getCreationPanes, getPaneLabel, getResourcesForContainer, isAccessDeniedError, isContainerResource } from '../src/helpers'
+import { getContainerMemberCountLabel, getCreationDialogText, getCreationPanes, getIndexedApplicationSubject, getPaneLabel, getResourceAccessState, getResourcesForContainer, isAccessDeniedError, isContainerResource } from '../src/helpers'
 import { isExtensionlessSourceFile } from '../src/mintPaneInstance'
 import folderPane, { getCreationNoun } from '../src/folderPane'
 
@@ -59,6 +59,37 @@ describe('JavaScript resource classification', () => {
     expect(resources.has(indexThing.uri)).toBe(false)
     expect(resources.has(child.uri)).toBe(true)
   })
+
+  it('deduplicates terms before sorting resources by their labels', () => {
+    const duplicate = sym('https://example.test/Beta')
+    const alpha = sym('https://example.test/alpha')
+    const resources = getResourcesForContainer(container, {
+      ...resourceLogic,
+      getContainerMembers: () => [duplicate, alpha, sym(duplicate.uri)]
+    })
+
+    expect([...resources.keys()]).toEqual([
+      'https://example.test/alpha',
+      'https://example.test/Beta'
+    ])
+    expect(resources.size).toBe(2)
+    expect(resources.get(duplicate.uri)).toMatchObject({
+      id: duplicate.uri,
+      parentId: container.value,
+      isContainer: true
+    })
+  })
+})
+
+describe('indexed application subjects', () => {
+  it('uses the schedule event subject for the schedule pane', () => {
+    const indexedContainer = sym('https://pod.example/schedules/')
+
+    expect(getIndexedApplicationSubject(indexedContainer, 'schedule'))
+      .toBe('https://pod.example/schedules/details.ttl#event')
+    expect(getIndexedApplicationSubject(indexedContainer, 'default'))
+      .toBe('https://pod.example/schedules/index.ttl#this')
+  })
 })
 
 describe('access denied errors', () => {
@@ -69,6 +100,17 @@ describe('access denied errors', () => {
     { response: { status: 403 } }
   ])('recognizes %j as access denied', error => {
     expect(isAccessDeniedError(error)).toBe(true)
+  })
+
+  describe('resource access metadata', () => {
+    it('does not call missing WAC-Allow metadata private', () => {
+      expect(getResourceAccessState({ isPublic: false, isPublicKnown: false })).toBe('unknown')
+    })
+
+    it('retains confirmed public and private states', () => {
+      expect(getResourceAccessState({ isPublic: true, isPublicKnown: true })).toBe('public')
+      expect(getResourceAccessState({ isPublic: false, isPublicKnown: true })).toBe('private')
+    })
   })
 
   it('does not classify unrelated errors as access denied', () => {
@@ -139,7 +181,7 @@ describe('resource creation contracts', () => {
     }
     const options = {
       newBase: 'https://example.test/new-folder/',
-      newInstance: sym('https://example.test/new-folder/')
+      newInstance: sym('https://example.test/new-folder')
     }
 
     const result = await folderPane.mintNew({ session: { store } }, options)

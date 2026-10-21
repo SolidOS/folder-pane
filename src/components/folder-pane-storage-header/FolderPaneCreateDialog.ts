@@ -2,6 +2,7 @@ import { DialogComponent, customElement } from 'solid-ui'
 import { html } from 'lit'
 import { property, query, state } from 'lit/decorators.js'
 import { getCreationDialogText } from '../../helpers'
+import { invalidCreationNameMessage, isSafeCreationName } from '../../creationSafety'
 import styles from './FolderPaneCreateDialog.styles.css'
 
 import 'solid-ui/components/button'
@@ -21,6 +22,9 @@ export default class FolderPaneCreateDialog extends DialogComponent<string> {
   @state()
   accessor name = ''
 
+  @state()
+  accessor validationMessage = ''
+
   @query('input')
   private accessor nameInput: HTMLInputElement | null = null
 
@@ -29,7 +33,8 @@ export default class FolderPaneCreateDialog extends DialogComponent<string> {
   private confirm = () => {
     const name = this.name.trim()
 
-    if (!name) {
+    if (!isSafeCreationName(name)) {
+      this.validationMessage = invalidCreationNameMessage
       return
     }
 
@@ -38,6 +43,7 @@ export default class FolderPaneCreateDialog extends DialogComponent<string> {
 
   private onNameInput = (event: Event) => {
     this.name = (event.target as HTMLInputElement).value
+    this.validationMessage = ''
   }
 
   private onNameKeydown = (event: KeyboardEvent) => {
@@ -78,6 +84,9 @@ export default class FolderPaneCreateDialog extends DialogComponent<string> {
               @input=${this.onNameInput}
               @keydown=${this.onNameKeydown}
             />
+            ${this.validationMessage
+              ? html`<span class="folder-pane-create-dialog-error" role="alert">${this.validationMessage}</span>`
+              : ''}
           </label>
         </solid-ui-dialog-content>
         <solid-ui-dialog-footer>

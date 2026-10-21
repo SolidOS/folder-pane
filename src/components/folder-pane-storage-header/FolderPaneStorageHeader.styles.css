@@ -80,7 +80,7 @@
 }
 
 .folder-pane-storage-header-search {
-  display: flex;
+  display: none;
   align-items: center;
   gap: 0.35rem;
   min-width: 8rem;
@@ -126,6 +126,7 @@
 .folder-pane-storage-header-add-menu {
   display: inline-flex;
   align-items: center;
+  margin-left: 22px;
 }
 
 .folder-pane-storage-header-add-menu img[slot="left-icon"] {

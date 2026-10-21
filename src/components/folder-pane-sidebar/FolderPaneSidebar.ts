@@ -39,9 +39,17 @@ export default class FolderPaneSidebar extends WebComponent {
 
   @state()
   accessor homeExpanded = true
+  @state()
+  accessor expansionError: string | undefined = undefined
+  private resourceGeneration = 0
 
   private loadResources () {
-    if (!this.store || !this.subject) return
+    this.resourceGeneration++
+    if (!this.store || !this.subject) {
+      this.resources = new Map()
+      this.expandedContainers = new Set()
+      return
+    }
 
     this.resources = getResourcesForContainer(this.subject, this.resourceLogic)
   }
@@ -64,6 +72,7 @@ export default class FolderPaneSidebar extends WebComponent {
   private async toggleContainer (resource: Resource) {
     if (!resource.isContainer) return
 
+    const generation = this.resourceGeneration
     const nextExpandedContainers = new Set(this.expandedContainers)
     if (nextExpandedContainers.has(resource.id)) {
       nextExpandedContainers.delete(resource.id)
@@ -75,11 +84,13 @@ export default class FolderPaneSidebar extends WebComponent {
       await this.store?.fetcher?.load(resource.subject)
     } catch (error) {
       console.error('Unable to expand storage container', error)
+      this.expansionError = `Unable to load ${utils.label(resource.subject)}. Try expanding it again.`
       return
     }
 
-    nextExpandedContainers.add(resource.id)
-    this.expandedContainers = nextExpandedContainers
+    if (generation !== this.resourceGeneration) return
+    this.expansionError = undefined
+    this.expandedContainers = new Set(this.expandedContainers).add(resource.id)
   }
 
   private isSelected (resource: Resource | null) {
@@ -272,6 +283,7 @@ export default class FolderPaneSidebar extends WebComponent {
   render () {
     return html`
       <aside>
+        ${this.expansionError ? html`<div class="folder-pane-sidebar-error" role="alert">${this.expansionError}</div>` : nothing}
         ${this.renderTree()}
       </aside>
     `

@@ -1,5 +1,6 @@
 import type { NamedNode } from 'rdflib'
 import type { DataBrowserContext, PaneDefinition } from 'pane-registry'
+import { normalizeCreationName } from './creationSafety'
 
 export type MintPaneInstanceOptions = {
   context: DataBrowserContext
@@ -11,6 +12,8 @@ export type MintPaneInstanceOptions = {
   me?: NamedNode
   dom: HTMLDocument
   mintTimeoutMs?: number
+  /** Replacement is opt-in; the normal create flow never overwrites a known member. */
+  allowReplacement?: boolean
 }
 
 export type MintedPaneInstance = {
@@ -27,9 +30,18 @@ export class PaneMintError extends Error {
   }
 }
 
+function hasKnownDestinationConflict (context: DataBrowserContext, container: NamedNode, newBase: string): boolean {
+  const store = context.session.store
+  if (typeof store.each !== 'function') return false
+  const members = store.each(container, store.sym('http://www.w3.org/ns/ldp#contains')) as NamedNode[]
+  const withoutSlash = newBase.endsWith('/') ? newBase.slice(0, -1) : newBase
+  return members.some(member => member.uri === newBase || member.uri === withoutSlash)
+}
+
 function getNewInstanceBase (container: NamedNode, name: string): string {
+  const normalizedName = normalizeCreationName(name)
   const containerUri = container.uri.endsWith('/') ? container.uri : `${container.uri}/`
-  return `${containerUri}${encodeURIComponent(name)}/`
+  return `${containerUri}${encodeURIComponent(normalizedName)}/`
 }
 
 function isExtensionlessSourceFile (pane: PaneDefinition, name: string): boolean {
@@ -123,28 +135,46 @@ async function mintPaneInstance ({
   statusArea,
   me,
   dom,
-  mintTimeoutMs = 90_000
+  mintTimeoutMs = 90_000,
+  allowReplacement = false
 }: MintPaneInstanceOptions): Promise<MintedPaneInstance> {
   if (!pane.mintNew) throw new PaneMintError(`The ${noun} pane cannot create new items.`)
 
+  let normalizedName: string
+  try {
+    normalizedName = normalizeCreationName(name)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    setMintStatus(statusArea, 'error', message)
+    throw new PaneMintError(message, error)
+  }
+
   statusArea.replaceChildren()
-  if (isExtensionlessSourceFile(pane, name)) {
+  if (isExtensionlessSourceFile(pane, normalizedName)) {
     const message = 'A new text file needs an extension, such as .txt, .ttl, or .json.'
     setMintStatus(statusArea, 'error', message)
     throw new PaneMintError(message)
   }
 
-  setMintStatus(statusArea, 'progress', `Creating ${name} ${noun}`)
+  setMintStatus(statusArea, 'progress', `Creating ${normalizedName} ${noun}`)
   // Pane-rendered messages and setup UI stay in the status area after minting.
   const paneOutput = statusArea.appendChild(dom.createElement('div'))
   paneOutput.className = 'folder-pane-status-pane-output'
 
-  const newBase = getNewInstanceBase(container, name)
+  const newBase = getNewInstanceBase(container, normalizedName)
+  if (!allowReplacement && hasKnownDestinationConflict(context, container, newBase)) {
+    const message = `A resource named "${normalizedName}" already exists in this folder. Choose a different name; replacement is not enabled.`
+    setMintStatus(statusArea, 'error', message)
+    throw new PaneMintError(message)
+  }
+  const timeoutMessage = `The ${noun} pane did not finish creating the resource within ${mintTimeoutMs}ms. The result is uncertain; refresh the folder before retrying.`
+  let timeout: ReturnType<typeof setTimeout> | undefined
   let result: Awaited<ReturnType<NonNullable<PaneDefinition['mintNew']>>> | undefined
   try {
-    const mintPromise = pane.mintNew(context, {
+    const mintOptions = {
       folder: container,
       newBase,
+      title: normalizedName,
       pane,
       noun,
       div: paneOutput,
@@ -152,17 +182,20 @@ async function mintPaneInstance ({
       me,
       iconEle: dom.createElement('img'),
       noIndexHTML: true
-    })
+    }
+    const mintPromise = pane.mintNew(context, mintOptions)
     result = await Promise.race([
       mintPromise,
       new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error(`The ${noun} pane did not finish creating the resource within ${mintTimeoutMs}ms.`)), mintTimeoutMs)
+        timeout = setTimeout(() => reject(new Error(timeoutMessage)), mintTimeoutMs)
       })
     ])
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error)
     setMintStatus(statusArea, 'error', `Unable to create ${noun} "${name}": ${reason}`)
     throw new PaneMintError(reason, error)
+  } finally {
+    if (timeout) clearTimeout(timeout)
   }
 
   if (!result?.newInstance) {

@@ -5,6 +5,7 @@ export default [
     ignores: [
       'lib/**',
       'node_modules/**',
+      'dist/**',
       'coverage/**'
     ],
   },
