@@ -165,22 +165,26 @@ export default class FolderPaneStorageHeader extends WebComponent {
             >
           </label>
           <div class="folder-pane-storage-header-view-controls" role="group" aria-label="Container view">
-            <solid-ui-button
-              variant="ghost"
-              aria-label="Grid view"
-              aria-pressed=${String(this.view === 'grid')}
-              @click=${() => this.selectView('grid')}
-            >
-              <icon-lucide-layout-grid slot="icon" aria-hidden="true"></icon-lucide-layout-grid>
-            </solid-ui-button>
-            <solid-ui-button
-              variant="ghost"
-              aria-label="List view"
-              aria-pressed=${String(this.view === 'list')}
-              @click=${() => this.selectView('list')}
-            >
-              <icon-lucide-list slot="icon" aria-hidden="true"></icon-lucide-list>
-            </solid-ui-button>
+            <div class=${`folder-pane-storage-header-view-toggle ${this.view === 'grid' ? 'is-selected' : ''}`}>
+              <solid-ui-button
+                variant="ghost"
+                aria-label="Grid view"
+                aria-pressed=${String(this.view === 'grid')}
+                @click=${() => this.selectView('grid')}
+              >
+                <icon-lucide-layout-grid slot="icon" aria-hidden="true"></icon-lucide-layout-grid>
+              </solid-ui-button>
+            </div>
+            <div class=${`folder-pane-storage-header-view-toggle ${this.view === 'list' ? 'is-selected' : ''}`}>
+              <solid-ui-button
+                variant="ghost"
+                aria-label="List view"
+                aria-pressed=${String(this.view === 'list')}
+                @click=${() => this.selectView('list')}
+              >
+                <icon-lucide-list slot="icon" aria-hidden="true"></icon-lucide-list>
+              </solid-ui-button>
+            </div>
           </div>
           ${this.canCreate ? html`<solid-ui-menu class="folder-pane-storage-header-add-menu" placement="bottom-end">
             <solid-ui-button

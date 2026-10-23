@@ -51,7 +51,10 @@ export default class FolderPaneContainer extends WebComponent {
   private accessor optimisticResources: Resource[] = []
 
   @state()
-  private accessor resourceAccess = new Map<string, { state: 'public' | 'private' | 'unknown' | 'error' }>()
+  private accessor resourceAccess = new Map<string, {
+    state: 'public' | 'private' | 'unknown' | 'error'
+    canManageAccess: boolean
+  }>()
   @state()
   private accessor memberLoad = new Map<string, 'loading' | 'loaded' | 'error'>()
 
@@ -162,10 +165,13 @@ export default class FolderPaneContainer extends WebComponent {
       const metadata = await this.browserContext.session.logic.resource.fetchMetadata(resource.subject)
       if (generation !== this.resourceGeneration) return
       const state = getResourceAccessState(metadata.access)
-      this.resourceAccess = new Map(this.resourceAccess).set(resource.id, { state })
+      this.resourceAccess = new Map(this.resourceAccess).set(resource.id, {
+        state,
+        canManageAccess: metadata.access.canManageAccess
+      })
     } catch {
       if (generation === this.resourceGeneration) {
-        this.resourceAccess = new Map(this.resourceAccess).set(resource.id, { state: 'error' })
+        this.resourceAccess = new Map(this.resourceAccess).set(resource.id, { state: 'error', canManageAccess: false })
       }
     }
   }
@@ -280,6 +286,7 @@ export default class FolderPaneContainer extends WebComponent {
           .subjectUri=${resource.subject.uri}
           .handleAccessClick=${() => this.openAccessControls(resource)}
           .showAccessInMenu=${true}
+          .canManageAccess=${this.resourceAccess.get(resource.id)?.canManageAccess === true}
           .menuItems=${this.resourceActionMenuItems.get(resource.id) || []}
         ></solid-ui-resource-actions-menu>
       </div>

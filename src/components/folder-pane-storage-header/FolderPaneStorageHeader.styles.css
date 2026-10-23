@@ -108,18 +108,47 @@
 }
 
 .folder-pane-storage-header-view-controls {
-  gap: 0.35rem;
+  gap: 0;
 }
 
-.folder-pane-storage-header-view-controls icon-lucide-layout-grid,
-.folder-pane-storage-header-view-controls icon-lucide-list {
+.folder-pane-storage-header-view-toggle {
+  display: flex;
+  width: 44px;
+  height: 36px;
+  padding: 0 5px;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--solid-ui-color-gray-300, #d1d5dc);
+  background: var(--solid-ui-color-white, #ffffff);
+}
+
+.folder-pane-storage-header-view-toggle:first-child {
+  border-radius: 5px 0 0 5px;
+}
+
+.folder-pane-storage-header-view-toggle:last-child {
+  border-left: 0;
+  border-radius: 0 5px 5px 0;
+}
+
+.folder-pane-storage-header-view-toggle.is-selected {
+  background: var(--solid-ui-color-lavender-300, #e6dcff);
+}
+
+.folder-pane-storage-header-view-toggle solid-ui-button {
+  width: 100%;
+  height: 100%;
+}
+
+.folder-pane-storage-header-view-toggle icon-lucide-layout-grid,
+.folder-pane-storage-header-view-toggle icon-lucide-list {
   width: 16px;
   height: 16px;
   flex-shrink: 0;
-  align-self: stretch;
 }
 
-.folder-pane-storage-header-view-controls solid-ui-button[aria-pressed='true'] {
+.folder-pane-storage-header-view-toggle solid-ui-button[aria-pressed='true'] {
   color: var(--solid-ui-color-primary, #7c4dff);
 }
 

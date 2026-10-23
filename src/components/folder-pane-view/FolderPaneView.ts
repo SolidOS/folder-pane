@@ -291,7 +291,13 @@ export default class FolderPaneView extends WebComponent {
     this.searchQuery = ''
     // Some minting panes (e.g. Dokieli) delegate viewing to another pane and
     // have no render(); let the relevant-pane lookup choose in that case.
-    this.showSubject(resource, typeof pane?.render === 'function' ? pane : undefined)
+    // Resolve the pane again from the registry. Creation menu entries can be
+    // replaced while the async mint is running; retaining that stale object
+    // lets a different relevant pane (notably profile for pad indexes) win.
+    const currentPane = pane?.name
+      ? this.browserContext?.session.paneRegistry.byName(pane.name) ?? pane
+      : pane
+    this.showSubject(resource, typeof currentPane?.render === 'function' ? currentPane : undefined)
   }
 
   /**
