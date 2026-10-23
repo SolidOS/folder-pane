@@ -65,7 +65,7 @@
     "@vitest/coverage-v8": "^4.0.18",
     "eslint": "^10.0.1",
     "globals": "^17.1.0",
-    "solidos-toolkit": "^1.0.0-dev.2fb6be508170f3b28ca79d738aae71cd48f6d87e",
+    "solidos-toolkit": "dev",
     "typescript": "^5.9.3"
   },
   "dependencies": {
