@@ -1,6 +1,6 @@
 {
   "name": "folder-pane",
-  "version": "4.0.0",
+  "version": "4.0.1-0",
   "description": "Solid-compatible Panes: File browser",
   "main": "dist/index.cjs.js",
   "types": "dist/index.d.ts",
@@ -65,7 +65,7 @@
     "@vitest/coverage-v8": "^4.0.18",
     "eslint": "^10.0.1",
     "globals": "^17.1.0",
-    "solidos-toolkit": "dev",
+    "solidos-toolkit": "^1.0.0-dev.2fb6be508170f3b28ca79d738aae71cd48f6d87e",
     "typescript": "^5.9.3"
   },
   "dependencies": {
