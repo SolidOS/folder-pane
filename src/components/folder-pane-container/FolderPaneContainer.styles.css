@@ -1,0 +1,316 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+  flex: 1 1 auto;
+
+  .folder-pane-container-content {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+    width: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+
+  .folder-pane-container-loading {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    justify-content: center;
+    min-height: 8rem;
+    color: var(--solid-ui-color-gray-500, #6a7282);
+    font-size: var(--solid-ui-font-size-sm, 0.875rem);
+  }
+
+  .folder-pane-container-content::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .folder-pane-container-content::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .folder-pane-container-content::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 999px;
+  }
+
+  .folder-pane-container-content:hover {
+    scrollbar-color: var(--solid-ui-color-gray-300, #d1d5dc) transparent;
+  }
+
+  .folder-pane-container-content:hover::-webkit-scrollbar-thumb {
+    background: var(--solid-ui-color-gray-300, #d1d5dc);
+  }
+
+  .resource-list {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    width: 100%;
+    min-height: 0;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 20px;
+    list-style: none;
+  }
+
+  .resource-grid {
+    display: flex;
+    flex-wrap: wrap;
+    flex: 1 1 auto;
+    align-content: flex-start;
+    align-items: flex-start;
+    gap: 20px;
+    width: 100%;
+    min-height: 0;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 20px;
+    list-style: none;
+    overflow: visible;
+  }
+
+  .resource-grid-item {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 auto;
+    width: 206px;
+    max-width: 100%;
+    height: 145.824px;
+    border-radius: 5px;
+    border: 1px solid var(--solid-ui-color-gray-200, #cbd5e1);
+    background: var(--solid-ui-color-white, #ffffff);
+    cursor: pointer;
+    overflow: hidden;
+  }
+
+  .resource-actions-menu {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: flex-end;
+  }
+
+  .resource-actions-menu--grid {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+  }
+
+  .resource-actions-menu--list {
+    margin-left: auto;
+  }
+
+  .resource-grid-icon {
+    display: flex;
+    width: 80px;
+    height: 80px;
+    justify-content: center;
+    align-items: center;
+    margin: 12px auto 0;
+    flex: 0 0 auto;
+  }
+
+  .resource-grid-icon icon-lucide-file {
+    width: 64px;
+    height: 64px;
+  }
+
+  .resource-grid-icon--container {
+    width: 37.282px;
+    height: 37.282px;
+    padding: 0 9.32px;
+    margin: 12px 0 0 12px;
+    justify-content: flex-start;
+  }
+
+  .resource-grid-label {
+    color: var(--solid-ui-color-gray-500, #6a7282);
+    font-size: var(--solid-ui-font-size-xs, 0.75rem);
+    font-weight: 500;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .resource-grid-label--container {
+    color: var(--solid-ui-color-gray-700, #364153);
+    font-size: var(--solid-ui-font-size-md, 1rem);
+    padding: 0 12px;
+  }
+
+  .resource-grid-item-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex: 0 0 40px;
+    margin-top: auto;
+    padding: 0 15px;
+    border-top: 1px solid var(--solid-ui-color-gray-200, #cbd5e1);
+    gap: 12px;
+  }
+
+  .resource-list-header {
+    display: flex;
+    padding: 14px 12px;
+    align-items: center;
+    justify-content: space-between;
+    align-self: stretch;
+    color: var(--solid-ui-color-gray-600, #4a5565);
+    font-size: var(--solid-ui-font-size-sm, .875rem);
+    font-weight: 500;
+    list-style: none;
+    border-bottom: 1px solid var(--solid-ui-color-gray-200, #E5E7EB);
+    background: var(--white, #FFF);
+  }
+
+  .resource-list-item {
+    display: flex;
+    padding: 14px 12px;
+    align-items: center;
+    gap: 10px;
+    align-self: stretch;
+    border-bottom: 1px solid var(--solid-ui-color-gray-200, #E5E7EB);
+    background: var(--white, #FFF);
+    cursor: pointer;
+  }
+
+  .resource-list-item:hover,
+  .resource-grid-item:hover {
+    background: var(--solid-ui-color-gray-50, #f9fafb);
+  }
+
+  .resource-list-item:focus-visible,
+  .resource-grid-item:focus-visible {
+    outline: 2px solid var(--solid-ui-color-primary, #7c4dff);
+    outline-offset: -2px;
+  }
+
+  .resource-list-main {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .resource-list-label {
+    color: var(--solid-ui-color-gray-700, #364153);
+    font-size: var(--solid-ui-font-size-md, 1rem);
+    font-weight: 500;
+    min-width: 0;
+    flex: 0 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .resource-list-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+  }
+
+  .container-member-count {
+    color: var(--solid-ui-color-gray-500, #6a7282);
+    font-size: var(--solid-ui-font-size-xs, .75rem);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  icon-lucide-folder,
+  icon-lucide-file,
+  icon-lucide-globe,
+  icon-lucide-lock-keyhole {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+    color: var(--solid-ui-color-gray-500, #6a7282);
+    fill: rgba(224, 231, 255, 0.50);
+    stroke: var(--solid-ui-color-gray-500, #6a7282);
+    stroke-width: 1.25px;
+  }
+
+  .resource-access-indicator {
+    width: 15px;
+    height: 15px;
+    flex: 0 0 auto;
+    color: var(--solid-ui-color-gray-500, #6a7282);
+  }
+
+  /*
+   * WCAG 1.4.11 Non-text Contrast: these icons are the only visual indicator
+   * of a resource's public/private access state, so they need >= 3:1 contrast
+   * against the white item background. --blue-400/--yellow-600 (as used
+   * elsewhere against tinted pill backgrounds) only reach ~2.6:1/~2.9:1 here;
+   * --blue-600/--yellow-700 keep the same hue family at ~5.2:1/~4.9:1.
+   */
+  .resource-access-indicator--public {
+    color: var(--blue-600, #2563eb);
+    stroke: var(--blue-600, #2563eb);
+  }
+
+  .resource-access-indicator--private {
+    color: var(--yellow-700, #a16207);
+    stroke: var(--yellow-700, #a16207);
+  }
+
+  .folder-pane-container-empty-message {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    min-height: 100%;
+    text-align: center;
+    color: var(--solid-ui-color-gray-700, #364153);
+  }
+
+  .folder-pane-container-empty-message-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    height: 64px;
+    padding: 0 16.785px;
+    border-radius: 16px;
+    border: 1px solid var(--solid-ui-color-slate-200, #e2e8f0);
+    background: var(--solid-ui-color-white, #ffffff);
+  }
+
+  .folder-pane-container-empty-message-icon icon-lucide-file-box {
+    width: 32px;
+    height: 32px;
+    color: var(--solid-ui-color-gray-300, #d1d5dc);
+    stroke-width: 2px;
+  }
+
+  .folder-pane-container-empty-message-title {
+    margin: 0;
+    color: var(--solid-ui-color-gray-900, #030712);
+    font-size: 1.25rem;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  .folder-pane-container-empty-message-body {
+    max-width: 24rem;
+    margin: 0;
+    color: var(--solid-ui-color-gray-600, #4a5565);
+    font-size: var(--solid-ui-font-size-sm, .875rem);
+    line-height: 21.125px;
+  }
+}
