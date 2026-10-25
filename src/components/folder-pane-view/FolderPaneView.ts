@@ -1,4 +1,4 @@
-import { aclControl, composeExplorer, customElement, FILE_EXPLORER_BACK_EVENT, FILE_EXPLORER_OPEN_PANE_EVENT, getRelevantPanes, isExplorerEvent, log, ns, showDialog, WebComponent, widgets } from 'solid-ui'
+import { aclControl, composeExplorer, customElement, FILE_EXPLORER_BACK_EVENT, FILE_EXPLORER_OPEN_PANE_EVENT, getPreferredPane, getRelevantPanes, isExplorerEvent, log, ns, showDialog, WebComponent, widgets } from 'solid-ui'
 import { authn, authSession } from 'solid-logic'
 import { html, nothing } from 'lit'
 import { property, query, state } from 'lit/decorators.js'
@@ -445,19 +445,6 @@ export default class FolderPaneView extends WebComponent {
     }
   }
 
-  private getPaneForSubject (subject: NamedNode, relevantPanes: PaneDefinition[]) {
-    const mintClass = this.store && (
-      this.store.any(subject, ns.ui('mintClass'), undefined, subject.doc()) ||
-      this.store.any(subject.doc(), ns.ui('mintClass'), undefined, subject.doc())
-    )
-    if (mintClass) {
-      const mintClassPane = relevantPanes.find(pane => pane.mintClass?.sameTerm(mintClass))
-      if (mintClassPane) return mintClassPane
-    }
-
-    return relevantPanes.find(candidate => candidate.shouldGetFocus?.(subject)) || relevantPanes[0]
-  }
-
   private async renderExplorerInto (
     target: HTMLElement,
     subject: NamedNode,
@@ -471,7 +458,7 @@ export default class FolderPaneView extends WebComponent {
       fallbackPaneName: 'internal'
     })
     if (options.isCurrent && !options.isCurrent()) return
-    const selectedPane = pane || this.getPaneForSubject(subject, relevantPanes)
+    const selectedPane = pane || getPreferredPane(subject, this.browserContext, relevantPanes)
     if (!selectedPane) {
       this.renderExplorerError(subject, 'No pane is available to display this resource.')
       return
@@ -564,7 +551,8 @@ export default class FolderPaneView extends WebComponent {
 
     try {
       const target = this.resourceTarget
-      if (!target || !this.store || !this.resourceLogic) return
+      const browserContext = this.browserContext
+      if (!target || !this.store || !this.resourceLogic || !browserContext) return
 
       const request: RenderRequest = {
         generation: renderGeneration,
@@ -623,6 +611,21 @@ export default class FolderPaneView extends WebComponent {
           await this.renderExplorerInto(target, applicationSubject, pane, {
             isCurrent: () => isCurrentSelection(selectedResource),
             showHeader: false
+          })
+          return
+        }
+
+        const relevantPanes = await getRelevantPanes(selectedResource, browserContext, {
+          excludedPaneNames: ['sharing'],
+          fallbackPaneName: 'internal'
+        })
+        if (!isCurrentSelection(selectedResource)) return
+
+        const selectedPane = pane || getPreferredPane(selectedResource, browserContext, relevantPanes)
+        if (selectedPane?.name !== 'folder') {
+          await this.renderExplorerInto(target, selectedResource, selectedPane, {
+            isCurrent: () => isCurrentSelection(selectedResource),
+            showHeader: true
           })
           return
         }
