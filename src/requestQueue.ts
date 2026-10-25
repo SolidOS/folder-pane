@@ -74,6 +74,8 @@ function createRequestQueue ({
   let pending: PendingTask[] = []
   let active = 0
   let pausedUntil: Promise<void> | undefined
+  let pauseDeadline = 0
+  let pauseToken = 0
   let generation = 0
 
   function pump () {
@@ -89,11 +91,15 @@ function createRequestQueue ({
     try {
       item.resolve(await item.task())
     } catch (error) {
-      if (taskGeneration === generation && isRateLimitedError(error) && item.retries < maxRetries) {
-        item.retries++
-        // Retry first so it is not overtaken by tasks queued after it.
-        pending.unshift(item)
+      if (taskGeneration === generation && isRateLimitedError(error)) {
         pause(getRetryAfterMs(error, defaultRetryAfterMs))
+        if (item.retries < maxRetries) {
+          item.retries++
+          // Retry first so it is not overtaken by tasks queued after it.
+          pending.unshift(item)
+        } else {
+          item.reject(error)
+        }
       } else {
         item.reject(error)
       }
@@ -104,11 +110,15 @@ function createRequestQueue ({
   }
 
   function pause (ms: number) {
-    if (pausedUntil) return
     const pauseGeneration = generation
+    const requestedDeadline = Date.now() + ms
+    if (requestedDeadline <= pauseDeadline) return
+    pauseDeadline = requestedDeadline
+    const token = ++pauseToken
     pausedUntil = wait(ms).then(() => {
-      if (pauseGeneration !== generation) return
+      if (pauseGeneration !== generation || token !== pauseToken) return
       pausedUntil = undefined
+      pauseDeadline = 0
       pump()
     })
   }
@@ -123,6 +133,8 @@ function createRequestQueue ({
     clear () {
       generation++
       pausedUntil = undefined
+      pauseDeadline = 0
+      pauseToken++
       const cleared = pending
       pending = []
       for (const item of cleared) item.reject(new RequestQueueClearedError())

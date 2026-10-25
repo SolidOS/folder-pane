@@ -87,6 +87,73 @@ describe('folder-pane request queue', () => {
     expect(attempts).toBe(2)
   })
 
+  it('keeps the queue paused when an exhausted task receives another 429', async () => {
+    const releases = []
+    const queue = createRequestQueue({
+      concurrency: 1,
+      maxRetries: 1,
+      wait: () => new Promise(resolve => releases.push(resolve))
+    })
+    let firstAttempts = 0
+    let secondAttempts = 0
+    const first = queue.run(async () => {
+      firstAttempts++
+      throw rateLimited()
+    })
+    const second = queue.run(async () => {
+      secondAttempts++
+      return 'second'
+    })
+    const firstResult = expect(first).rejects.toMatchObject({ status: 429 })
+
+    await flush()
+    expect(releases).toHaveLength(1)
+    releases.shift()()
+    await flush()
+    expect(firstAttempts).toBe(2)
+    expect(secondAttempts).toBe(0)
+    expect(releases).toHaveLength(1)
+    await firstResult
+    releases.shift()()
+    await expect(second).resolves.toBe('second')
+    expect(secondAttempts).toBe(1)
+  })
+
+  it('extends an active pause for a longer overlapping Retry-After', async () => {
+    const releases = []
+    const waits = []
+    const queue = createRequestQueue({
+      concurrency: 2,
+      maxRetries: 0,
+      wait: ms => {
+        waits.push(ms)
+        return new Promise(resolve => releases.push(resolve))
+      }
+    })
+    let queuedAttempts = 0
+    const first = queue.run(async () => { throw rateLimited('1') })
+    const second = queue.run(async () => { throw rateLimited('60') })
+    const queued = queue.run(async () => {
+      queuedAttempts++
+      return 'queued'
+    })
+    const firstResult = expect(first).rejects.toMatchObject({ status: 429 })
+    const secondResult = expect(second).rejects.toMatchObject({ status: 429 })
+
+    await flush()
+    expect(waits).toEqual([1000, 60000])
+    expect(queuedAttempts).toBe(0)
+
+    releases.shift()()
+    await flush()
+    expect(queuedAttempts).toBe(0)
+
+    releases.shift()()
+    await expect(queued).resolves.toBe('queued')
+    await firstResult
+    await secondResult
+  })
+
   it('does not retry other failures', async () => {
     const queue = createRequestQueue({ wait: () => Promise.resolve() })
     let attempts = 0

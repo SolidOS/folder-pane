@@ -2,6 +2,7 @@ import { html, nothing } from 'lit'
 import { property } from 'lit/decorators.js'
 import { state } from 'lit/decorators.js'
 import type { DataBrowserContext } from 'pane-registry'
+import type { ResourceMetadata } from 'solid-logic'
 import type { NamedNode } from 'rdflib'
 import { customElement, FILE_EXPLORER_MANAGE_ACCESS_EVENT, getRelevantPanes, utils, WebComponent } from 'solid-ui'
 import type { Resource } from '../../types'
@@ -66,6 +67,7 @@ export default class FolderPaneContainer extends WebComponent {
 
   private actionMenuGeneration = 0
   private resourceGeneration = 0
+  private updateWorkScheduled = false
   // Member counts and access indicators cost one request per child, so they
   // are fetched only for visible items, a few at a time.
   private detailsQueue = createRequestQueue()
@@ -135,6 +137,7 @@ export default class FolderPaneContainer extends WebComponent {
 
   private async loadResources () {
     const generation = ++this.resourceGeneration
+    this.resetResourceDetails()
     const resources = this.getResourcesFromStore()
     this.resources = resources
     this.loading = false
@@ -170,7 +173,7 @@ export default class FolderPaneContainer extends WebComponent {
     const resourceLogic = this.browserContext.session.logic.resource
     this.resourceAccess = new Map(this.resourceAccess).set(resource.id, { state: 'unknown', canManageAccess: false })
     try {
-      const metadata = await this.detailsQueue.run(() => resourceLogic.fetchMetadata(resource.subject))
+      const metadata = await this.detailsQueue.run<ResourceMetadata>(() => resourceLogic.fetchMetadata(resource.subject))
       if (generation !== this.resourceGeneration) return
       const state = getResourceAccessState(metadata.access)
       this.resourceAccess = new Map(this.resourceAccess).set(resource.id, {
@@ -312,10 +315,19 @@ export default class FolderPaneContainer extends WebComponent {
       changedProperties.has('browserContext') ||
       changedProperties.has('hideRootSpecialFolders')
     ) {
-      this.resourceGeneration++
-      this.resetResourceDetails()
-      this.resourceActionMenuItems = new Map()
-      void this.loadResources()
+      if (!this.updateWorkScheduled) {
+        this.updateWorkScheduled = true
+        queueMicrotask(() => {
+          this.updateWorkScheduled = false
+          if (!this.isConnected) return
+          this.resourceGeneration++
+          this.resetResourceDetails()
+          this.resourceActionMenuItems = new Map()
+          void this.loadResources()
+          this.observeResourceItems()
+        })
+      }
+      return
     }
     this.observeResourceItems()
   }
