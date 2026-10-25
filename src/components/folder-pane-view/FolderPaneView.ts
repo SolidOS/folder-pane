@@ -269,6 +269,18 @@ export default class FolderPaneView extends WebComponent {
     })
   }
 
+  private async loadResource (resource: NamedNode): Promise<void> {
+    if (!this.store) return
+    try {
+      await this.store.fetcher.load(resource)
+    } catch (error) {
+      // A request made before OIDC restoration can leave a failed fetch cached.
+      // The owner is allowed to retry the resource once with a clean fetcher entry.
+      if (!isAccessDeniedError(error) || !authn.currentUser()) throw error
+      await this.store.fetcher.load(resource, { force: true, clearPreviousData: true })
+    }
+  }
+
   private clearContentError = () => {
     this.contentError = undefined
   }
@@ -410,7 +422,7 @@ export default class FolderPaneView extends WebComponent {
     if (!this.store || !this.resourceLogic) return
 
     try {
-      await this.store.fetcher.load(subject)
+      await this.loadResource(subject)
     } catch (error) {
       if (generation !== this.initialLoadGeneration || !this.subject?.sameTerm(subject)) return
       if (isAccessDeniedError(error)) {
@@ -576,7 +588,7 @@ export default class FolderPaneView extends WebComponent {
 
       if (isContainerResource(selectedResource, this.resourceLogic)) {
         try {
-          await this.store.fetcher.load(selectedResource)
+          await this.loadResource(selectedResource)
         } catch (error) {
           if (!isCurrentSelection(selectedResource)) return
           if (isAccessDeniedError(error)) {
@@ -599,7 +611,7 @@ export default class FolderPaneView extends WebComponent {
             getIndexedApplicationSubject(selectedResource, pane?.name)
           )
           try {
-            await this.store.fetcher.load(applicationSubject.doc())
+            await this.loadResource(applicationSubject.doc())
           } catch (error) {
             if (!isCurrentSelection(selectedResource)) return
             if (isAccessDeniedError(error)) {
@@ -620,7 +632,7 @@ export default class FolderPaneView extends WebComponent {
       }
 
       try {
-        await this.store.fetcher.load(selectedResource)
+        await this.loadResource(selectedResource)
       } catch (error) {
         if (!isCurrentSelection(selectedResource)) return
         if (isAccessDeniedError(error)) {
