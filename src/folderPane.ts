@@ -12,9 +12,25 @@ import './styles/utilities.css'
 
 export { getCreationNoun, getCreationPanes, getPaneLabel } from './helpers'
 
+/**
+ * How a folder is presented:
+ * - `explorer`: storage header, sidebar and content (the viewer's own storage, the server root)
+ * - `storage`: sidebar and content, under the navbar of someone else's pod
+ * - `container`: the container alone (a container URL opened on its own)
+ */
+export type FolderView = 'explorer' | 'storage' | 'container'
+
 type FolderPaneRenderOptions = {
+  folderView?: FolderView
   fullView?: boolean
   solo?: boolean
+}
+
+const FOLDER_VIEWS: FolderView[] = ['explorer', 'storage', 'container']
+
+export function folderViewFor (options: FolderPaneRenderOptions): FolderView {
+  if (options.folderView && FOLDER_VIEWS.includes(options.folderView)) return options.folderView
+  return options.fullView === true || options.solo === true ? 'container' : 'explorer'
 }
 
 export default {
@@ -66,7 +82,9 @@ export default {
       : {}
     folderPaneView.browserContext = context
     folderPaneView.subject = subject
-    folderPaneView.fullView = renderOptions.fullView === true || renderOptions.solo === true
+    const folderView = folderViewFor(renderOptions)
+    folderPaneView.fullView = folderView === 'container'
+    folderPaneView.hideStorageHeader = folderView === 'storage'
 
     // The pane registry is needed to open the internal pane on Alt-click.
     // addDownstreamChangeListener is a high level function which when someone else changes the resource,

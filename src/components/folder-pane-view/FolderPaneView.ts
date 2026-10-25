@@ -54,6 +54,10 @@ export default class FolderPaneView extends WebComponent {
   @property({ type: Boolean, attribute: 'full-view' })
   accessor fullView = false
 
+  /** Leaves out the storage header, keeping the sidebar and content. */
+  @property({ type: Boolean, attribute: 'hide-storage-header' })
+  accessor hideStorageHeader = false
+
   @state()
   accessor selectedResource: NamedNode | undefined = undefined
 
@@ -732,19 +736,7 @@ export default class FolderPaneView extends WebComponent {
     }
 
     return html`
-      <folder-pane-storage-header
-        .subject=${this.subject}
-        .selectedResource=${this.selectedResource ?? this.subject}
-        .browserContext=${this.browserContext}
-        .paneList=${this.browserContext?.session.paneRegistry.list ?? []}
-        .view=${this.containerView}
-        .searchQuery=${this.searchQuery}
-        .canCreate=${Boolean(authn.currentUser())}
-        @folder-pane-select-home=${this.handleSelectHome}
-        @folder-pane-select-resource=${this.handleSelectBreadcrumbResource}
-        @folder-pane-change-view=${this.handleContainerViewChange}
-        @folder-pane-search=${this.handleSearch}
-      ></folder-pane-storage-header>
+      ${this.hideStorageHeader ? nothing : this.renderStorageHeader()}
       <div
         class="folder-pane-main-content"
         @resource-selected=${this.handleResourceSelected}
@@ -762,6 +754,24 @@ export default class FolderPaneView extends WebComponent {
           <folder-pane-content ?hidden=${!!this.contentError}></folder-pane-content>
         </div>
       </div>
+    `
+  }
+
+  private renderStorageHeader () {
+    return html`
+      <folder-pane-storage-header
+        .subject=${this.subject}
+        .selectedResource=${this.selectedResource ?? this.subject}
+        .browserContext=${this.browserContext}
+        .paneList=${this.browserContext?.session.paneRegistry.list ?? []}
+        .view=${this.containerView}
+        .searchQuery=${this.searchQuery}
+        .canCreate=${Boolean(authn.currentUser())}
+        @folder-pane-select-home=${this.handleSelectHome}
+        @folder-pane-select-resource=${this.handleSelectBreadcrumbResource}
+        @folder-pane-change-view=${this.handleContainerViewChange}
+        @folder-pane-search=${this.handleSearch}
+      ></folder-pane-storage-header>
     `
   }
 
