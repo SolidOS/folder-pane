@@ -1,25 +1,36 @@
 import { html, nothing } from 'lit'
 import { property } from 'lit/decorators.js'
 import { state } from 'lit/decorators.js'
-import type { DataBrowserContext } from 'pane-registry'
-import type { ResourceMetadata } from 'solid-logic'
+import type { DataBrowserContext, PaneDefinition } from 'pane-registry'
 import type { NamedNode } from 'rdflib'
-import { customElement, FILE_EXPLORER_MANAGE_ACCESS_EVENT, getRelevantPanes, utils, WebComponent } from 'solid-ui'
+import type { ResourceMetadata } from 'solid-logic'
+import { customElement, FILE_EXPLORER_MANAGE_ACCESS_EVENT, getPreferredPane, getRelevantPanes, utils, WebComponent } from 'solid-ui'
 import type { Resource } from '../../types'
-import { getContainerMemberCountLabel, getResourceAccessState, getResourcesForContainer, type FolderPaneResourceLogic } from '../../helpers'
-import { createRequestQueue } from '../../requestQueue'
+import {
+  getContainerMemberCountLabel,
+  getIndexedApplicationSubject,
+  getResourceAccessState,
+  getResourcesForContainer,
+  type FolderPaneResourceLogic
+} from '../../helpers'
 import 'solid-ui/components/resource-actions-menu'
 import '~icons/lucide/file'
 import '~icons/lucide/file-box'
 import '~icons/lucide/folder'
-import styles from './FolderPaneContainer.styles.css'
 import '~icons/lucide/globe'
 import '~icons/lucide/lock-keyhole'
+import styles from './FolderPaneContainer.styles.css'
 
 type ResourceActionMenuItem = {
+  key?: string
   label: string
   icon?: string
   action: (event: Event) => void
+}
+
+type ResourceAccess = {
+  state: 'public' | 'private' | 'unknown' | 'error'
+  canManageAccess: boolean
 }
 
 @customElement('folder-pane-container')
@@ -53,25 +64,19 @@ export default class FolderPaneContainer extends WebComponent {
   private accessor optimisticResources: Resource[] = []
 
   @state()
-  private accessor resourceAccess = new Map<string, {
-    state: 'public' | 'private' | 'unknown' | 'error'
-    canManageAccess: boolean
-  }>()
+  private accessor resourceAccess = new Map<string, ResourceAccess>()
+
   @state()
-  private accessor memberLoad = new Map<string, 'loading' | 'loaded' | 'error'>()
+  private accessor resourceMemberCounts = new Map<string, number>()
 
   @state()
   private accessor loading = true
   @state()
   private accessor loadError: string | undefined = undefined
 
-  private actionMenuGeneration = 0
+  private resourceActionMenuLoads = new Map<string, 'loading' | 'loaded' | 'error'>()
   private resourceGeneration = 0
   private updateWorkScheduled = false
-  // Member counts and access indicators cost one request per child, so they
-  // are fetched only for visible items, a few at a time.
-  private detailsQueue = createRequestQueue()
-  private detailsObserver: IntersectionObserver | undefined
 
   private selectResource (resource: Resource) {
     this.dispatchEvent(new CustomEvent('resource-selected', {
@@ -88,14 +93,6 @@ export default class FolderPaneContainer extends WebComponent {
       event.preventDefault()
       this.selectResource(resource)
     }
-  }
-
-  private getVisibleMemberCount (resource: Resource) {
-    if (!resource.isContainer || !this.resourceLogic) return 0
-    const resourceLogic = this.resourceLogic
-    return resourceLogic.getContainerMembers(resource.subject)
-      .filter(member => !resourceLogic.isHiddenFile(member))
-      .length
   }
 
   private isRootSpecialFolder (resource: Resource) {
@@ -136,120 +133,38 @@ export default class FolderPaneContainer extends WebComponent {
   }
 
   private async loadResources () {
-    const generation = ++this.resourceGeneration
-    this.resetResourceDetails()
+    ++this.resourceGeneration
+    this.resourceActionMenuItems = new Map()
+    this.resourceActionMenuLoads = new Map()
     const resources = this.getResourcesFromStore()
+    this.resourceAccess = new Map()
+    this.resourceMemberCounts = new Map(
+      resources.flatMap(resource => {
+        const memberCount = this.getKnownMemberCount(resource)
+        return memberCount === undefined ? [] : [[resource.id, memberCount] as const]
+      })
+    )
     this.resources = resources
     this.loading = false
     this.loadError = undefined
-
-    if (generation !== this.resourceGeneration) return
-    // Member counts and access are advisory: they load as items scroll into view.
-    void this.loadResourceActionMenuItems(generation)
-  }
-
-  private loadResourceDetails (resource: Resource) {
-    void this.loadMemberCount(resource)
-    void this.loadResourceAccess(resource)
-  }
-
-  private async loadMemberCount (resource: Resource, generation = this.resourceGeneration) {
-    if (!resource.isContainer || this.memberLoad.has(resource.id) || !this.browserContext) return
-    const fetcher = this.browserContext.session.store.fetcher
-    this.memberLoad = new Map(this.memberLoad).set(resource.id, 'loading')
-    try {
-      await this.detailsQueue.run(() => fetcher.load(resource.subject))
-      if (generation !== this.resourceGeneration) return
-      this.memberLoad = new Map(this.memberLoad).set(resource.id, 'loaded')
-    } catch (error) {
-      if (generation !== this.resourceGeneration) return
-      console.warn('Unable to load folder-pane container member count', error)
-      this.memberLoad = new Map(this.memberLoad).set(resource.id, 'error')
-    }
-  }
-
-  private async loadResourceAccess (resource: Resource, generation = this.resourceGeneration) {
-    if (this.resourceAccess.has(resource.id) || !this.browserContext) return
-    const resourceLogic = this.browserContext.session.logic.resource
-    this.resourceAccess = new Map(this.resourceAccess).set(resource.id, { state: 'unknown', canManageAccess: false })
-    try {
-      const metadata = await this.detailsQueue.run<ResourceMetadata>(() => resourceLogic.fetchMetadata(resource.subject))
-      if (generation !== this.resourceGeneration) return
-      const state = getResourceAccessState(metadata.access)
-      this.resourceAccess = new Map(this.resourceAccess).set(resource.id, {
-        state,
-        canManageAccess: metadata.access.canManageAccess
-      })
-    } catch {
-      if (generation === this.resourceGeneration) {
-        this.resourceAccess = new Map(this.resourceAccess).set(resource.id, { state: 'error', canManageAccess: false })
-      }
-    }
-  }
-
-  private renderAccessIndicator (resource: Resource) {
-    const access = this.resourceAccess.get(resource.id)
-    if (!access) return nothing
-    // The icon element has no ARIA role of its own, so `title` alone is not
-    // exposed to assistive technology (WCAG 1.1.1 Non-text Content). Giving it
-    // an explicit img role and label ensures the public/private state is
-    // announced, not just shown as a mouse-hover tooltip.
-    return access.state === 'public'
-      ? html`<icon-lucide-globe class="resource-access-indicator resource-access-indicator--public" role="img" aria-label="Public" title="Public"></icon-lucide-globe>`
-      : access.state === 'private'
-        ? html`<icon-lucide-lock-keyhole class="resource-access-indicator resource-access-indicator--private" role="img" aria-label="Private" title="Private"></icon-lucide-lock-keyhole>`
-        : nothing
-  }
-
-  private resetResourceDetails () {
-    this.detailsQueue.clear()
-    this.detailsObserver?.disconnect()
-    this.resourceAccess = new Map()
-    this.memberLoad = new Map()
-  }
-
-  private observeResourceItems () {
-    const items = Array.from(this.renderRoot.querySelectorAll<HTMLElement>('[data-resource-id]'))
-    const resourcesById = new Map(this.resources.map(resource => [resource.id, resource]))
-    const pending = items.filter(item => {
-      const resource = resourcesById.get(item.dataset.resourceId!)
-      return resource && ((resource.isContainer && !this.memberLoad.has(resource.id)) || !this.resourceAccess.has(resource.id))
-    })
-    if (pending.length === 0) return
-
-    if (typeof IntersectionObserver === 'undefined') {
-      for (const item of pending) this.loadResourceDetails(resourcesById.get(item.dataset.resourceId!)!)
-      return
-    }
-
-    this.detailsObserver ??= new IntersectionObserver(entries => {
-      for (const entry of entries) {
-        if (!entry.isIntersecting) continue
-        const element = entry.target as HTMLElement
-        this.detailsObserver?.unobserve(element)
-        const resource = this.resources.find(candidate => candidate.id === element.dataset.resourceId)
-        if (resource) this.loadResourceDetails(resource)
-      }
-    }, { rootMargin: '200px' })
-    for (const item of pending) this.detailsObserver.observe(item)
   }
 
   connectedCallback () {
     super.connectedCallback()
-    // Re-observe items after a reconnect; details were dropped on disconnect.
     if (this.hasUpdated) this.requestUpdate()
   }
 
   disconnectedCallback () {
     super.disconnectedCallback()
     this.resourceGeneration++
-    this.resetResourceDetails()
   }
 
   async refresh (reloadFromServer = true) {
     this.resourceGeneration++
-    this.resetResourceDetails()
     this.resourceActionMenuItems = new Map()
+    this.resourceActionMenuLoads = new Map()
+    this.resourceAccess = new Map()
+    this.resourceMemberCounts = new Map()
     this.optimisticResources = []
     if (reloadFromServer && this.subject && this.browserContext) {
       try {
@@ -267,47 +182,6 @@ export default class FolderPaneContainer extends WebComponent {
     await this.loadResources()
   }
 
-  private async loadResourceActionMenuItems (resourceGeneration = this.resourceGeneration) {
-    const actionGeneration = ++this.actionMenuGeneration
-    if (!this.browserContext) {
-      this.resourceActionMenuItems = new Map()
-      return
-    }
-
-    const menuItems = await Promise.all(this.resources.map(async resource => {
-      const panes = await getRelevantPanes(resource.subject, this.browserContext!, {
-        excludedPaneNames: ['sharing'],
-        fallbackPaneName: 'internal'
-      })
-      const items = await Promise.all(panes.map(async pane => {
-        const label = pane.label(resource.subject, this.browserContext!) || pane.name
-        const paneWithIcon = pane as Omit<typeof pane, 'icon'> & {
-          icon?: string | ((subject: NamedNode, context: DataBrowserContext) => string | undefined | Promise<string | undefined>)
-        }
-        const iconValue = paneWithIcon.icon
-        const iconSource = typeof iconValue === 'function'
-          ? await iconValue(resource.subject, this.browserContext!)
-          : iconValue
-        return {
-          label,
-          icon: iconSource,
-          action: () => {
-            this.dispatchEvent(new CustomEvent('resource-open-pane', {
-              detail: { resource: resource.subject, paneName: pane.name },
-              bubbles: true,
-              composed: true
-            }))
-          }
-        }
-      }))
-      return [resource.id, items] as const
-    }))
-
-    if (resourceGeneration === this.resourceGeneration && actionGeneration === this.actionMenuGeneration) {
-      this.resourceActionMenuItems = new Map(menuItems)
-    }
-  }
-
   protected updated (changedProperties: Map<string, unknown>) {
     if (
       changedProperties.has('subject') ||
@@ -320,16 +194,10 @@ export default class FolderPaneContainer extends WebComponent {
         queueMicrotask(() => {
           this.updateWorkScheduled = false
           if (!this.isConnected) return
-          this.resourceGeneration++
-          this.resetResourceDetails()
-          this.resourceActionMenuItems = new Map()
           void this.loadResources()
-          this.observeResourceItems()
         })
       }
-      return
     }
-    this.observeResourceItems()
   }
 
   private openAccessControls (resource: Resource) {
@@ -338,6 +206,146 @@ export default class FolderPaneContainer extends WebComponent {
       bubbles: true,
       composed: true
     }))
+  }
+
+  private setResourceActionMenuItems (resource: Resource, items: ResourceActionMenuItem[]) {
+    this.resourceActionMenuItems = new Map(this.resourceActionMenuItems).set(resource.id, items)
+  }
+
+  private getKnownMemberCount (resource: Resource): number | undefined {
+    if (!resource.isContainer || !this.resourceLogic || !this.browserContext) return undefined
+    const fetcher = this.browserContext.session.store.fetcher
+    if (fetcher.getState(resource.subject.doc().uri) !== 'fetched') return undefined
+    return this.resourceLogic.getContainerMembers(resource.subject)
+      .filter(member => !this.resourceLogic!.isHiddenFile(member))
+      .length
+  }
+
+  private setMemberCount (resource: Resource) {
+    const memberCount = this.getKnownMemberCount(resource)
+    if (memberCount !== undefined) {
+      this.resourceMemberCounts = new Map(this.resourceMemberCounts).set(resource.id, memberCount)
+    }
+  }
+
+  private renderAccessIndicator (resource: Resource) {
+    const access = this.resourceAccess.get(resource.id)
+    return access?.state === 'public'
+      ? html`<icon-lucide-globe class="resource-access-indicator resource-access-indicator--public" role="img" aria-label="Public" title="Public"></icon-lucide-globe>`
+      : access?.state === 'private'
+        ? html`<icon-lucide-lock-keyhole class="resource-access-indicator resource-access-indicator--private" role="img" aria-label="Private" title="Private"></icon-lucide-lock-keyhole>`
+        : nothing
+  }
+
+  private openResourcePane (resource: Resource, paneName: string) {
+    this.dispatchEvent(new CustomEvent('resource-open-pane', {
+      detail: { resource: resource.subject, paneName },
+      bubbles: true,
+      composed: true
+    }))
+  }
+
+  private async getPaneMenuItem (
+    pane: PaneDefinition,
+    subject: NamedNode,
+    resource: Resource,
+    label?: string
+  ): Promise<ResourceActionMenuItem> {
+    const paneWithIcon = pane as Omit<PaneDefinition, 'icon'> & {
+      icon?: string | ((subject: NamedNode, context: DataBrowserContext) => string | undefined | Promise<string | undefined>)
+    }
+    const iconValue = paneWithIcon.icon
+    return {
+      key: pane.name,
+      label: label || pane.label(subject, this.browserContext!) || pane.name,
+      icon: typeof iconValue === 'function'
+        ? await iconValue(subject, this.browserContext!)
+        : iconValue,
+      action: (event) => {
+        event.stopPropagation()
+        this.openResourcePane(resource, pane.name)
+      }
+    }
+  }
+
+  private async getContentsMenuItem (resource: Resource): Promise<ResourceActionMenuItem | undefined> {
+    if (!resource.isContainer || !this.browserContext) return undefined
+    const folderPane = this.browserContext.session.paneRegistry.byName('folder')
+    return folderPane
+      ? this.getPaneMenuItem(folderPane, resource.subject, resource, 'Contents')
+      : undefined
+  }
+
+  private async loadResourceActionMenuItems (resource: Resource) {
+    if (!this.browserContext) return
+    const previousLoad = this.resourceActionMenuLoads.get(resource.id)
+    if (previousLoad === 'loading' || previousLoad === 'loaded') return
+
+    const resourceGeneration = this.resourceGeneration
+    this.resourceActionMenuLoads.set(resource.id, 'loading')
+    const accessMetadata = this.browserContext.session.logic.resource.fetchMetadata(resource.subject)
+      .then((metadata: ResourceMetadata) => metadata.access)
+      .catch(error => {
+        console.warn('Unable to load folder-pane access metadata for resource actions', error)
+        return undefined
+      })
+    const contents = await this.getContentsMenuItem(resource)
+    if (resourceGeneration !== this.resourceGeneration) return
+    if (contents) this.setResourceActionMenuItems(resource, [contents])
+
+    try {
+      await this.browserContext.session.store.fetcher.load(resource.subject)
+      if (resourceGeneration !== this.resourceGeneration) return
+      this.setMemberCount(resource)
+
+      let paneSubject = resource.subject
+      if (resource.isContainer && this.resourceLogic?.containerHasIndexDocument(resource.subject)) {
+        paneSubject = this.browserContext.session.store.sym(getIndexedApplicationSubject(resource.subject))
+        await this.browserContext.session.store.fetcher.load(paneSubject.doc())
+        if (resourceGeneration !== this.resourceGeneration) return
+      }
+
+      const panes = await getRelevantPanes(paneSubject, this.browserContext, {
+        excludedPaneNames: ['sharing'],
+        fallbackPaneName: 'internal'
+      })
+      if (resourceGeneration !== this.resourceGeneration) return
+
+      const preferredPane = getPreferredPane(paneSubject, this.browserContext, panes)
+      const nonFolderPanes = panes.filter(pane => pane.name !== 'folder')
+      const orderedPanes = preferredPane && preferredPane.name !== 'folder'
+        ? [preferredPane, ...nonFolderPanes.filter(pane => pane !== preferredPane)]
+        : nonFolderPanes
+      const items = await Promise.all(orderedPanes.map(pane =>
+        this.getPaneMenuItem(pane, paneSubject, resource)
+      ))
+      if (resourceGeneration !== this.resourceGeneration) return
+
+      if (contents) items.splice(1, 0, contents)
+      this.setResourceActionMenuItems(resource, items)
+      this.resourceActionMenuLoads.set(resource.id, 'loaded')
+    } catch (error) {
+      if (resourceGeneration !== this.resourceGeneration) return
+      this.resourceActionMenuLoads.set(resource.id, 'error')
+      console.warn('Unable to load resource panes for folder-pane action menu', error)
+    } finally {
+      const access = await accessMetadata
+      if (resourceGeneration === this.resourceGeneration && access) {
+        this.resourceAccess = new Map(this.resourceAccess).set(resource.id, {
+          state: getResourceAccessState(access),
+          canManageAccess: access.canManageAccess
+        })
+      } else if (resourceGeneration === this.resourceGeneration) {
+        this.resourceAccess = new Map(this.resourceAccess).set(resource.id, {
+          state: 'error',
+          canManageAccess: false
+        })
+      }
+    }
+  }
+
+  private handleResourceActionsMenuClick (resource: Resource) {
+    void this.loadResourceActionMenuItems(resource)
   }
 
   private renderResourceActionsMenu (resource: Resource, placement: 'grid' | 'list') {
@@ -353,6 +361,7 @@ export default class FolderPaneContainer extends WebComponent {
           .showAccessInMenu=${true}
           .canManageAccess=${this.resourceAccess.get(resource.id)?.canManageAccess === true}
           .menuItems=${this.resourceActionMenuItems.get(resource.id) || []}
+          @click=${() => this.handleResourceActionsMenuClick(resource)}
         ></solid-ui-resource-actions-menu>
       </div>
     `
@@ -360,9 +369,7 @@ export default class FolderPaneContainer extends WebComponent {
 
   private renderResourceItem (resource: Resource) {
     const label = utils.label(resource.subject)
-    const memberCount = resource.isContainer && this.memberLoad.get(resource.id) === 'loaded'
-      ? this.getVisibleMemberCount(resource)
-      : -1
+    const memberCount = this.resourceMemberCounts.get(resource.id)
 
     return html`
       <li
@@ -385,9 +392,9 @@ export default class FolderPaneContainer extends WebComponent {
               : html`<icon-lucide-file></icon-lucide-file>`}
           </span>
           <span class="resource-list-label">${label}</span>
-          ${memberCount >= 0
-            ? html`<span class="container-member-count">${getContainerMemberCountLabel(memberCount)}</span>`
-            : nothing}
+          ${memberCount === undefined
+            ? nothing
+            : html`<span class="container-member-count">${getContainerMemberCountLabel(memberCount)}</span>`}
           ${this.renderAccessIndicator(resource)}
         </span>
         ${this.renderResourceActionsMenu(resource, 'list')}
@@ -409,9 +416,7 @@ export default class FolderPaneContainer extends WebComponent {
 
   private renderGridItem (resource: Resource) {
     const label = utils.label(resource.subject)
-    const memberCount = resource.isContainer && this.memberLoad.get(resource.id) === 'loaded'
-      ? this.getVisibleMemberCount(resource)
-      : -1
+    const memberCount = this.resourceMemberCounts.get(resource.id)
 
     return html`
       <li
@@ -436,11 +441,11 @@ export default class FolderPaneContainer extends WebComponent {
           ? html`<span class="resource-grid-label resource-grid-label--container">${label}</span>`
           : nothing}
         <div class="resource-grid-item-footer">
-          ${resource.isContainer && memberCount >= 0
-            ? html`<span class="container-member-count">${getContainerMemberCountLabel(memberCount)}</span>`
-            : !resource.isContainer
-              ? html`<span class="resource-grid-label">${label}</span>`
-              : nothing}
+          ${resource.isContainer
+            ? memberCount === undefined
+              ? nothing
+              : html`<span class="container-member-count">${getContainerMemberCountLabel(memberCount)}</span>`
+            : html`<span class="resource-grid-label">${label}</span>`}
           ${this.renderAccessIndicator(resource)}
         </div>
         ${this.renderResourceActionsMenu(resource, 'grid')}
