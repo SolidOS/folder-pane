@@ -511,6 +511,9 @@ export default class FolderPaneView extends WebComponent {
         }
         this.renderExplorerInto(target, subject, nextPane, {
           ...options,
+          paneOptions: nextPane.name === 'folder'
+            ? { folderView: 'container', fullView: true, solo: true }
+            : options.paneOptions,
           isCurrent: () => isCurrentRenderRequest(
             request,
             this.renderGeneration,
@@ -569,7 +572,7 @@ export default class FolderPaneView extends WebComponent {
 
       if (!isCurrentSelection(selectedResource)) return
 
-      if (this.subject?.sameTerm(selectedResource) && !indexRequested && !isJavaScriptFile(selectedResource)) {
+      if (this.subject?.sameTerm(selectedResource) && pane?.name !== 'folder' && !indexRequested && !isJavaScriptFile(selectedResource)) {
         this.renderContainerView(selectedResource)
         return
       }
@@ -593,6 +596,11 @@ export default class FolderPaneView extends WebComponent {
 
         if (!isCurrentSelection(selectedResource)) return
         this.sidebar?.refreshResources?.()
+
+        if (pane?.name === 'folder') {
+          this.renderContainerView(selectedResource)
+          return
+        }
 
         if (indexRequested || this.resourceLogic.containerHasIndexDocument(selectedResource)) {
           const applicationSubject = this.store.sym(
@@ -700,6 +708,10 @@ export default class FolderPaneView extends WebComponent {
     if (!resource || !pane) return
     event.stopPropagation()
     this.searchQuery = ''
+    if (pane.name === 'folder') {
+      this.showSubject(resource, pane)
+      return
+    }
     // Some minting panes (e.g. Dokieli) delegate viewing to another pane and
     // have no render(); let the relevant-pane lookup choose in that case.
     this.showSubject(resource, typeof pane?.render === 'function' ? pane : undefined)
