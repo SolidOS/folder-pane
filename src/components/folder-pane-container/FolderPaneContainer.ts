@@ -110,7 +110,7 @@ export default class FolderPaneContainer extends WebComponent {
   private isRootSpecialFolder (resource: Resource) {
     if (!resource.isContainer) return false
     const label = utils.label(resource.subject).toLowerCase()
-    return label === 'public' || label === 'trash'
+    return label === 'public'
   }
 
   private getResourcesFromStore () {

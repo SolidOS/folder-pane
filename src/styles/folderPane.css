@@ -59,7 +59,7 @@ folder-pane-view {
   flex: 0 0 auto;
   align-items: center;
   justify-content: flex-end;
-  gap: 0.35rem;
+  gap: 5.6px;
   padding: 10px 0;
 }
 
@@ -111,11 +111,12 @@ folder-pane-sidebar {
   flex: 1 1 0%;
   min-width: 0;
   min-height: 0;
+  position: relative;
 }
 
 .folder-pane-content-column > folder-pane-content {
   box-sizing: border-box;
-  padding: 1rem;
+  padding: 16px;
 }
 
 /* A resource explorer owns its own header/content frame; do not inset it. */
@@ -305,10 +306,19 @@ solid-ui-file-explorer-provider > .exceptionPane {
   height: var(--icon-base, 2em);
 }
 
-@media (max-width: 700px) {
+@media (max-width: 768px) {
+  .folder-pane-main-content {
+    border: 0;
+  }
+  folder-pane-sidebar {
+    display: none;
+  }
+
+  .folder-pane-main-content {
+    min-height: 0;
+  }
+
   .folder-pane {
-    border-top: solid 1px #777;
-    border-bottom: solid 1px #777;
     margin-top: var(--spacing-2xs, 0.25em);
     margin-bottom: var(--spacing-2xs, 0.25em);
   }

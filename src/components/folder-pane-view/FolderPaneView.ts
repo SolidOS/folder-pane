@@ -1,4 +1,4 @@
-import { aclControl, composeExplorer, customElement, FILE_EXPLORER_BACK_EVENT, FILE_EXPLORER_OPEN_PANE_EVENT, getPreferredPane, getRelevantPanes, isExplorerEvent, log, ns, showDialog, WebComponent, widgets } from 'solid-ui'
+import { aclControl, composeExplorer, customElement, FILE_EXPLORER_BACK_EVENT, FILE_EXPLORER_OPEN_PANE_EVENT, getPreferredPane, getRelevantPanes, isExplorerEvent, log, ns, showDialog, utils, WebComponent, widgets } from 'solid-ui'
 import { authn, authSession } from 'solid-logic'
 import { html, nothing } from 'lit'
 import { property, query, state } from 'lit/decorators.js'
@@ -14,7 +14,7 @@ import type FileExplorerProvider from 'solid-ui/components/file-explorer-provide
 import 'solid-ui/components/error-state'
 import 'solid-ui/components/file-explorer-header'
 import type FolderPaneContainer from '../folder-pane-container/FolderPaneContainer'
-import { getIndexedApplicationSubject, getIndexedContainer, isAccessDeniedError, isContainerResource, isJavaScriptFile, type FolderPaneResourceLogic } from '../../helpers'
+import { getIndexedApplicationSubject, getIndexedContainer, getResourcesForContainer, isAccessDeniedError, isContainerResource, isJavaScriptFile, type FolderPaneResourceLogic } from '../../helpers'
 import { invalidateRenderRequest, isCurrentRenderRequest, type RenderRequest } from './renderRequest'
 import FolderPaneCreateDialog from '../folder-pane-storage-header/FolderPaneCreateDialog'
 import { getPaneLabel } from '../../helpers'
@@ -405,7 +405,7 @@ export default class FolderPaneView extends WebComponent {
     containerView.browserContext = this.browserContext
     containerView.view = this.containerView
     containerView.searchQuery = this.searchQuery
-    containerView.hideRootSpecialFolders = this.subject
+    containerView.hideRootSpecialFolders = !this.hideStorageHeader && this.subject
       ? selectedResource.sameTerm(this.subject)
       : false
 
@@ -750,6 +750,14 @@ export default class FolderPaneView extends WebComponent {
     this.setContainerView(view)
   }
 
+  private getPublicResource () {
+    if (!this.subject) return undefined
+    for (const resource of getResourcesForContainer(this.subject, this.resourceLogic ?? null).values()) {
+      if (utils.label(resource.subject).toLowerCase() === 'public') return resource.subject
+    }
+    return undefined
+  }
+
   render () {
     if (this.fullView) {
       return html`
@@ -790,6 +798,7 @@ export default class FolderPaneView extends WebComponent {
       <folder-pane-storage-header
         .subject=${this.subject}
         .selectedResource=${this.selectedResource ?? this.subject}
+        .publicResource=${this.getPublicResource()}
         .browserContext=${this.browserContext}
         .paneList=${this.browserContext?.session.paneRegistry.list ?? []}
         .view=${this.containerView}
