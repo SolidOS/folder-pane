@@ -20,6 +20,7 @@ import FolderPaneCreateDialog from '../folder-pane-storage-header/FolderPaneCrea
 import { getPaneLabel } from '../../helpers'
 import { isSafeCreationName, invalidCreationNameMessage } from '../../creationSafety'
 import { mintPaneInstance, PaneMintError, setMintStatus } from '../../mintPaneInstance'
+import * as debug from '../../debug'
 
 type CreatedResource = {
   container: NamedNode
@@ -173,7 +174,7 @@ export default class FolderPaneView extends WebComponent {
         newInstance: stillOwnsNavigation ? created.newInstance : undefined
       })
     } catch (error) {
-      console.error('Unable to create folder-pane resource', error)
+      debug.error('Unable to create folder-pane resource', error)
       if (!(error instanceof PaneMintError) && this.statusArea) {
         setMintStatus(this.statusArea, 'error', `Unable to create ${paneName}: ${error instanceof Error ? error.message : String(error)}`)
       }

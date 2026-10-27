@@ -14,6 +14,7 @@ import {
   type FolderPaneResourceLogic
 } from '../../helpers'
 import { createRequestQueue } from '../../requestQueue'
+import * as debug from '../../debug'
 import 'solid-ui/components/resource-actions-menu'
 import '~icons/lucide/file'
 import '~icons/lucide/file-box'
@@ -171,7 +172,7 @@ export default class FolderPaneContainer extends WebComponent {
       this.memberLoad = new Map(this.memberLoad).set(resource.id, 'loaded')
     } catch (error) {
       if (generation !== this.resourceGeneration) return
-      console.warn('Unable to load folder-pane container member count', error)
+      debug.warn('Unable to load folder-pane container member count', error)
       this.memberLoad = new Map(this.memberLoad).set(resource.id, 'error')
     }
   }
@@ -256,7 +257,7 @@ export default class FolderPaneContainer extends WebComponent {
       } catch (error) {
         await this.loadResources()
         this.loadError = 'The folder could not be refreshed. Showing the last known listing.'
-        console.warn('Unable to refresh folder-pane container', error)
+        debug.warn('Unable to refresh folder-pane container', error)
         return
       }
     }
@@ -357,7 +358,7 @@ export default class FolderPaneContainer extends WebComponent {
     const accessMetadata = this.browserContext.session.logic.resource.fetchMetadata(resource.subject)
       .then((metadata: ResourceMetadata) => metadata.access)
       .catch(error => {
-        console.warn('Unable to load folder-pane access metadata for resource actions', error)
+        debug.warn('Unable to load folder-pane access metadata for resource actions', error)
         return undefined
       })
     const contents = await this.getContentsMenuItem(resource)
@@ -368,7 +369,7 @@ export default class FolderPaneContainer extends WebComponent {
       try {
         await this.browserContext.session.store.fetcher.load(resource.subject)
       } catch (error) {
-        console.warn('Unable to preload resource for folder-pane action menu', error)
+        debug.warn('Unable to preload resource for folder-pane action menu', error)
       }
       if (resourceGeneration !== this.resourceGeneration) return
 
@@ -378,7 +379,7 @@ export default class FolderPaneContainer extends WebComponent {
         try {
           await this.browserContext.session.store.fetcher.load(paneSubject.doc())
         } catch (error) {
-          console.warn('Unable to preload index document for folder-pane action menu', error)
+          debug.warn('Unable to preload index document for folder-pane action menu', error)
         }
         if (resourceGeneration !== this.resourceGeneration) return
       }
@@ -405,7 +406,7 @@ export default class FolderPaneContainer extends WebComponent {
     } catch (error) {
       if (resourceGeneration !== this.resourceGeneration) return
       this.resourceActionMenuLoads.set(resource.id, 'error')
-      console.warn('Unable to load resource panes for folder-pane action menu', error)
+      debug.warn('Unable to load resource panes for folder-pane action menu', error)
     } finally {
       const access = await accessMetadata
       if (resourceGeneration === this.resourceGeneration && access) {
