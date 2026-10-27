@@ -12,6 +12,7 @@ import '~icons/lucide/folder'
 import '~icons/lucide/globe'
 import '~icons/lucide/trash-2'
 import { getResourcesForContainer, type FolderPaneResourceLogic } from '../../helpers'
+import * as debug from '../../debug'
 
 type SpecialIcon = 'folder' | 'globe' | 'trash'
 
@@ -83,7 +84,7 @@ export default class FolderPaneSidebar extends WebComponent {
     try {
       await this.store?.fetcher?.load(resource.subject)
     } catch (error) {
-      console.error('Unable to expand storage container', error)
+      debug.error('Unable to expand storage container', error)
       this.expansionError = `Unable to load ${utils.label(resource.subject)}. Try expanding it again.`
       return
     }

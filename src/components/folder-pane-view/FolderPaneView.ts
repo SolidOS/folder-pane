@@ -20,6 +20,7 @@ import FolderPaneCreateDialog from '../folder-pane-storage-header/FolderPaneCrea
 import { getPaneLabel } from '../../helpers'
 import { isSafeCreationName, invalidCreationNameMessage } from '../../creationSafety'
 import { mintPaneInstance, PaneMintError, setMintStatus } from '../../mintPaneInstance'
+import * as debug from '../../debug'
 
 type CreatedResource = {
   container: NamedNode
@@ -173,7 +174,7 @@ export default class FolderPaneView extends WebComponent {
         newInstance: stillOwnsNavigation ? created.newInstance : undefined
       })
     } catch (error) {
-      console.error('Unable to create folder-pane resource', error)
+      debug.error('Unable to create folder-pane resource', error)
       if (!(error instanceof PaneMintError) && this.statusArea) {
         setMintStatus(this.statusArea, 'error', `Unable to create ${paneName}: ${error instanceof Error ? error.message : String(error)}`)
       }
@@ -511,6 +512,9 @@ export default class FolderPaneView extends WebComponent {
         }
         this.renderExplorerInto(target, subject, nextPane, {
           ...options,
+          paneOptions: nextPane.name === 'folder'
+            ? { folderView: 'container', fullView: true, solo: true }
+            : options.paneOptions,
           isCurrent: () => isCurrentRenderRequest(
             request,
             this.renderGeneration,
@@ -569,7 +573,7 @@ export default class FolderPaneView extends WebComponent {
 
       if (!isCurrentSelection(selectedResource)) return
 
-      if (this.subject?.sameTerm(selectedResource) && !indexRequested && !isJavaScriptFile(selectedResource)) {
+      if (this.subject?.sameTerm(selectedResource) && pane?.name !== 'folder' && !indexRequested && !isJavaScriptFile(selectedResource)) {
         this.renderContainerView(selectedResource)
         return
       }
@@ -593,6 +597,11 @@ export default class FolderPaneView extends WebComponent {
 
         if (!isCurrentSelection(selectedResource)) return
         this.sidebar?.refreshResources?.()
+
+        if (pane?.name === 'folder') {
+          this.renderContainerView(selectedResource)
+          return
+        }
 
         if (indexRequested || this.resourceLogic.containerHasIndexDocument(selectedResource)) {
           const applicationSubject = this.store.sym(
@@ -700,6 +709,10 @@ export default class FolderPaneView extends WebComponent {
     if (!resource || !pane) return
     event.stopPropagation()
     this.searchQuery = ''
+    if (pane.name === 'folder') {
+      this.showSubject(resource, pane)
+      return
+    }
     // Some minting panes (e.g. Dokieli) delegate viewing to another pane and
     // have no render(); let the relevant-pane lookup choose in that case.
     this.showSubject(resource, typeof pane?.render === 'function' ? pane : undefined)

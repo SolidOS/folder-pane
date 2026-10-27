@@ -15,6 +15,7 @@ import '~icons/lucide/plus'
 import '~icons/lucide/upload'
 import '~icons/lucide/search'
 import { getCreationPanes, getPaneLabel } from '../../helpers'
+import * as debug from '../../debug'
 import styles from './FolderPaneStorageHeader.styles.css'
 
 @customElement('folder-pane-storage-header')
@@ -56,7 +57,7 @@ export default class FolderPaneStorageHeader extends WebComponent {
           this.availablePanes = getCreationPanes(panes)
         }
       })
-      .catch(error => console.error('Unable to load folder creation panes', error))
+      .catch(error => debug.error('Unable to load folder creation panes', error))
   }
 
   private get breadcrumbResources () {
