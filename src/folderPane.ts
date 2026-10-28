@@ -84,7 +84,6 @@ export default {
     folderPaneView.subject = subject
     const folderView = folderViewFor(renderOptions)
     folderPaneView.fullView = folderView === 'container'
-    folderPaneView.hideStorageHeader = folderView === 'storage'
 
     // The pane registry is needed to open the internal pane on Alt-click.
     // addDownstreamChangeListener is a high level function which when someone else changes the resource,

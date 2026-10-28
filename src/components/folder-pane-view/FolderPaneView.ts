@@ -55,10 +55,6 @@ export default class FolderPaneView extends WebComponent {
   @property({ type: Boolean, attribute: 'full-view' })
   accessor fullView = false
 
-  /** Leaves out the storage header, keeping the sidebar and content. */
-  @property({ type: Boolean, attribute: 'hide-storage-header' })
-  accessor hideStorageHeader = false
-
   @state()
   accessor selectedResource: NamedNode | undefined = undefined
 
@@ -71,8 +67,12 @@ export default class FolderPaneView extends WebComponent {
   @state()
   private accessor contentError: { title: string, message: string } | undefined = undefined
 
+  @state()
+  private accessor canCreate = false
+
   private initialLoadGeneration = 0
   private renderGeneration = 0
+  private permissionGeneration = 0
   private creationInFlight = false
   private authListenersAttached = false
   private dropProtectionAttached = false
@@ -234,6 +234,26 @@ export default class FolderPaneView extends WebComponent {
       (changedProperties.has('subject') || changedProperties.has('browserContext')) &&
       this.subject
     ) {
+      const permissionGeneration = ++this.permissionGeneration
+      this.canCreate = false
+      const resourceLogic = this.browserContext?.session.logic.resource
+      const subject = this.subject
+      if (resourceLogic) {
+        void resourceLogic.fetchMetadata(subject)
+          .then(metadata => {
+            if (
+              permissionGeneration === this.permissionGeneration &&
+              this.subject?.sameTerm(subject) === true
+            ) {
+              this.canCreate = metadata.access.canEdit
+            }
+          })
+          .catch(error => {
+            if (permissionGeneration === this.permissionGeneration) {
+              debug.warn('Unable to determine folder creation permission', error)
+            }
+          })
+      }
       if (changedProperties.has('subject') || changedProperties.has('browserContext')) {
         this.selectedResource = undefined
         this.renderGeneration++
@@ -405,7 +425,7 @@ export default class FolderPaneView extends WebComponent {
     containerView.browserContext = this.browserContext
     containerView.view = this.containerView
     containerView.searchQuery = this.searchQuery
-    containerView.hideRootSpecialFolders = !this.hideStorageHeader && this.subject
+    containerView.hideRootSpecialFolders = this.subject
       ? selectedResource.sameTerm(this.subject)
       : false
 
@@ -772,7 +792,7 @@ export default class FolderPaneView extends WebComponent {
     }
 
     return html`
-      ${this.hideStorageHeader ? nothing : this.renderStorageHeader()}
+      ${this.renderStorageHeader()}
       <div
         class="folder-pane-main-content"
         @resource-selected=${this.handleResourceSelected}
@@ -803,7 +823,7 @@ export default class FolderPaneView extends WebComponent {
         .paneList=${this.browserContext?.session.paneRegistry.list ?? []}
         .view=${this.containerView}
         .searchQuery=${this.searchQuery}
-        .canCreate=${Boolean(authn.currentUser())}
+        .canCreate=${this.canCreate}
         @folder-pane-select-home=${this.handleSelectHome}
         @folder-pane-select-resource=${this.handleSelectBreadcrumbResource}
         @folder-pane-change-view=${this.handleContainerViewChange}
