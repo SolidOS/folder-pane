@@ -114,6 +114,7 @@
   justify-content: flex-end;
   gap: 8px;
   min-width: 0;
+  padding-right: var(--folder-pane-storage-toolbar-right-padding, 0);
 }
 
 .folder-pane-storage-header-search {
@@ -247,7 +248,8 @@
 @media (max-width: 768px) {
   .folder-pane-storage-header {
     flex-wrap: wrap;
-    gap: 8px;
+    gap: var(--folder-pane-storage-header-mobile-gap, 8px);
+    padding: var(--folder-pane-storage-header-mobile-padding, 10px 0);
     border-bottom: 1px solid var(--solid-ui-color-gray-200, #e5e7eb);
   }
 

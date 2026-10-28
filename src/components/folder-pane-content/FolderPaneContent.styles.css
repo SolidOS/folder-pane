@@ -1,12 +1,14 @@
 :host {
   display: flex;
+  box-sizing: border-box;
   flex-direction: column;
   flex: 1 1 0%;
   padding: 10px 16px;
-  align-items: flex-start;
+  align-items: stretch;
   gap: 20px;
   flex-shrink: 0;
   align-self: stretch;
+  height: 100%;
   width: 100%;
   min-width: 0;
   min-height: 0;

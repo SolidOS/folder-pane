@@ -125,6 +125,7 @@ export default class FolderPaneView extends WebComponent {
   }
 
   private handleAuthChange = () => {
+    this.refreshCreationPermission()
     this.requestUpdate()
   }
 
@@ -234,33 +235,18 @@ export default class FolderPaneView extends WebComponent {
       (changedProperties.has('subject') || changedProperties.has('browserContext')) &&
       this.subject
     ) {
-      const permissionGeneration = ++this.permissionGeneration
-      this.canCreate = false
-      const resourceLogic = this.browserContext?.session.logic.resource
-      const subject = this.subject
-      if (resourceLogic) {
-        void resourceLogic.fetchMetadata(subject)
-          .then(metadata => {
-            if (
-              permissionGeneration === this.permissionGeneration &&
-              this.subject?.sameTerm(subject) === true
-            ) {
-              this.canCreate = metadata.access.canEdit
-            }
-          })
-          .catch(error => {
-            if (permissionGeneration === this.permissionGeneration) {
-              debug.warn('Unable to determine folder creation permission', error)
-            }
-          })
-      }
       if (changedProperties.has('subject') || changedProperties.has('browserContext')) {
         this.selectedResource = undefined
         this.renderGeneration++
         this.initialLoadGeneration++
       }
+      this.refreshCreationPermission()
       void this.showInitialContainer(this.subject)
       return
+    }
+
+    if (changedProperties.has('selectedResource')) {
+      this.refreshCreationPermission()
     }
 
     if (changedProperties.has('fullView') && changedProperties.get('fullView') !== undefined) {
@@ -359,6 +345,29 @@ export default class FolderPaneView extends WebComponent {
     return this.subject
   }
 
+  private refreshCreationPermission () {
+    const permissionGeneration = ++this.permissionGeneration
+    const container = this.getActiveContainer()
+    const resourceLogic = this.browserContext?.session.logic.resource
+    this.canCreate = false
+    if (!container || !resourceLogic) return
+
+    void resourceLogic.fetchMetadata(container)
+      .then(metadata => {
+        if (
+          permissionGeneration === this.permissionGeneration &&
+          this.getActiveContainer()?.sameTerm(container) === true
+        ) {
+          this.canCreate = metadata.access.canEdit
+        }
+      })
+      .catch(error => {
+        if (permissionGeneration === this.permissionGeneration) {
+          debug.warn('Unable to determine folder creation permission', error)
+        }
+      })
+  }
+
   clearContentForCreation () {
     this.resourceTarget?.replaceChildren()
   }
@@ -425,7 +434,7 @@ export default class FolderPaneView extends WebComponent {
     containerView.browserContext = this.browserContext
     containerView.view = this.containerView
     containerView.searchQuery = this.searchQuery
-    containerView.hideRootSpecialFolders = this.subject
+    containerView.hideRootSpecialFolders = !this.fullView && this.subject
       ? selectedResource.sameTerm(this.subject)
       : false
 
@@ -461,6 +470,7 @@ export default class FolderPaneView extends WebComponent {
 
     if (generation !== this.initialLoadGeneration || !this.subject?.sameTerm(subject)) return
     this.sidebar?.refreshResources?.()
+    this.requestUpdate()
     if (!this.selectedResource) {
       this.showSubject(subject)
     }

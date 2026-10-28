@@ -15,7 +15,7 @@ export { getCreationNoun, getCreationPanes, getPaneLabel } from './helpers'
 /**
  * How a folder is presented:
  * - `explorer`: storage header, sidebar and content (the viewer's own storage, the server root)
- * - `storage`: sidebar and content, under the navbar of someone else's pod
+ * - `storage`: storage header, sidebar and content under the navbar of someone else's pod
  * - `container`: the container alone (a container URL opened on its own)
  */
 export type FolderView = 'explorer' | 'storage' | 'container'
@@ -83,6 +83,7 @@ export default {
     folderPaneView.browserContext = context
     folderPaneView.subject = subject
     const folderView = folderViewFor(renderOptions)
+    div.classList.add(`folder-pane--${folderView}`)
     folderPaneView.fullView = folderView === 'container'
 
     // The pane registry is needed to open the internal pane on Alt-click.

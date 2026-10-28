@@ -31,6 +31,12 @@
   overflow-x: auto;
 }
 
+.folder-pane--storage folder-pane-storage-header {
+  --folder-pane-storage-toolbar-right-padding: 8px;
+  --folder-pane-storage-header-mobile-gap: 0;
+  --folder-pane-storage-header-mobile-padding: 0 0 10px;
+}
+
 folder-pane-view {
   display: flex;
   flex-direction: column;
