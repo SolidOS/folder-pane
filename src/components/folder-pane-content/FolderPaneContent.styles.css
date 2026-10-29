@@ -20,3 +20,11 @@
   flex: 1 1 auto;
   min-height: 0;
 }
+
+@media (max-width: 768px) {
+  & {
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+  }
+}

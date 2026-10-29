@@ -54,9 +54,6 @@ export default class FolderPaneContainer extends WebComponent {
   @property()
   accessor searchQuery = ''
 
-  @property({ type: Boolean, attribute: 'hide-root-special-folders' })
-  accessor hideRootSpecialFolders = false
-
   @state()
   private accessor resourceActionMenuItems = new Map<string, ResourceActionMenuItem[]>()
 
@@ -107,12 +104,6 @@ export default class FolderPaneContainer extends WebComponent {
       .length
   }
 
-  private isRootSpecialFolder (resource: Resource) {
-    if (!resource.isContainer) return false
-    const label = utils.label(resource.subject).toLowerCase()
-    return label === 'public'
-  }
-
   private getResourcesFromStore () {
     const resources = this.subject
       ? [...getResourcesForContainer(this.subject, this.resourceLogic).values()]
@@ -121,9 +112,7 @@ export default class FolderPaneContainer extends WebComponent {
     const optimistic = this.optimisticResources.filter(resource =>
       !resources.some(confirmed => confirmed.id === resource.id))
     const combined = [...resources, ...optimistic]
-    return this.hideRootSpecialFolders
-      ? combined.filter(resource => !this.isRootSpecialFolder(resource))
-      : combined
+    return combined
   }
 
   addOptimisticResource (subject: NamedNode) {
@@ -268,8 +257,7 @@ export default class FolderPaneContainer extends WebComponent {
     if (
       changedProperties.has('subject') ||
       changedProperties.has('resourceLogic') ||
-      changedProperties.has('browserContext') ||
-      changedProperties.has('hideRootSpecialFolders')
+      changedProperties.has('browserContext')
     ) {
       if (!this.updateWorkScheduled) {
         this.updateWorkScheduled = true

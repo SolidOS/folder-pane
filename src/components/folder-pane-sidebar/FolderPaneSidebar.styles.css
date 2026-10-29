@@ -121,8 +121,7 @@
     stroke: currentColor;
   }
 
-  .resource-row-special icon-lucide-folder,
-  .resource-row-special icon-lucide-globe {
+  .resource-row-special icon-lucide-folder {
     width: 16px;
     height: 16px;
     flex-shrink: 0;

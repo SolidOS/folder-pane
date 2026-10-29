@@ -9,11 +9,10 @@ import type { Resource, ResourceMap } from '../../types'
 import '~icons/lucide/chevron-right'
 import '~icons/lucide/circle-small'
 import '~icons/lucide/folder'
-import '~icons/lucide/globe'
 import { getResourcesForContainer, type FolderPaneResourceLogic } from '../../helpers'
 import * as debug from '../../debug'
 
-type SpecialIcon = 'folder' | 'globe'
+type SpecialIcon = 'folder'
 
 @customElement('folder-pane-sidebar')
 export default class FolderPaneSidebar extends WebComponent {
@@ -95,10 +94,6 @@ export default class FolderPaneSidebar extends WebComponent {
 
   private isSelected (resource: Resource | null) {
     return resource ? this.selectedResource?.sameTerm(resource.subject) ?? false : false
-  }
-
-  private isNamed (resource: Resource, name: string) {
-    return utils.label(resource.subject).toLowerCase() === name
   }
 
   private getHomeResource (): Resource | null {
@@ -201,7 +196,6 @@ export default class FolderPaneSidebar extends WebComponent {
   }
 
   private renderSpecialIcon (icon: SpecialIcon) {
-    if (icon === 'globe') return html`<icon-lucide-globe></icon-lucide-globe>`
     return html`<icon-lucide-folder></icon-lucide-folder>`
   }
 
@@ -240,11 +234,6 @@ export default class FolderPaneSidebar extends WebComponent {
     if (!homeResource) return nothing
 
     const orderedResources = [...this.resources.values()]
-    const takeNamed = (name: string) => {
-      const index = orderedResources.findIndex(resource => this.isNamed(resource, name))
-      return index >= 0 ? orderedResources.splice(index, 1)[0] : null
-    }
-    const publicResource = takeNamed('public')
 
     return html`
       <ul role="tree" class="resource-tree" aria-label="Storage resources">
@@ -257,7 +246,6 @@ export default class FolderPaneSidebar extends WebComponent {
           this.renderResourceGroup(orderedResources),
           true
         )}
-        ${publicResource ? this.renderResourceItem(publicResource, 'Public', 'globe') : nothing}
       </ul>
     `
   }

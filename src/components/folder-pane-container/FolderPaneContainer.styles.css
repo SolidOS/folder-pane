@@ -203,6 +203,18 @@
   }
 
   @media (max-width: 768px) {
+    & {
+      height: auto;
+      min-height: 0;
+      overflow: visible;
+    }
+
+    .folder-pane-container-content {
+      height: auto;
+      min-height: 0;
+      overflow: visible;
+    }
+
     .resource-grid {
       gap: 15px;
     }
