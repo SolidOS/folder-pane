@@ -313,20 +313,44 @@ solid-ui-file-explorer-provider > .exceptionPane {
 }
 
 @media (max-width: 768px) {
+  .folder-pane {
+    height: auto;
+    overflow: visible;
+    margin-top: var(--spacing-2xs, 0.25em);
+    margin-bottom: var(--spacing-2xs, 0.25em);
+  }
+
+  folder-pane-view {
+    height: auto;
+  }
+
+  .folder-pane-main-content,
+  .folder-pane-full-view {
+    flex: 0 0 auto;
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+  }
+
   .folder-pane-main-content {
     border: 0;
   }
+
+  .folder-pane-content-column {
+    min-height: 0;
+    overflow: visible;
+  }
+
+  solid-ui-file-explorer-provider,
+  solid-ui-file-explorer-provider > .paneDiv,
+  solid-ui-file-explorer-provider > .exceptionPane {
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+  }
+
   folder-pane-sidebar {
     display: none;
-  }
-
-  .folder-pane-main-content {
-    min-height: 0;
-  }
-
-  .folder-pane {
-    margin-top: var(--spacing-2xs, 0.25em);
-    margin-bottom: var(--spacing-2xs, 0.25em);
   }
 
   .folder-pane-explicit-drop-icon {

@@ -9,7 +9,6 @@ import 'solid-ui/components/menu'
 import 'solid-ui/components/menu-item'
 import '~icons/lucide/folder-open'
 import '~icons/lucide/folder'
-import '~icons/lucide/globe'
 import '~icons/lucide/layout-grid'
 import '~icons/lucide/list'
 import '~icons/lucide/chevron-down'
@@ -29,9 +28,6 @@ export default class FolderPaneStorageHeader extends WebComponent {
 
   @property({ attribute: false })
   accessor selectedResource: NamedNode | undefined = undefined
-
-  @property({ attribute: false })
-  accessor publicResource: NamedNode | undefined = undefined
 
   @property({ attribute: false })
   accessor browserContext: DataBrowserContext | undefined = undefined
@@ -123,23 +119,6 @@ export default class FolderPaneStorageHeader extends WebComponent {
     }))
   }
 
-  private isWithin (resource: NamedNode | undefined, ancestor: NamedNode | undefined) {
-    if (!resource || !ancestor) return false
-    let current: NamedNode | undefined = resource
-    for (let depth = 0; current && depth < 64; depth++) {
-      if (current.sameTerm(ancestor)) return true
-      const parent = current.dir()
-      if (!parent || parent.sameTerm(current)) break
-      current = parent
-    }
-    return false
-  }
-
-  private isHomeSelected () {
-    return this.isWithin(this.selectedResource, this.subject) &&
-      !this.isWithin(this.selectedResource, this.publicResource)
-  }
-
   private updateSearch (event: Event) {
     this.dispatchEvent(new CustomEvent('folder-pane-search', {
       detail: { query: (event.target as HTMLInputElement).value },
@@ -159,22 +138,6 @@ export default class FolderPaneStorageHeader extends WebComponent {
   render () {
     return html`
       <header class="folder-pane-storage-header">
-        <nav class="folder-pane-storage-header-locations" aria-label="Storage locations">
-          <button
-            type="button"
-            class="folder-pane-storage-location"
-            aria-current=${this.isHomeSelected() ? 'page' : nothing}
-            @click=${this.selectHome}
-          ><icon-lucide-folder aria-hidden="true"></icon-lucide-folder>Home</button>
-          ${this.publicResource ? html`
-            <button
-              type="button"
-              class="folder-pane-storage-location"
-              aria-current=${this.isWithin(this.selectedResource, this.publicResource) ? 'page' : nothing}
-              @click=${() => this.selectResource(this.publicResource!)}
-            ><icon-lucide-globe aria-hidden="true"></icon-lucide-globe>Public</button>
-          ` : nothing}
-        </nav>
         <nav class="folder-pane-storage-header-breadcrumbs" aria-label="Storage breadcrumb">
           <icon-lucide-folder-open aria-hidden="true"></icon-lucide-folder-open>
           <ol>
