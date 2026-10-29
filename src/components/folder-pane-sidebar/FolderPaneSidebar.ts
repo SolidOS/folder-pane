@@ -10,11 +10,10 @@ import '~icons/lucide/chevron-right'
 import '~icons/lucide/circle-small'
 import '~icons/lucide/folder'
 import '~icons/lucide/globe'
-import '~icons/lucide/trash-2'
 import { getResourcesForContainer, type FolderPaneResourceLogic } from '../../helpers'
 import * as debug from '../../debug'
 
-type SpecialIcon = 'folder' | 'globe' | 'trash'
+type SpecialIcon = 'folder' | 'globe'
 
 @customElement('folder-pane-sidebar')
 export default class FolderPaneSidebar extends WebComponent {
@@ -203,7 +202,6 @@ export default class FolderPaneSidebar extends WebComponent {
 
   private renderSpecialIcon (icon: SpecialIcon) {
     if (icon === 'globe') return html`<icon-lucide-globe></icon-lucide-globe>`
-    if (icon === 'trash') return html`<icon-lucide-trash-2></icon-lucide-trash-2>`
     return html`<icon-lucide-folder></icon-lucide-folder>`
   }
 
@@ -247,7 +245,6 @@ export default class FolderPaneSidebar extends WebComponent {
       return index >= 0 ? orderedResources.splice(index, 1)[0] : null
     }
     const publicResource = takeNamed('public')
-    const trashResource = takeNamed('trash')
 
     return html`
       <ul role="tree" class="resource-tree" aria-label="Storage resources">
@@ -261,7 +258,6 @@ export default class FolderPaneSidebar extends WebComponent {
           true
         )}
         ${publicResource ? this.renderResourceItem(publicResource, 'Public', 'globe') : nothing}
-        ${trashResource ? this.renderResourceItem(trashResource, 'Trash', 'trash') : nothing}
       </ul>
     `
   }

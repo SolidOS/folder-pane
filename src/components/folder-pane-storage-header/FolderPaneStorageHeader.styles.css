@@ -15,6 +15,43 @@
   padding: 10px 0;
 }
 
+.folder-pane-storage-header-locations {
+  display: none;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+
+.folder-pane-storage-header-locations button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5.6px;
+  padding: 5.6px 8px;
+  border: 0;
+  background: transparent;
+  color: var(--solid-ui-color-gray-600, #4a5565);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--solid-ui-font-size-sm, 0.875rem);
+  font-weight: 500;
+  text-align: center;
+  border-bottom: 2px solid transparent;
+}
+
+.folder-pane-storage-header-locations button[aria-current='page'] {
+  border-bottom-color: var(--solid-ui-color-primary, #7c4dff);
+  color: var(--solid-ui-color-primary, #7c4dff);
+  font-weight: 600;
+}
+
+.folder-pane-storage-location icon-lucide-folder,
+.folder-pane-storage-location icon-lucide-globe {
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 auto;
+}
+
 .folder-pane-storage-header-breadcrumbs,
 .folder-pane-storage-header-breadcrumbs ol,
 .folder-pane-storage-header-breadcrumbs li,
@@ -26,7 +63,7 @@
 
 .folder-pane-storage-header-breadcrumbs {
   min-width: 0;
-  gap: 0.35rem;
+  gap: 5.6px;
   overflow-x: auto;
   overflow-y: hidden;
 }
@@ -41,7 +78,7 @@
 .folder-pane-storage-header-breadcrumbs ol {
   min-width: 0;
   flex-wrap: nowrap;
-  gap: 0.35rem;
+  gap: 5.6px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -51,7 +88,7 @@
 
 .folder-pane-storage-header-breadcrumbs li {
   min-width: 0;
-  gap: 0.35rem;
+  gap: 5.6px;
 }
 
 .folder-pane-storage-header-breadcrumbs button {
@@ -75,17 +112,18 @@
 .folder-pane-storage-header-toolbar {
   flex: 0 0 auto;
   justify-content: flex-end;
-  gap: 0.5rem;
+  gap: 8px;
   min-width: 0;
+  padding-right: var(--folder-pane-storage-toolbar-right-padding, 0);
 }
 
 .folder-pane-storage-header-search {
   display: none;
   align-items: center;
-  gap: 0.35rem;
+  gap: 5.6px;
   min-width: 8rem;
   max-width: 14rem;
-  padding: 0.25rem 0.5rem;
+  padding: 4px 8px;
   border: 1px solid var(--solid-ui-color-gray-300, #d1d5dc);
   border-radius: 0.35rem;
   color: var(--solid-ui-color-gray-500, #6a7282);
@@ -158,6 +196,42 @@
   margin-left: 22px;
 }
 
+.folder-pane-storage-header-add-trigger {
+  display: inline-flex;
+  align-items: center;
+}
+
+.folder-pane-storage-header-add-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5.6px;
+  min-height: 36px;
+  padding: 5.6px 12px;
+  border: 0;
+  border-radius: 5.6px;
+  background: var(--solid-ui-color-primary, #7c4dff);
+  color: var(--solid-ui-color-white, #ffffff);
+  cursor: pointer;
+  font: inherit;
+}
+
+.folder-pane-storage-header-add-button:hover {
+  background: var(--solid-ui-color-primary-hover, #b9a2ff);
+}
+
+.folder-pane-storage-header-add-button:focus-visible {
+  outline: 2px solid var(--solid-ui-color-primary, #7c4dff);
+  outline-offset: 2px;
+}
+
+.folder-pane-storage-header-add-button icon-lucide-plus,
+.folder-pane-storage-header-add-chevron {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: 0 0 auto;
+}
+
 .folder-pane-storage-header-add-menu img[slot="left-icon"] {
   display: block;
   width: 1.25rem;
@@ -169,4 +243,78 @@
 .folder-pane-storage-header-add-menu img[slot="left-icon"] {
   width: 13.333px;
   height: 12.664px;
+}
+
+@media (max-width: 768px) {
+  .folder-pane-storage-header {
+    flex-wrap: wrap;
+    gap: var(--folder-pane-storage-header-mobile-gap, 8px);
+    padding: var(--folder-pane-storage-header-mobile-padding, 10px 0);
+    border-bottom: 1px solid var(--solid-ui-color-gray-200, #e5e7eb);
+  }
+
+  .folder-pane-storage-header-breadcrumbs {
+    display: none;
+  }
+
+  .folder-pane-storage-header-locations {
+    display: flex;
+    width: 100%;
+  }
+
+  .folder-pane-storage-header-breadcrumbs {
+    flex: 1 1 auto;
+    max-width: 100%;
+  }
+
+  .folder-pane-storage-header-toolbar {
+    flex: 0 1 auto;
+    margin-left: auto;
+  }
+
+  .folder-pane-storage-header-add-menu {
+    margin: 0;
+  }
+
+  .folder-pane-storage-header-add-trigger {
+    position: fixed;
+    right: 30px;
+    bottom: 50px;
+    z-index: 200;
+    display: flex;
+    width: 50px;
+    height: 50px;
+    box-sizing: border-box;
+    padding: 9.722px 13.889px;
+    justify-content: center;
+    align-items: center;
+    gap: 11.111px;
+    aspect-ratio: 1 / 1;
+    border-radius: 6.944px;
+    background: var(--solid-ui-color-primary, #7c4dff);
+    box-shadow: 1.389px 5.556px 9.722px 0 rgb(0 0 0 / 56%);
+  }
+
+  .folder-pane-storage-header-add-button {
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    min-height: 0;
+    padding: 0;
+    background: transparent;
+  }
+
+  .folder-pane-storage-header-add-button:hover {
+    background: transparent;
+  }
+
+  .folder-pane-storage-header-add-button icon-lucide-plus {
+    width: 20px;
+    height: 20px;
+  }
+
+  .folder-pane-storage-header-add-label,
+  .folder-pane-storage-header-add-chevron {
+    display: none;
+  }
 }

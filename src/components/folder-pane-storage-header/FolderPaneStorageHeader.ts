@@ -8,6 +8,8 @@ import 'solid-ui/components/button'
 import 'solid-ui/components/menu'
 import 'solid-ui/components/menu-item'
 import '~icons/lucide/folder-open'
+import '~icons/lucide/folder'
+import '~icons/lucide/globe'
 import '~icons/lucide/layout-grid'
 import '~icons/lucide/list'
 import '~icons/lucide/chevron-down'
@@ -27,6 +29,9 @@ export default class FolderPaneStorageHeader extends WebComponent {
 
   @property({ attribute: false })
   accessor selectedResource: NamedNode | undefined = undefined
+
+  @property({ attribute: false })
+  accessor publicResource: NamedNode | undefined = undefined
 
   @property({ attribute: false })
   accessor browserContext: DataBrowserContext | undefined = undefined
@@ -118,6 +123,23 @@ export default class FolderPaneStorageHeader extends WebComponent {
     }))
   }
 
+  private isWithin (resource: NamedNode | undefined, ancestor: NamedNode | undefined) {
+    if (!resource || !ancestor) return false
+    let current: NamedNode | undefined = resource
+    for (let depth = 0; current && depth < 64; depth++) {
+      if (current.sameTerm(ancestor)) return true
+      const parent = current.dir()
+      if (!parent || parent.sameTerm(current)) break
+      current = parent
+    }
+    return false
+  }
+
+  private isHomeSelected () {
+    return this.isWithin(this.selectedResource, this.subject) &&
+      !this.isWithin(this.selectedResource, this.publicResource)
+  }
+
   private updateSearch (event: Event) {
     this.dispatchEvent(new CustomEvent('folder-pane-search', {
       detail: { query: (event.target as HTMLInputElement).value },
@@ -137,6 +159,22 @@ export default class FolderPaneStorageHeader extends WebComponent {
   render () {
     return html`
       <header class="folder-pane-storage-header">
+        <nav class="folder-pane-storage-header-locations" aria-label="Storage locations">
+          <button
+            type="button"
+            class="folder-pane-storage-location"
+            aria-current=${this.isHomeSelected() ? 'page' : nothing}
+            @click=${this.selectHome}
+          ><icon-lucide-folder aria-hidden="true"></icon-lucide-folder>Home</button>
+          ${this.publicResource ? html`
+            <button
+              type="button"
+              class="folder-pane-storage-location"
+              aria-current=${this.isWithin(this.selectedResource, this.publicResource) ? 'page' : nothing}
+              @click=${() => this.selectResource(this.publicResource!)}
+            ><icon-lucide-globe aria-hidden="true"></icon-lucide-globe>Public</button>
+          ` : nothing}
+        </nav>
         <nav class="folder-pane-storage-header-breadcrumbs" aria-label="Storage breadcrumb">
           <icon-lucide-folder-open aria-hidden="true"></icon-lucide-folder-open>
           <ol>
@@ -188,15 +226,18 @@ export default class FolderPaneStorageHeader extends WebComponent {
             </div>
           </div>
           ${this.canCreate ? html`<solid-ui-menu class="folder-pane-storage-header-add-menu" placement="bottom-end">
-            <solid-ui-button
-              slot="trigger"
-              variant="primary"
-              aria-haspopup="menu"
-            >
-              <icon-lucide-plus slot="left-icon" aria-hidden="true"></icon-lucide-plus>
-              Add
-              <icon-lucide-chevron-down slot="right-icon" aria-hidden="true"></icon-lucide-chevron-down>
-            </solid-ui-button>
+            <div slot="trigger" class="folder-pane-storage-header-add-trigger">
+              <button
+                type="button"
+                class="folder-pane-storage-header-add-button"
+                aria-label="Add"
+                aria-haspopup="menu"
+              >
+                <icon-lucide-plus aria-hidden="true"></icon-lucide-plus>
+                <span class="folder-pane-storage-header-add-label">Add</span>
+                <icon-lucide-chevron-down class="folder-pane-storage-header-add-chevron" aria-hidden="true"></icon-lucide-chevron-down>
+              </button>
+            </div>
             ${this.availablePanes.map(pane => html`
               <solid-ui-menu-item @solid-ui-select=${() => this.createPane(pane)}>
                 ${pane.icon
