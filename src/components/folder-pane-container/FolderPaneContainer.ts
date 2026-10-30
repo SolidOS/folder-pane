@@ -11,6 +11,7 @@ import {
   getIndexedApplicationSubject,
   getResourceAccessState,
   getResourcesForContainer,
+  readStoredWacAllow,
   type FolderPaneResourceLogic
 } from '../../helpers'
 import { createRequestQueue } from '../../requestQueue'
@@ -147,8 +148,43 @@ export default class FolderPaneContainer extends WebComponent {
   }
 
   private loadResourceDetails (resource: Resource) {
-    void this.loadMemberCount(resource)
-    void this.loadResourceAccess(resource)
+    if (resource.isContainer) {
+      void this.loadContainerDetails(resource)
+    } else {
+      void this.loadResourceAccess(resource)
+    }
+  }
+
+  /**
+   * A container's member count needs a GET, and that response already carries
+   * WAC-Allow; reuse it instead of sending a HEAD (and its CORS preflight).
+   */
+  private async loadContainerDetails (resource: Resource, generation = this.resourceGeneration) {
+    if (!this.browserContext) return
+    const needsAccess = !this.resourceAccess.has(resource.id)
+    if (needsAccess) {
+      this.resourceAccess = new Map(this.resourceAccess).set(resource.id, { state: 'unknown', canManageAccess: false })
+    }
+    await this.loadMemberCount(resource, generation)
+    if (!needsAccess || generation !== this.resourceGeneration) return
+
+    const memberState = this.memberLoad.get(resource.id)
+    const stored = memberState === 'loaded'
+      ? readStoredWacAllow(this.browserContext.session.store.fetcher.getHeader(resource.subject, 'wac-allow'))
+      : undefined
+    if (stored) {
+      this.resourceAccess = new Map(this.resourceAccess).set(resource.id, {
+        state: stored.isPublic ? 'public' : 'private',
+        canManageAccess: stored.canManageAccess
+      })
+    } else if (memberState === 'error') {
+      // The HEAD would fail the same way the GET just did.
+      this.resourceAccess = new Map(this.resourceAccess).set(resource.id, { state: 'error', canManageAccess: false })
+    } else {
+      this.resourceAccess = new Map(this.resourceAccess)
+      this.resourceAccess.delete(resource.id)
+      await this.loadResourceAccess(resource, generation)
+    }
   }
 
   private async loadMemberCount (resource: Resource, generation = this.resourceGeneration) {

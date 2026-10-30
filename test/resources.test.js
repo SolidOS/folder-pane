@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { sym } from 'rdflib'
-import { getContainerMemberCountLabel, getCreationDialogText, getCreationPanes, getIndexedApplicationSubject, getPaneLabel, getResourceAccessState, getResourcesForContainer, isAccessDeniedError, isContainerResource } from '../src/helpers'
+import { getContainerMemberCountLabel, getCreationDialogText, getCreationPanes, getIndexedApplicationSubject, getPaneLabel, getResourceAccessState, getResourcesForContainer, isAccessDeniedError, isContainerResource, readStoredWacAllow } from '../src/helpers'
 import { isExtensionlessSourceFile } from '../src/mintPaneInstance'
 import folderPane, { getCreationNoun } from '../src/folderPane'
 
@@ -110,6 +110,18 @@ describe('access denied errors', () => {
     it('retains confirmed public and private states', () => {
       expect(getResourceAccessState({ isPublic: true, isPublicKnown: true })).toBe('public')
       expect(getResourceAccessState({ isPublic: false, isPublicKnown: true })).toBe('private')
+    })
+
+    it('reads access from a stored WAC-Allow header', () => {
+      expect(readStoredWacAllow(['user="read write append control",public="read"']))
+        .toEqual({ isPublic: true, canManageAccess: true })
+      expect(readStoredWacAllow(['user="read",public=""']))
+        .toEqual({ isPublic: false, canManageAccess: false })
+    })
+
+    it('reports no stored access when the header is missing', () => {
+      expect(readStoredWacAllow(undefined)).toBeUndefined()
+      expect(readStoredWacAllow([])).toBeUndefined()
     })
   })
 

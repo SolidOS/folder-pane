@@ -73,6 +73,7 @@ export default class FolderPaneView extends WebComponent {
   private initialLoadGeneration = 0
   private renderGeneration = 0
   private permissionGeneration = 0
+  private permissionRequest: { containerUri: string, resourceLogic: unknown } | undefined
   private creationInFlight = false
   private authListenersAttached = false
   private dropProtectionAttached = false
@@ -125,7 +126,7 @@ export default class FolderPaneView extends WebComponent {
   }
 
   private handleAuthChange = () => {
-    this.refreshCreationPermission()
+    this.refreshCreationPermission(true)
     this.requestUpdate()
   }
 
@@ -345,11 +346,22 @@ export default class FolderPaneView extends WebComponent {
     return this.subject
   }
 
-  private refreshCreationPermission () {
-    const permissionGeneration = ++this.permissionGeneration
+  private refreshCreationPermission (force = false) {
     const container = this.getActiveContainer()
     const resourceLogic = this.browserContext?.session.logic.resource
+    if (
+      !force &&
+      container &&
+      resourceLogic &&
+      this.permissionRequest?.containerUri === container.uri &&
+      this.permissionRequest.resourceLogic === resourceLogic
+    ) return
+
+    const permissionGeneration = ++this.permissionGeneration
     this.canCreate = false
+    this.permissionRequest = container && resourceLogic
+      ? { containerUri: container.uri, resourceLogic }
+      : undefined
     if (!container || !resourceLogic) return
 
     void resourceLogic.fetchMetadata(container)
@@ -363,6 +375,7 @@ export default class FolderPaneView extends WebComponent {
       })
       .catch(error => {
         if (permissionGeneration === this.permissionGeneration) {
+          this.permissionRequest = undefined
           debug.warn('Unable to determine folder creation permission', error)
         }
       })

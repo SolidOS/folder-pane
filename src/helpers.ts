@@ -20,6 +20,26 @@ function getResourceAccessState (access: ResourceAccessMetadata): 'public' | 'pr
   return access.isPublic ? 'public' : 'private'
 }
 
+/**
+ * Reads access from the WAC-Allow header of a stored response, so a resource
+ * already loaded with GET does not need a separate HEAD.
+ * Returns undefined when no stored header is available.
+ */
+function readStoredWacAllow (wacAllowValues: string[] | undefined): { isPublic: boolean, canManageAccess: boolean } | undefined {
+  const header = wacAllowValues?.find(Boolean)
+  if (!header) return undefined
+  const modes = new Map<string, string[]>()
+  for (const entry of header.split(',')) {
+    const match = entry.trim().match(/^([A-Za-z]+)\s*=\s*"([^"]*)"$/)
+    if (match) modes.set(match[1].toLowerCase(), match[2].toLowerCase().split(/\s+/).filter(Boolean))
+  }
+  const publicModes = modes.get('public') ?? []
+  return {
+    isPublic: publicModes.includes('read') || publicModes.includes('write'),
+    canManageAccess: (modes.get('user') ?? []).includes('control')
+  }
+}
+
 function getCreationNoun (paneName?: string): string {
   if (paneName?.toLowerCase() === 'source') return 'file'
   return paneName || 'item'
@@ -112,5 +132,6 @@ export {
   getResourcesForContainer,
   isAccessDeniedError,
   isContainerResource,
-  isJavaScriptFile
+  isJavaScriptFile,
+  readStoredWacAllow
 }
