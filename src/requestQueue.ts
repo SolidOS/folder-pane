@@ -1,6 +1,7 @@
 /**
  * Limits how many advisory requests (member counts, access indicators) a
- * folder view sends at once, and backs off when the server answers 429.
+ * folder view sends at once, and backs off when the server answers 429 or the
+ * request fails at the network level (see isNetworkFailureError).
  *
  * Opening a folder used to fetch every child immediately. Each browser request
  * also needs a CORS preflight, so a folder with a few dozen children could
@@ -50,6 +51,26 @@ function isRateLimitedError (error: unknown): boolean {
   return error instanceof Error && /\bStatus: 429\b/.test(error.message)
 }
 
+const NETWORK_FAILURE_STATUSES = new Set([998, 999])
+const NETWORK_FAILURE_MESSAGE = /Failed to fetch|NetworkError|Load failed|network failure/i
+
+/**
+ * A rate limiter in front of a cross-origin pod (such as Cloudflare) answers
+ * the CORS preflight with a 429 that carries no CORS headers. The browser then
+ * hides the status and reports a network error, which rdflib turns into a
+ * fake 999 status, so such failures have to be treated as possible 429s.
+ */
+function isNetworkFailureError (error: unknown): boolean {
+  const response = getErrorResponse(error)
+  const status = response?.status ?? response?.response?.status
+  if (status !== undefined && NETWORK_FAILURE_STATUSES.has(status)) return true
+  return error instanceof Error && NETWORK_FAILURE_MESSAGE.test(error.message)
+}
+
+function shouldBackOff (error: unknown): boolean {
+  return isRateLimitedError(error) || isNetworkFailureError(error)
+}
+
 /**
  * Returns the delay requested by a 429's Retry-After header (seconds or an
  * HTTP date), or `fallbackMs` when it is missing or unreadable.
@@ -91,7 +112,7 @@ function createRequestQueue ({
     try {
       item.resolve(await item.task())
     } catch (error) {
-      if (taskGeneration === generation && isRateLimitedError(error)) {
+      if (taskGeneration === generation && shouldBackOff(error)) {
         pause(getRetryAfterMs(error, defaultRetryAfterMs))
         if (item.retries < maxRetries) {
           item.retries++
@@ -142,4 +163,4 @@ function createRequestQueue ({
   }
 }
 
-export { createRequestQueue, getRetryAfterMs, isRateLimitedError }
+export { createRequestQueue, getRetryAfterMs, isNetworkFailureError, isRateLimitedError }

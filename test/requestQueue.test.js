@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createRequestQueue, getRetryAfterMs, isRateLimitedError, RequestQueueClearedError } from '../src/requestQueue'
+import { createRequestQueue, getRetryAfterMs, isNetworkFailureError, isRateLimitedError, RequestQueueClearedError } from '../src/requestQueue'
 
 function deferred () {
   let resolve
@@ -152,6 +152,45 @@ describe('folder-pane request queue', () => {
     await expect(queued).resolves.toBe('queued')
     await firstResult
     await secondResult
+  })
+
+  it('backs off when a rate-limited CORS preflight surfaces as a network failure', async () => {
+    const waits = []
+    const queue = createRequestQueue({
+      concurrency: 1,
+      defaultRetryAfterMs: 5000,
+      wait: ms => {
+        waits.push(ms)
+        return Promise.resolve()
+      }
+    })
+    let attempts = 0
+    const result = queue.run(async () => {
+      if (attempts++ === 0) {
+        // rdflib's shape after its no-credentials retry also fails
+        throw Object.assign(new Error('Fetcher: TypeError: Failed to fetch'), { status: 999 })
+      }
+      return 'loaded'
+    })
+
+    await expect(result).resolves.toBe('loaded')
+    expect(attempts).toBe(2)
+    expect(waits).toEqual([5000])
+  })
+
+  it.each([
+    [Object.assign(new Error('network failure: undefined'), { status: 999 })],
+    [{ status: 998 }],
+    [new TypeError('Failed to fetch')],
+    [new TypeError('NetworkError when attempting to fetch resource.')],
+    [new TypeError('Load failed')]
+  ])('recognizes %j as a possible hidden 429', error => {
+    expect(isNetworkFailureError(error)).toBe(true)
+  })
+
+  it('does not treat HTTP failures as network failures', () => {
+    expect(isNetworkFailureError(Object.assign(new Error('Not Found'), { status: 404 }))).toBe(false)
+    expect(isNetworkFailureError({ response: { status: 500 } })).toBe(false)
   })
 
   it('does not retry other failures', async () => {
