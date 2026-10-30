@@ -1,5 +1,6 @@
 import { aclControl, composeExplorer, customElement, FILE_EXPLORER_BACK_EVENT, FILE_EXPLORER_OPEN_PANE_EVENT, getPreferredPane, getRelevantPanes, isExplorerEvent, log, ns, showDialog, WebComponent, widgets } from 'solid-ui'
 import { authn, authSession } from 'solid-logic'
+import { resourceAccessCache } from '../../accessCache'
 import { html, nothing } from 'lit'
 import { property, query, state } from 'lit/decorators.js'
 import type { PropertyValues } from 'lit'
@@ -126,6 +127,7 @@ export default class FolderPaneView extends WebComponent {
   }
 
   private handleAuthChange = () => {
+    resourceAccessCache.clear()
     this.refreshCreationPermission(true)
     this.requestUpdate()
   }

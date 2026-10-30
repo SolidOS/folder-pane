@@ -119,6 +119,11 @@ describe('access denied errors', () => {
         .toEqual({ isPublic: false, canManageAccess: false })
     })
 
+    it('combines split WAC-Allow header values', () => {
+      expect(readStoredWacAllow(['user="read control"', 'public="read"']))
+        .toEqual({ isPublic: true, canManageAccess: true })
+    })
+
     it('reports no stored access when the header is missing', () => {
       expect(readStoredWacAllow(undefined)).toBeUndefined()
       expect(readStoredWacAllow([])).toBeUndefined()

@@ -26,7 +26,7 @@ function getResourceAccessState (access: ResourceAccessMetadata): 'public' | 'pr
  * Returns undefined when no stored header is available.
  */
 function readStoredWacAllow (wacAllowValues: string[] | undefined): { isPublic: boolean, canManageAccess: boolean } | undefined {
-  const header = wacAllowValues?.find(Boolean)
+  const header = wacAllowValues?.filter(Boolean).join(',')
   if (!header) return undefined
   const modes = new Map<string, string[]>()
   for (const entry of header.split(',')) {

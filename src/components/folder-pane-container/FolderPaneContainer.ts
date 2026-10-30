@@ -4,8 +4,10 @@ import { state } from 'lit/decorators.js'
 import type { DataBrowserContext, PaneDefinition } from 'pane-registry'
 import type { NamedNode } from 'rdflib'
 import type { ResourceMetadata } from 'solid-logic'
+import { authn, authSession } from 'solid-logic'
 import { customElement, FILE_EXPLORER_MANAGE_ACCESS_EVENT, getPreferredPane, getRelevantPanes, utils, WebComponent } from 'solid-ui'
 import type { Resource } from '../../types'
+import { resourceAccessCache } from '../../accessCache'
 import {
   getContainerMemberCountLabel,
   getIndexedApplicationSubject,
@@ -67,7 +69,7 @@ export default class FolderPaneContainer extends WebComponent {
   private accessor resourceAccess = new Map<string, ResourceAccess>()
 
   @state()
-  private accessor memberLoad = new Map<string, 'loading' | 'loaded' | 'error'>()
+  private accessor memberLoad = new Map<string, 'loading' | 'loaded' | 'parse-error' | 'error'>()
 
   @state()
   private accessor loading = true
@@ -76,9 +78,13 @@ export default class FolderPaneContainer extends WebComponent {
 
   private resourceActionMenuLoads = new Map<string, 'loading' | 'loaded' | 'error'>()
   private resourceGeneration = 0
+  private authGeneration = 0
   private updateWorkScheduled = false
-  private detailsQueue = createRequestQueue()
+  // Two at a time: each request may also need a CORS preflight, and pod hosts
+  // such as solidcommunity.net rate-limit bursts.
+  private detailsQueue = createRequestQueue({ concurrency: 2 })
   private detailsObserver: IntersectionObserver | undefined
+  private authListenersAttached = false
 
   private selectResource (resource: Resource) {
     this.dispatchEvent(new CustomEvent('resource-selected', {
@@ -148,10 +154,12 @@ export default class FolderPaneContainer extends WebComponent {
   }
 
   private loadResourceDetails (resource: Resource) {
+    const authGeneration = this.authGeneration
+    const viewer = this.viewer
     if (resource.isContainer) {
-      void this.loadContainerDetails(resource)
+      void this.loadContainerDetails(resource, this.resourceGeneration, authGeneration, viewer)
     } else {
-      void this.loadResourceAccess(resource)
+      void this.loadResourceAccess(resource, this.resourceGeneration, authGeneration, viewer)
     }
   }
 
@@ -159,63 +167,107 @@ export default class FolderPaneContainer extends WebComponent {
    * A container's member count needs a GET, and that response already carries
    * WAC-Allow; reuse it instead of sending a HEAD (and its CORS preflight).
    */
-  private async loadContainerDetails (resource: Resource, generation = this.resourceGeneration) {
+  private isCurrentAccessRequest (generation: number, authGeneration: number, viewer: string | undefined) {
+    return generation === this.resourceGeneration &&
+      authGeneration === this.authGeneration &&
+      viewer === this.viewer
+  }
+
+  private async loadContainerDetails (
+    resource: Resource,
+    generation = this.resourceGeneration,
+    authGeneration = this.authGeneration,
+    viewer = this.viewer
+  ) {
     if (!this.browserContext) return
+    if (!this.isCurrentAccessRequest(generation, authGeneration, viewer)) return
     const needsAccess = !this.resourceAccess.has(resource.id)
     if (needsAccess) {
       this.resourceAccess = new Map(this.resourceAccess).set(resource.id, { state: 'unknown', canManageAccess: false })
     }
-    await this.loadMemberCount(resource, generation)
-    if (!needsAccess || generation !== this.resourceGeneration) return
+    await this.loadMemberCount(resource, generation, authGeneration, viewer)
+    if (!needsAccess || !this.isCurrentAccessRequest(generation, authGeneration, viewer)) return
 
     const memberState = this.memberLoad.get(resource.id)
-    const stored = memberState === 'loaded'
-      ? readStoredWacAllow(this.browserContext.session.store.fetcher.getHeader(resource.subject, 'wac-allow'))
-      : undefined
+    const stored = readStoredWacAllow(
+      this.browserContext.session.store.fetcher.getHeader(resource.subject, 'wac-allow')
+    )
     if (stored) {
-      this.resourceAccess = new Map(this.resourceAccess).set(resource.id, {
+      this.setResourceAccess(resource, {
         state: stored.isPublic ? 'public' : 'private',
         canManageAccess: stored.canManageAccess
       })
     } else if (memberState === 'error') {
-      // The HEAD would fail the same way the GET just did.
       this.resourceAccess = new Map(this.resourceAccess).set(resource.id, { state: 'error', canManageAccess: false })
     } else {
       this.resourceAccess = new Map(this.resourceAccess)
       this.resourceAccess.delete(resource.id)
-      await this.loadResourceAccess(resource, generation)
+      await this.loadResourceAccess(resource, generation, authGeneration, viewer)
     }
   }
 
-  private async loadMemberCount (resource: Resource, generation = this.resourceGeneration) {
+  private async loadMemberCount (
+    resource: Resource,
+    generation = this.resourceGeneration,
+    authGeneration = this.authGeneration,
+    viewer = this.viewer
+  ) {
     if (!resource.isContainer || this.memberLoad.has(resource.id) || !this.browserContext) return
     const fetcher = this.browserContext.session.store.fetcher
     this.memberLoad = new Map(this.memberLoad).set(resource.id, 'loading')
     try {
       await this.detailsQueue.run(() => fetcher.load(resource.subject))
-      if (generation !== this.resourceGeneration) return
+      if (!this.isCurrentAccessRequest(generation, authGeneration, viewer)) return
       this.memberLoad = new Map(this.memberLoad).set(resource.id, 'loaded')
     } catch (error) {
-      if (generation !== this.resourceGeneration) return
+      if (!this.isCurrentAccessRequest(generation, authGeneration, viewer)) return
       debug.warn('Unable to load folder-pane container member count', error)
-      this.memberLoad = new Map(this.memberLoad).set(resource.id, 'error')
+      const message = error instanceof Error ? error.message : String(error)
+      const state = /parse|syntax|turtle|unexpected token/i.test(message) ? 'parse-error' : 'error'
+      this.memberLoad = new Map(this.memberLoad).set(resource.id, state)
     }
   }
 
-  private async loadResourceAccess (resource: Resource, generation = this.resourceGeneration) {
+  private get viewer () {
+    return authn.currentUser?.()?.value
+  }
+
+  private setResourceAccess (
+    resource: Resource,
+    access: ResourceAccess,
+    authGeneration = this.authGeneration,
+    viewer = this.viewer,
+    generation = this.resourceGeneration
+  ) {
+    if (!this.isCurrentAccessRequest(generation, authGeneration, viewer)) return
+    this.resourceAccess = new Map(this.resourceAccess).set(resource.id, access)
+    resourceAccessCache.set(viewer, resource.subject.uri, access)
+  }
+
+  private async loadResourceAccess (
+    resource: Resource,
+    generation = this.resourceGeneration,
+    authGeneration = this.authGeneration,
+    viewer = this.viewer
+  ) {
     if (this.resourceAccess.has(resource.id) || !this.browserContext) return
+    if (!this.isCurrentAccessRequest(generation, authGeneration, viewer)) return
+    const cached = resourceAccessCache.get(viewer, resource.subject.uri)
+    if (cached) {
+      this.resourceAccess = new Map(this.resourceAccess).set(resource.id, cached)
+      return
+    }
     const resourceLogic = this.browserContext.session.logic.resource
     this.resourceAccess = new Map(this.resourceAccess).set(resource.id, { state: 'unknown', canManageAccess: false })
     try {
       const metadata = await this.detailsQueue.run<ResourceMetadata>(() => resourceLogic.fetchMetadata(resource.subject))
-      if (generation !== this.resourceGeneration) return
-      const state = getResourceAccessState(metadata.access)
-      this.resourceAccess = new Map(this.resourceAccess).set(resource.id, {
-        state,
+      if (!this.isCurrentAccessRequest(generation, authGeneration, viewer)) return
+      this.setResourceAccess(resource, {
+        state: getResourceAccessState(metadata.access),
         canManageAccess: metadata.access.canManageAccess
-      })
+      }, authGeneration, viewer, generation)
     } catch {
-      if (generation === this.resourceGeneration) {
+      if (this.isCurrentAccessRequest(generation, authGeneration, viewer)) {
         this.resourceAccess = new Map(this.resourceAccess).set(resource.id, { state: 'error', canManageAccess: false })
       }
     }
@@ -226,6 +278,16 @@ export default class FolderPaneContainer extends WebComponent {
     this.detailsObserver?.disconnect()
     this.resourceAccess = new Map()
     this.memberLoad = new Map()
+  }
+
+  private handleAuthChange = () => {
+    this.authGeneration++
+    resourceAccessCache.clear()
+    this.detailsQueue.clear()
+    this.resourceAccess = new Map()
+    this.memberLoad = new Map()
+    this.resourceActionMenuLoads = new Map()
+    this.requestUpdate()
   }
 
   private observeResourceItems () {
@@ -256,10 +318,20 @@ export default class FolderPaneContainer extends WebComponent {
 
   connectedCallback () {
     super.connectedCallback()
+    if (!this.authListenersAttached) {
+      authSession.events.on('login', this.handleAuthChange)
+      authSession.events.on('logout', this.handleAuthChange)
+      this.authListenersAttached = true
+    }
     if (this.hasUpdated) this.requestUpdate()
   }
 
   disconnectedCallback () {
+    if (this.authListenersAttached) {
+      authSession.events.off('login', this.handleAuthChange)
+      authSession.events.off('logout', this.handleAuthChange)
+      this.authListenersAttached = false
+    }
     super.disconnectedCallback()
     this.resourceGeneration++
     this.resourceActionMenuLoads = new Map()
@@ -267,6 +339,7 @@ export default class FolderPaneContainer extends WebComponent {
   }
 
   async refresh (reloadFromServer = true) {
+    resourceAccessCache.clear()
     this.resourceGeneration++
     this.resetResourceDetails()
     this.resourceActionMenuItems = new Map()
@@ -313,6 +386,8 @@ export default class FolderPaneContainer extends WebComponent {
   }
 
   private openAccessControls (resource: Resource) {
+    // Sharing may change; check again on the next visit.
+    resourceAccessCache.delete(resource.subject.uri)
     this.dispatchEvent(new CustomEvent(FILE_EXPLORER_MANAGE_ACCESS_EVENT, {
       detail: { subjectUri: resource.subject.uri },
       bubbles: true,
@@ -374,10 +449,13 @@ export default class FolderPaneContainer extends WebComponent {
 
   private async loadResourceActionMenuItems (resource: Resource) {
     if (!this.browserContext) return
+    const authGeneration = this.authGeneration
+    const viewer = this.viewer
     const previousLoad = this.resourceActionMenuLoads.get(resource.id)
     if (previousLoad === 'loading' || previousLoad === 'loaded') return
 
     const resourceGeneration = this.resourceGeneration
+    if (!this.isCurrentAccessRequest(resourceGeneration, authGeneration, viewer)) return
     this.resourceActionMenuLoads.set(resource.id, 'loading')
     const accessMetadata = this.browserContext.session.logic.resource.fetchMetadata(resource.subject)
       .then((metadata: ResourceMetadata) => metadata.access)
@@ -386,7 +464,7 @@ export default class FolderPaneContainer extends WebComponent {
         return undefined
       })
     const contents = await this.getContentsMenuItem(resource)
-    if (resourceGeneration !== this.resourceGeneration) return
+    if (!this.isCurrentAccessRequest(resourceGeneration, authGeneration, viewer)) return
     if (contents) this.setResourceActionMenuItems(resource, [contents])
 
     try {
@@ -395,7 +473,7 @@ export default class FolderPaneContainer extends WebComponent {
       } catch (error) {
         debug.warn('Unable to preload resource for folder-pane action menu', error)
       }
-      if (resourceGeneration !== this.resourceGeneration) return
+      if (!this.isCurrentAccessRequest(resourceGeneration, authGeneration, viewer)) return
 
       let paneSubject = resource.subject
       if (resource.isContainer && this.resourceLogic?.containerHasIndexDocument(resource.subject)) {
@@ -405,14 +483,14 @@ export default class FolderPaneContainer extends WebComponent {
         } catch (error) {
           debug.warn('Unable to preload index document for folder-pane action menu', error)
         }
-        if (resourceGeneration !== this.resourceGeneration) return
+        if (!this.isCurrentAccessRequest(resourceGeneration, authGeneration, viewer)) return
       }
 
       const panes = await getRelevantPanes(paneSubject, this.browserContext, {
         excludedPaneNames: ['sharing'],
         fallbackPaneName: 'internal'
       })
-      if (resourceGeneration !== this.resourceGeneration) return
+      if (!this.isCurrentAccessRequest(resourceGeneration, authGeneration, viewer)) return
 
       const preferredPane = getPreferredPane(paneSubject, this.browserContext, panes)
       const nonFolderPanes = panes.filter(pane => pane.name !== 'folder')
@@ -422,23 +500,23 @@ export default class FolderPaneContainer extends WebComponent {
       const items = await Promise.all(orderedPanes.map(pane =>
         this.getPaneMenuItem(pane, paneSubject, resource)
       ))
-      if (resourceGeneration !== this.resourceGeneration) return
+      if (!this.isCurrentAccessRequest(resourceGeneration, authGeneration, viewer)) return
 
       if (contents) items.splice(1, 0, contents)
       this.setResourceActionMenuItems(resource, items)
       this.resourceActionMenuLoads.set(resource.id, 'loaded')
     } catch (error) {
-      if (resourceGeneration !== this.resourceGeneration) return
+      if (!this.isCurrentAccessRequest(resourceGeneration, authGeneration, viewer)) return
       this.resourceActionMenuLoads.set(resource.id, 'error')
       debug.warn('Unable to load resource panes for folder-pane action menu', error)
     } finally {
       const access = await accessMetadata
-      if (resourceGeneration === this.resourceGeneration && access) {
-        this.resourceAccess = new Map(this.resourceAccess).set(resource.id, {
+      if (this.isCurrentAccessRequest(resourceGeneration, authGeneration, viewer) && access) {
+        this.setResourceAccess(resource, {
           state: getResourceAccessState(access),
           canManageAccess: access.canManageAccess
-        })
-      } else if (resourceGeneration === this.resourceGeneration) {
+        }, authGeneration, viewer, resourceGeneration)
+      } else if (this.isCurrentAccessRequest(resourceGeneration, authGeneration, viewer)) {
         this.resourceAccess = new Map(this.resourceAccess).set(resource.id, {
           state: 'error',
           canManageAccess: false
