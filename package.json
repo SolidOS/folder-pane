@@ -80,6 +80,7 @@
   "solidosDependencies": [
     "rdflib",
     "solid-logic",
+    "pane-registry",
     "solid-ui"
   ],
   "allowScripts": {

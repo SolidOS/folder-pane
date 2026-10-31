@@ -116,7 +116,7 @@
 
   .resource-grid-icon {
     display: flex;
-    width: 80px;
+    width: 60px;
     height: 80px;
     justify-content: center;
     align-items: center;
@@ -127,8 +127,8 @@
   .resource-grid-icon icon-lucide-file {
     width: 64px;
     height: 64px;
-    color: var(--solid-ui-color-gray-500, #6a7282);
-    stroke: var(--solid-ui-color-gray-500, #6a7282);
+    color: var(--solid-ui-color-gray-400, #99a1af);
+    stroke: var(--solid-ui-color-gray-400, #99a1af);
   }
 
   .resource-grid-icon--container {
@@ -147,6 +147,13 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .resource-list-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 0 0 auto;
   }
 
   .resource-grid-label--container {
@@ -229,6 +236,18 @@
       width: calc((100% - 15px) / 2);
       max-width: none;
     }
+
+    .resource-grid-label {
+      font-size: 10px;
+    }
+
+    .resource-grid-label.resource-grid-label--container {
+      font-size: 14px;
+    }
+
+    .resource-list-item {
+      align-items: flex-start;
+    }
   }
 
   .resource-list-main {
@@ -278,8 +297,8 @@
   }
 
   .resource-access-indicator {
-    width: 15px;
-    height: 15px;
+    width: 14px;
+    height: 14px;
     flex: 0 0 auto;
     color: var(--solid-ui-color-gray-500, #6a7282);
   }
@@ -299,6 +318,31 @@
   .resource-access-indicator--private {
     color: var(--yellow-700, #a16207);
     stroke: var(--yellow-700, #a16207);
+  }
+
+  @media (max-width: 768px) {
+    .resource-list-main {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      grid-template-areas:
+        "icon label"
+        "icon meta";
+      column-gap: 10px;
+      row-gap: 2px;
+      align-items: center;
+    }
+
+    .resource-list-icon {
+      grid-area: icon;
+    }
+
+    .resource-list-label {
+      grid-area: label;
+    }
+
+    .resource-list-meta {
+      grid-area: meta;
+    }
   }
 
   .folder-pane-container-empty-message {
