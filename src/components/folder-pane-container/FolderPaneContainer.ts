@@ -575,10 +575,12 @@ export default class FolderPaneContainer extends WebComponent {
               : html`<icon-lucide-file></icon-lucide-file>`}
           </span>
           <span class="resource-list-label">${label}</span>
-          ${memberCount >= 0
-            ? html`<span class="container-member-count">${getContainerMemberCountLabel(memberCount)}</span>`
-            : nothing}
-          ${this.renderAccessIndicator(resource)}
+          <span class="resource-list-meta">
+            ${memberCount >= 0
+              ? html`<span class="container-member-count">${getContainerMemberCountLabel(memberCount)}</span>`
+              : nothing}
+            ${this.renderAccessIndicator(resource)}
+          </span>
         </span>
         ${this.renderResourceActionsMenu(resource, 'list')}
       </li>
