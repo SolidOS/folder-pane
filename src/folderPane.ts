@@ -6,7 +6,7 @@
 import './components/folder-pane-view'
 import type FolderPaneView from './components/folder-pane-view/FolderPaneView'
 import { icons, ns } from 'solid-ui'
-import { isJavaScriptFile } from './helpers'
+import { isJavaScriptFile, isJsonFile } from './helpers'
 import './styles/folderPane.css'
 import './styles/utilities.css'
 
@@ -57,7 +57,7 @@ export default {
   },
 
   label: function (subject, context) {
-    if (isJavaScriptFile(subject)) return null
+    if (isJavaScriptFile(subject) || isJsonFile(subject)) return null
     const kb = context.session.store
     const n = kb.each(subject, ns.ldp('contains')).length
     if (n > 0) {

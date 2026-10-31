@@ -89,7 +89,7 @@
     width: min(206px, 100%);
     min-width: 0;
     max-width: 206px;
-    height: 145.824px;
+    min-height: 145.824px;
     border-radius: 5px;
     border: 1px solid var(--solid-ui-color-gray-200, #cbd5e1);
     background: var(--solid-ui-color-white, #ffffff);
@@ -145,8 +145,8 @@
     font-weight: 500;
     min-width: 0;
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
+    white-space: normal;
   }
 
   .resource-list-meta {
@@ -162,13 +162,19 @@
     padding: 0 12px;
   }
 
+  .resource-grid-item-footer .resource-grid-label {
+    flex: 1 1 auto;
+  }
+
   .resource-grid-item-footer {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    flex: 0 0 40px;
+    flex: 0 0 auto;
     margin-top: auto;
-    padding: 0 15px;
+    min-height: 40px;
+    box-sizing: border-box;
+    padding: 8px 15px;
     border-top: 1px solid var(--solid-ui-color-gray-200, #cbd5e1);
     gap: 12px;
   }

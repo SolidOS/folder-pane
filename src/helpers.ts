@@ -13,6 +13,14 @@ function isJavaScriptFile (resource: NamedNode): boolean {
   return /\.[cm]?js$/i.test(new URL(resource.uri).pathname)
 }
 
+function isTurtleFile (resource: NamedNode): boolean {
+  return /\.ttl$/i.test(new URL(resource.uri).pathname)
+}
+
+function isJsonFile (resource: NamedNode): boolean {
+  return /\.json$/i.test(new URL(resource.uri).pathname)
+}
+
 type ResourceAccessMetadata = { isPublic?: boolean, isPublicKnown?: boolean }
 
 function getResourceAccessState (access: ResourceAccessMetadata): 'public' | 'private' | 'unknown' {
@@ -69,7 +77,8 @@ function getCreationDialogText (paneLabel = 'Container'): { title: string, place
 }
 
 function isContainerResource (resource: NamedNode, resourceLogic: FolderPaneResourceLogic): boolean {
-  return resource.uri.endsWith('/') || (!isJavaScriptFile(resource) && resourceLogic.isContainer(resource))
+  return resource.uri.endsWith('/') ||
+    (!isJavaScriptFile(resource) && !isTurtleFile(resource) && !isJsonFile(resource) && resourceLogic.isContainer(resource))
 }
 
 function isAccessDeniedError (error: unknown): boolean {
@@ -133,5 +142,7 @@ export {
   isAccessDeniedError,
   isContainerResource,
   isJavaScriptFile,
+  isTurtleFile,
+  isJsonFile,
   readStoredWacAllow
 }
