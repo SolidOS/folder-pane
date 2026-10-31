@@ -70,6 +70,7 @@
   },
   "dependencies": {
     "lit": "^3.3.3",
+    "pane-registry": "5.0.2-2",
     "rdflib": "2.4.1",
     "solid-logic": "6.0.1-5",
     "solid-ui": "5.0.2-4",
