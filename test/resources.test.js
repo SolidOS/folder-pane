@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { sym } from 'rdflib'
-import { getContainerMemberCountLabel, getCreationDialogText, getCreationPanes, getIndexedApplicationSubject, getPaneLabel, getResourceAccessState, getResourcesForContainer, isAccessDeniedError, isContainerResource, readStoredWacAllow } from '../src/helpers'
+import { getContainerMemberCountLabel, getCreationDialogText, getCreationPanes, getIndexedApplicationSubject, getPaneLabel, getResourceAccessState, getResourcesForContainer, isAccessDeniedError, isContainerResource, isJsonFile, isTurtleFile, readStoredWacAllow } from '../src/helpers'
 import { isExtensionlessSourceFile } from '../src/mintPaneInstance'
 import folderPane, { getCreationNoun } from '../src/folderPane'
 
@@ -78,6 +78,35 @@ describe('JavaScript resource classification', () => {
       parentId: container.value,
       isContainer: true
     })
+  })
+})
+
+describe('Turtle resource classification', () => {
+  it('recognizes Turtle documents independently of server-reported RDF types', () => {
+    expect(isTurtleFile(sym('https://example.test/notes.ttl'))).toBe(true)
+    expect(isTurtleFile(sym('https://example.test/notes.ttl#this'))).toBe(true)
+    expect(isContainerResource(sym('https://example.test/notes.ttl'), resourceLogic)).toBe(false)
+  })
+
+  it('preserves folders whose names end in .ttl', () => {
+    const resource = sym('https://example.test/notes.ttl/')
+    expect(isTurtleFile(resource)).toBe(false)
+    expect(isContainerResource(resource, { ...resourceLogic, isContainer: () => false })).toBe(true)
+  })
+})
+
+describe('JSON resource classification', () => {
+  it('recognizes JSON documents independently of server-reported RDF types', () => {
+    const resource = sym('https://example.test/settings.json')
+    expect(isJsonFile(resource)).toBe(true)
+    expect(isContainerResource(resource, resourceLogic)).toBe(false)
+    expect(folderPane.label(resource, context)).toBeNull()
+  })
+
+  it('preserves folders whose names end in .json', () => {
+    const resource = sym('https://example.test/settings.json/')
+    expect(isJsonFile(resource)).toBe(false)
+    expect(isContainerResource(resource, { ...resourceLogic, isContainer: () => false })).toBe(true)
   })
 })
 

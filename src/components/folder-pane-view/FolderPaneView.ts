@@ -26,7 +26,7 @@ import * as debug from '../../debug'
 type CreatedResource = {
   container: NamedNode
   containedResource: NamedNode
-  /** Omit to refresh listings without changing the content view (uploads). */
+  /** Omit to refresh listings without changing the content view (multi-file uploads). */
   newInstance?: NamedNode
   pane?: PaneDefinition
 }
@@ -203,6 +203,8 @@ export default class FolderPaneView extends WebComponent {
       invalidFiles.forEach(file => setMintStatus(statusArea, 'error', `${file.name}: ${invalidCreationNameMessage}`))
       if (!validFiles.length) return
       this.creationInFlight = true
+      const uploadGeneration = this.renderGeneration
+      const uploadContext = this.browserContext
       let remaining = validFiles.length
       let refreshes = Promise.resolve()
       setMintStatus(statusArea, 'progress', `Uploading ${validFiles.length} file${validFiles.length === 1 ? '' : 's'}`)
@@ -219,10 +221,17 @@ export default class FolderPaneView extends WebComponent {
         container.uri,
         container.uri,
         (_file: File, uri: string) => {
-          refreshes = refreshes.then(() => this.showCreatedResource({
-            container,
-            containedResource: this.store!.sym(uri)
-          })).finally(finish)
+          refreshes = refreshes.then(() => {
+            const canNavigateToUpload = this.renderGeneration === uploadGeneration &&
+              this.browserContext === uploadContext
+            return this.showCreatedResource({
+              container,
+              containedResource: this.store!.sym(uri),
+              newInstance: validFiles.length === 1 && canNavigateToUpload
+                ? this.store!.sym(uri)
+                : undefined
+            })
+          }).finally(finish)
         },
         (_file: File, message: string) => {
           setMintStatus(statusArea, 'error', message)
@@ -615,12 +624,25 @@ export default class FolderPaneView extends WebComponent {
 
       if (!isCurrentSelection(selectedResource)) return
 
-      if (this.subject?.sameTerm(selectedResource) && pane?.name !== 'folder' && !indexRequested && !isJavaScriptFile(selectedResource)) {
+      if (
+        this.subject?.sameTerm(selectedResource) &&
+        pane?.name !== 'folder' &&
+        !indexRequested &&
+        isContainerResource(selectedResource, this.resourceLogic)
+      ) {
         this.renderContainerView(selectedResource)
         return
       }
 
-      if (isContainerResource(selectedResource, this.resourceLogic)) {
+      // A pane supplied by an explicit creation or pane-selection action is
+      // authoritative. In particular, freshly created text resources can
+      // briefly inherit container metadata while the store is refreshed.
+      // Some servers report file resources as containers. Keep known file
+      // types out of the folder branch so pane selection can run normally.
+      if (
+        isContainerResource(selectedResource, this.resourceLogic) &&
+        (pane?.name !== 'source' || indexRequested)
+      ) {
         try {
           await this.loadResource(selectedResource)
         } catch (error) {
