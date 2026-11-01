@@ -143,10 +143,15 @@
     color: var(--solid-ui-color-gray-500, #6a7282);
     font-size: var(--solid-ui-font-size-xs, 0.75rem);
     font-weight: 500;
+    line-height: 1.25;
     min-width: 0;
     overflow: hidden;
     overflow-wrap: anywhere;
     white-space: normal;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    max-height: calc(2 * 1.25em);
   }
 
   .resource-list-meta {
