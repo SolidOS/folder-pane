@@ -231,14 +231,15 @@ solid-ui-file-explorer-provider > .exceptionPane {
 .folder-pane-status {
   display: flex;
   flex-direction: column;
+  flex: 0 0 auto;
   gap: 8px;
   padding: 8px 12px;
-  border-bottom: 1px solid var(--color-border, #ddd);
+  border-top: 1px solid var(--color-border, #ddd);
   text-align: left;
 }
 
 .folder-pane-status[data-status="progress"] {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
   border: 0 !important;
