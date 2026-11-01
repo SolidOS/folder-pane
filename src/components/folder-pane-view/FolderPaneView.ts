@@ -88,7 +88,7 @@ export default class FolderPaneView extends WebComponent {
   @query('folder-pane-sidebar')
   private accessor sidebar: (HTMLElement & { refreshResources?: (container?: NamedNode) => void }) | null = null
 
-  /** Top-of-content area for pane creation progress, errors and setup UI. */
+  /** Below-content area for pane creation progress, errors and setup UI. */
   @query('.folder-pane-status')
   accessor statusArea: HTMLElement | null = null
 
@@ -841,9 +841,9 @@ export default class FolderPaneView extends WebComponent {
           .selectedResource=${this.selectedResource ?? this.subject}
         ></folder-pane-sidebar>
         <div class="folder-pane-content-column">
-          <div class="folder-pane-status"></div>
           ${this.renderContentError()}
           <folder-pane-content ?hidden=${!!this.contentError}></folder-pane-content>
+          <div class="folder-pane-status"></div>
         </div>
       </div>
     `
