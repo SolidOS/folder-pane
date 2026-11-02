@@ -1,4 +1,4 @@
-import { aclControl, composeExplorer, customElement, FILE_EXPLORER_BACK_EVENT, FILE_EXPLORER_OPEN_PANE_EVENT, getPreferredPane, getRelevantPanes, isExplorerEvent, log, ns, showDialog, WebComponent, widgets } from 'solid-ui'
+import { aclControl, composeExplorer, customElement, FILE_EXPLORER_BACK_EVENT, FILE_EXPLORER_OPEN_PANE_EVENT, getPreferredPane, getRelevantPanes, isExplorerEvent, log, ns, preparePaneMenuItems, showDialog, WebComponent, widgets } from 'solid-ui'
 import { authn, authSession } from 'solid-logic'
 import { resourceAccessCache } from '../../accessCache'
 import { html, nothing } from 'lit'
@@ -53,6 +53,10 @@ export default class FolderPaneView extends WebComponent {
     return this.browserContext?.session.logic.resource as FolderPaneResourceLogic | undefined
   }
 
+  private get displayedResource (): NamedNode | undefined {
+    return this.selectedResource ?? this.subject
+  }
+
   @property({ type: Boolean, attribute: 'full-view' })
   accessor fullView = false
 
@@ -104,6 +108,7 @@ export default class FolderPaneView extends WebComponent {
     }
     this.addEventListener('folder-pane-create-pane', this.handleCreatePane)
     this.addEventListener('folder-pane-upload', this.handleUpload)
+    this.addEventListener('resource-open-pane', this.handleResourceOpenPane as EventListener)
     if (!this.authListenersAttached) {
       authSession.events.on('login', this.handleAuthChange)
       authSession.events.on('logout', this.handleAuthChange)
@@ -118,6 +123,7 @@ export default class FolderPaneView extends WebComponent {
     this.initialLoadGeneration++
     this.removeEventListener('folder-pane-create-pane', this.handleCreatePane)
     this.removeEventListener('folder-pane-upload', this.handleUpload)
+    this.removeEventListener('resource-open-pane', this.handleResourceOpenPane as EventListener)
     if (this.authListenersAttached) {
       authSession.events.off('login', this.handleAuthChange)
       authSession.events.off('logout', this.handleAuthChange)
@@ -526,22 +532,18 @@ export default class FolderPaneView extends WebComponent {
     }
 
     const provider = target.ownerDocument.createElement('solid-ui-file-explorer-provider') as FileExplorerProvider
-    const menuItems = relevantPanes
-      .map(candidate => {
-        const label = candidate.label(subject, this.browserContext as DataBrowserContext)
-        if (!label) return undefined
-        return {
-          label,
-          action: (_event: Event) => {
-            provider.dispatchEvent(new CustomEvent(FILE_EXPLORER_OPEN_PANE_EVENT, {
-              bubbles: true,
-              composed: true,
-              detail: { subjectUri: subject.uri, paneName: candidate.name }
-            }))
-          }
-        }
-      })
-      .filter((item): item is { label: string, action: (event: Event) => void } => item !== undefined)
+    const menuItems = await preparePaneMenuItems({
+      subject,
+      context: this.browserContext,
+      panes: relevantPanes,
+      openPane: (paneSubject, paneName) => {
+        provider.dispatchEvent(new CustomEvent(FILE_EXPLORER_OPEN_PANE_EVENT, {
+          bubbles: true,
+          composed: true,
+          detail: { subjectUri: paneSubject.uri, paneName }
+        }))
+      }
+    })
 
     provider.addEventListener(FILE_EXPLORER_BACK_EVENT, event => {
       if (!isExplorerEvent(event, provider)) return
@@ -626,7 +628,7 @@ export default class FolderPaneView extends WebComponent {
 
       if (
         this.subject?.sameTerm(selectedResource) &&
-        pane?.name !== 'folder' &&
+        !pane &&
         !indexRequested &&
         isContainerResource(selectedResource, this.resourceLogic)
       ) {
@@ -817,35 +819,51 @@ export default class FolderPaneView extends WebComponent {
   render () {
     if (this.fullView) {
       return html`
-        ${this.renderContentError()}
-        <div
-          class="folder-pane-full-view"
-          ?hidden=${!!this.contentError}
-          @resource-selected=${this.handleResourceSelected}
-          @resource-open-pane=${this.handleResourceOpenPane}
-        ></div>
+        <folder-pane-provider
+          .rootResource=${this.subject}
+          .displayedResource=${this.displayedResource}
+          .activeContainer=${this.getActiveContainer()}
+          .view=${this.containerView}
+          .searchQuery=${this.searchQuery}
+          .canCreate=${this.canCreate}
+        >
+          ${this.renderContentError()}
+          <div
+            class="folder-pane-full-view"
+            ?hidden=${!!this.contentError}
+            @resource-selected=${this.handleResourceSelected}
+          ></div>
+        </folder-pane-provider>
       `
     }
 
     return html`
-      ${this.renderStorageHeader()}
-      <div
-        class="folder-pane-main-content"
-        @resource-selected=${this.handleResourceSelected}
-        @resource-open-pane=${this.handleResourceOpenPane}
+      <folder-pane-provider
+        .rootResource=${this.subject}
+        .displayedResource=${this.displayedResource}
+        .activeContainer=${this.getActiveContainer()}
+        .view=${this.containerView}
+        .searchQuery=${this.searchQuery}
+        .canCreate=${this.canCreate}
       >
-        <folder-pane-sidebar
-          .store=${this.store}
-          .resourceLogic=${this.resourceLogic}
-          .subject=${this.subject}
-          .selectedResource=${this.selectedResource ?? this.subject}
-        ></folder-pane-sidebar>
-        <div class="folder-pane-content-column">
-          ${this.renderContentError()}
-          <folder-pane-content ?hidden=${!!this.contentError}></folder-pane-content>
-          <div class="folder-pane-status"></div>
+        ${this.renderStorageHeader()}
+        <div
+          class="folder-pane-main-content"
+          @resource-selected=${this.handleResourceSelected}
+        >
+          <folder-pane-sidebar
+            .store=${this.store}
+            .resourceLogic=${this.resourceLogic}
+            .subject=${this.subject}
+            .selectedResource=${this.displayedResource}
+          ></folder-pane-sidebar>
+          <div class="folder-pane-content-column">
+            ${this.renderContentError()}
+            <folder-pane-content ?hidden=${!!this.contentError}></folder-pane-content>
+            <div class="folder-pane-status"></div>
+          </div>
         </div>
-      </div>
+      </folder-pane-provider>
     `
   }
 
@@ -853,7 +871,7 @@ export default class FolderPaneView extends WebComponent {
     return html`
       <folder-pane-storage-header
         .subject=${this.subject}
-        .selectedResource=${this.selectedResource ?? this.subject}
+        .selectedResource=${this.displayedResource}
         .browserContext=${this.browserContext}
         .paneList=${this.browserContext?.session.paneRegistry.list ?? []}
         .view=${this.containerView}
