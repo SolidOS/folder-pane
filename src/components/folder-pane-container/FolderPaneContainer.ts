@@ -5,7 +5,8 @@ import type { DataBrowserContext, PaneDefinition } from 'pane-registry'
 import type { NamedNode } from 'rdflib'
 import type { ResourceMetadata } from 'solid-logic'
 import { authn, authSession } from 'solid-logic'
-import { customElement, FILE_EXPLORER_MANAGE_ACCESS_EVENT, getPreferredPane, getRelevantPanes, utils, WebComponent } from 'solid-ui'
+import { customElement, FILE_EXPLORER_MANAGE_ACCESS_EVENT, getPreferredPane, getRelevantPanes, preparePaneMenuItems, utils, WebComponent } from 'solid-ui'
+import type { PaneMenuPane } from 'solid-ui'
 import type { Resource } from '../../types'
 import { resourceAccessCache } from '../../accessCache'
 import {
@@ -422,20 +423,29 @@ export default class FolderPaneContainer extends WebComponent {
     resource: Resource,
     label?: string
   ): Promise<ResourceActionMenuItem> {
-    const paneWithIcon = pane as Omit<PaneDefinition, 'icon'> & {
-      icon?: string | ((subject: NamedNode, context: DataBrowserContext) => string | undefined | Promise<string | undefined>)
-    }
-    const iconValue = paneWithIcon.icon
-    return {
-      key: pane.name,
-      label: label || pane.label(subject, this.browserContext!) || pane.name,
-      icon: typeof iconValue === 'function'
-        ? await iconValue(subject, this.browserContext!)
-        : iconValue,
-      action: (event) => {
+    const items = await preparePaneMenuItems({
+      subject,
+      context: this.browserContext!,
+      panes: [pane as PaneMenuPane],
+      openPane: (_subject, paneName, event) => {
         event.stopPropagation()
-        this.openResourcePane(resource, pane.name)
+        this.openResourcePane(resource, paneName)
       }
+    })
+    const item = items[0]
+    if (!item) {
+      return {
+        key: pane.name,
+        label: label || pane.name,
+        action: event => {
+          event.stopPropagation()
+          this.openResourcePane(resource, pane.name)
+        }
+      }
+    }
+    return {
+      ...item,
+      label: label || item.label
     }
   }
 

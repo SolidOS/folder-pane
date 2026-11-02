@@ -1,4 +1,4 @@
-import { aclControl, composeExplorer, customElement, FILE_EXPLORER_BACK_EVENT, FILE_EXPLORER_OPEN_PANE_EVENT, getPreferredPane, getRelevantPanes, isExplorerEvent, log, ns, showDialog, WebComponent, widgets } from 'solid-ui'
+import { aclControl, composeExplorer, customElement, FILE_EXPLORER_BACK_EVENT, FILE_EXPLORER_OPEN_PANE_EVENT, getPreferredPane, getRelevantPanes, isExplorerEvent, log, ns, preparePaneMenuItems, showDialog, WebComponent, widgets } from 'solid-ui'
 import { authn, authSession } from 'solid-logic'
 import { resourceAccessCache } from '../../accessCache'
 import { html, nothing } from 'lit'
@@ -51,6 +51,22 @@ export default class FolderPaneView extends WebComponent {
 
   private get resourceLogic (): FolderPaneResourceLogic | undefined {
     return this.browserContext?.session.logic.resource as FolderPaneResourceLogic | undefined
+  }
+
+  private get displayedResource (): NamedNode | undefined {
+    return this.selectedResource ?? this.subject
+  }
+
+  private get activeContainer (): NamedNode | undefined {
+    const displayedResource = this.displayedResource
+    if (
+      displayedResource &&
+      this.resourceLogic &&
+      isContainerResource(displayedResource, this.resourceLogic)
+    ) {
+      return displayedResource
+    }
+    return this.subject
   }
 
   @property({ type: Boolean, attribute: 'full-view' })
@@ -526,22 +542,18 @@ export default class FolderPaneView extends WebComponent {
     }
 
     const provider = target.ownerDocument.createElement('solid-ui-file-explorer-provider') as FileExplorerProvider
-    const menuItems = relevantPanes
-      .map(candidate => {
-        const label = candidate.label(subject, this.browserContext as DataBrowserContext)
-        if (!label) return undefined
-        return {
-          label,
-          action: (_event: Event) => {
-            provider.dispatchEvent(new CustomEvent(FILE_EXPLORER_OPEN_PANE_EVENT, {
-              bubbles: true,
-              composed: true,
-              detail: { subjectUri: subject.uri, paneName: candidate.name }
-            }))
-          }
-        }
-      })
-      .filter((item): item is { label: string, action: (event: Event) => void } => item !== undefined)
+    const menuItems = await preparePaneMenuItems({
+      subject,
+      context: this.browserContext,
+      panes: relevantPanes,
+      openPane: (paneSubject, paneName) => {
+        provider.dispatchEvent(new CustomEvent(FILE_EXPLORER_OPEN_PANE_EVENT, {
+          bubbles: true,
+          composed: true,
+          detail: { subjectUri: paneSubject.uri, paneName }
+        }))
+      }
+    })
 
     provider.addEventListener(FILE_EXPLORER_BACK_EVENT, event => {
       if (!isExplorerEvent(event, provider)) return
@@ -817,35 +829,53 @@ export default class FolderPaneView extends WebComponent {
   render () {
     if (this.fullView) {
       return html`
-        ${this.renderContentError()}
-        <div
-          class="folder-pane-full-view"
-          ?hidden=${!!this.contentError}
-          @resource-selected=${this.handleResourceSelected}
-          @resource-open-pane=${this.handleResourceOpenPane}
-        ></div>
+        <folder-pane-provider
+          .rootResource=${this.subject}
+          .displayedResource=${this.displayedResource}
+          .activeContainer=${this.activeContainer}
+          .view=${this.containerView}
+          .searchQuery=${this.searchQuery}
+          .canCreate=${this.canCreate}
+        >
+          ${this.renderContentError()}
+          <div
+            class="folder-pane-full-view"
+            ?hidden=${!!this.contentError}
+            @resource-selected=${this.handleResourceSelected}
+            @resource-open-pane=${this.handleResourceOpenPane}
+          ></div>
+        </folder-pane-provider>
       `
     }
 
     return html`
-      ${this.renderStorageHeader()}
-      <div
-        class="folder-pane-main-content"
-        @resource-selected=${this.handleResourceSelected}
-        @resource-open-pane=${this.handleResourceOpenPane}
+      <folder-pane-provider
+        .rootResource=${this.subject}
+        .displayedResource=${this.displayedResource}
+        .activeContainer=${this.activeContainer}
+        .view=${this.containerView}
+        .searchQuery=${this.searchQuery}
+        .canCreate=${this.canCreate}
       >
-        <folder-pane-sidebar
-          .store=${this.store}
-          .resourceLogic=${this.resourceLogic}
-          .subject=${this.subject}
-          .selectedResource=${this.selectedResource ?? this.subject}
-        ></folder-pane-sidebar>
-        <div class="folder-pane-content-column">
-          ${this.renderContentError()}
-          <folder-pane-content ?hidden=${!!this.contentError}></folder-pane-content>
-          <div class="folder-pane-status"></div>
+        ${this.renderStorageHeader()}
+        <div
+          class="folder-pane-main-content"
+          @resource-selected=${this.handleResourceSelected}
+          @resource-open-pane=${this.handleResourceOpenPane}
+        >
+          <folder-pane-sidebar
+            .store=${this.store}
+            .resourceLogic=${this.resourceLogic}
+            .subject=${this.subject}
+            .selectedResource=${this.selectedResource ?? this.subject}
+          ></folder-pane-sidebar>
+          <div class="folder-pane-content-column">
+            ${this.renderContentError()}
+            <folder-pane-content ?hidden=${!!this.contentError}></folder-pane-content>
+            <div class="folder-pane-status"></div>
+          </div>
         </div>
-      </div>
+      </folder-pane-provider>
     `
   }
 

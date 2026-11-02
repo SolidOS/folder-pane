@@ -4,6 +4,7 @@
  */
 
 import './components/folder-pane-view'
+import './components/folder-pane-provider'
 import type FolderPaneView from './components/folder-pane-view/FolderPaneView'
 import { icons, ns } from 'solid-ui'
 import { isJavaScriptFile, isJsonFile } from './helpers'
