@@ -1,4 +1,4 @@
-import { css, html, LitElement, type PropertyValues } from 'lit'
+import { html, LitElement, type PropertyValues } from 'lit'
 import { provide } from '@lit/context'
 import { customElement, property } from 'lit/decorators.js'
 import type { NamedNode } from 'rdflib'
@@ -7,6 +7,7 @@ import {
   type FolderPaneContext,
   type FolderPaneViewMode
 } from '../../primitives/context'
+import styles from './FolderPaneProvider.styles.css'
 
 function createContextValue (): FolderPaneContext {
   return {
@@ -21,11 +22,7 @@ function createContextValue (): FolderPaneContext {
 
 @customElement('folder-pane-provider')
 export default class FolderPaneProvider extends LitElement {
-  static styles = css`
-    :host {
-      display: contents;
-    }
-  `
+  static styles = styles
 
   @property({ attribute: false })
   accessor rootResource: NamedNode | undefined = undefined

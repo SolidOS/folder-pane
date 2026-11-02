@@ -1,17 +1,17 @@
 import { html, nothing } from 'lit'
 import { property } from 'lit/decorators.js'
 import { state } from 'lit/decorators.js'
-import type { DataBrowserContext, PaneDefinition } from 'pane-registry'
+import type { DataBrowserContext } from 'pane-registry'
 import type { NamedNode } from 'rdflib'
 import type { ResourceMetadata } from 'solid-logic'
 import { authn, authSession } from 'solid-logic'
-import { customElement, FILE_EXPLORER_MANAGE_ACCESS_EVENT, getPreferredPane, getRelevantPanes, preparePaneMenuItems, utils, WebComponent } from 'solid-ui'
+import { customElement, FILE_EXPLORER_MANAGE_ACCESS_EVENT, preparePaneMenuItems, utils, WebComponent } from 'solid-ui'
 import type { PaneMenuPane } from 'solid-ui'
 import type { Resource } from '../../types'
 import { resourceAccessCache } from '../../accessCache'
+import { loadResourcePaneMenuItems } from '../../resourceActionItems'
 import {
   getContainerMemberCountLabel,
-  getIndexedApplicationSubject,
   getResourceAccessState,
   getResourcesForContainer,
   readStoredWacAllow,
@@ -417,44 +417,24 @@ export default class FolderPaneContainer extends WebComponent {
     }))
   }
 
-  private async getPaneMenuItem (
-    pane: PaneDefinition,
-    subject: NamedNode,
-    resource: Resource,
-    label?: string
-  ): Promise<ResourceActionMenuItem> {
-    const items = await preparePaneMenuItems({
-      subject,
-      context: this.browserContext!,
-      panes: [pane as PaneMenuPane],
+  private async getContentsMenuItem (resource: Resource): Promise<ResourceActionMenuItem | undefined> {
+    if (!resource.isContainer || !this.browserContext) return undefined
+    const folderPane = this.browserContext.session.paneRegistry.byName('folder')
+    if (!folderPane) return undefined
+    const [item] = await preparePaneMenuItems({
+      subject: resource.subject,
+      context: this.browserContext,
+      panes: [folderPane as PaneMenuPane],
       openPane: (_subject, paneName, event) => {
         event.stopPropagation()
         this.openResourcePane(resource, paneName)
       }
     })
-    const item = items[0]
-    if (!item) {
-      return {
-        key: pane.name,
-        label: label || pane.name,
-        action: event => {
-          event.stopPropagation()
-          this.openResourcePane(resource, pane.name)
-        }
-      }
-    }
-    return {
-      ...item,
-      label: label || item.label
-    }
-  }
-
-  private async getContentsMenuItem (resource: Resource): Promise<ResourceActionMenuItem | undefined> {
-    if (!resource.isContainer || !this.browserContext) return undefined
-    const folderPane = this.browserContext.session.paneRegistry.byName('folder')
-    return folderPane
-      ? this.getPaneMenuItem(folderPane, resource.subject, resource, 'Contents')
-      : undefined
+    const action = item?.action ?? ((event: Event) => {
+      event.stopPropagation()
+      this.openResourcePane(resource, folderPane.name)
+    })
+    return { ...item, key: folderPane.name, label: 'Contents', action }
   }
 
   private async loadResourceActionMenuItems (resource: Resource) {
@@ -478,39 +458,18 @@ export default class FolderPaneContainer extends WebComponent {
     if (contents) this.setResourceActionMenuItems(resource, [contents])
 
     try {
-      try {
-        await this.browserContext.session.store.fetcher.load(resource.subject)
-      } catch (error) {
-        debug.warn('Unable to preload resource for folder-pane action menu', error)
-      }
-      if (!this.isCurrentAccessRequest(resourceGeneration, authGeneration, viewer)) return
-
-      let paneSubject = resource.subject
-      if (resource.isContainer && this.resourceLogic?.containerHasIndexDocument(resource.subject)) {
-        paneSubject = this.browserContext.session.store.sym(getIndexedApplicationSubject(resource.subject))
-        try {
-          await this.browserContext.session.store.fetcher.load(paneSubject.doc())
-        } catch (error) {
-          debug.warn('Unable to preload index document for folder-pane action menu', error)
-        }
-        if (!this.isCurrentAccessRequest(resourceGeneration, authGeneration, viewer)) return
-      }
-
-      const panes = await getRelevantPanes(paneSubject, this.browserContext, {
-        excludedPaneNames: ['sharing'],
-        fallbackPaneName: 'internal'
+      const items: ResourceActionMenuItem[] | undefined = await loadResourcePaneMenuItems({
+        resource: resource.subject,
+        isContainer: resource.isContainer,
+        context: this.browserContext,
+        resourceLogic: this.resourceLogic,
+        openPane: (paneName, event) => {
+          event.stopPropagation()
+          this.openResourcePane(resource, paneName)
+        },
+        isCurrent: () => this.isCurrentAccessRequest(resourceGeneration, authGeneration, viewer)
       })
-      if (!this.isCurrentAccessRequest(resourceGeneration, authGeneration, viewer)) return
-
-      const preferredPane = getPreferredPane(paneSubject, this.browserContext, panes)
-      const nonFolderPanes = panes.filter(pane => pane.name !== 'folder')
-      const orderedPanes = preferredPane && preferredPane.name !== 'folder'
-        ? [preferredPane, ...nonFolderPanes.filter(pane => pane !== preferredPane)]
-        : nonFolderPanes
-      const items = await Promise.all(orderedPanes.map(pane =>
-        this.getPaneMenuItem(pane, paneSubject, resource)
-      ))
-      if (!this.isCurrentAccessRequest(resourceGeneration, authGeneration, viewer)) return
+      if (!items) return
 
       if (contents) items.splice(1, 0, contents)
       this.setResourceActionMenuItems(resource, items)

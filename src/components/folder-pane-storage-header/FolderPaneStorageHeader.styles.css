@@ -112,6 +112,12 @@
   gap: 0;
 }
 
+.folder-pane-storage-header-resource-actions {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
 .folder-pane-storage-header-view-toggle {
   display: flex;
   width: 44px;

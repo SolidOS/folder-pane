@@ -2,11 +2,15 @@ import { html, nothing } from 'lit'
 import { property, state } from 'lit/decorators.js'
 import type { PropertyValues } from 'lit'
 import type { DataBrowserContext, PaneDefinition } from 'pane-registry'
-import { customElement, login, WebComponent } from 'solid-ui'
+import { authSession } from 'solid-logic'
+import { customElement, FILE_EXPLORER_MANAGE_ACCESS_EVENT, login, WebComponent } from 'solid-ui'
+import type { PaneMenuItem } from 'solid-ui'
 import type { NamedNode } from 'rdflib'
+import type { ResourceMetadata } from 'solid-logic'
 import 'solid-ui/components/button'
 import 'solid-ui/components/menu'
 import 'solid-ui/components/menu-item'
+import 'solid-ui/components/resource-actions-menu'
 import '~icons/lucide/folder-open'
 import '~icons/lucide/folder'
 import '~icons/lucide/layout-grid'
@@ -15,7 +19,9 @@ import '~icons/lucide/chevron-down'
 import '~icons/lucide/plus'
 import '~icons/lucide/upload'
 import '~icons/lucide/search'
-import { getCreationPanes, getPaneLabel } from '../../helpers'
+import { getCreationPanes, getPaneLabel, isContainerResource, type FolderPaneResourceLogic } from '../../helpers'
+import { resourceAccessCache } from '../../accessCache'
+import { loadResourcePaneMenuItems } from '../../resourceActionItems'
 import * as debug from '../../debug'
 import styles from './FolderPaneStorageHeader.styles.css'
 
@@ -47,18 +53,120 @@ export default class FolderPaneStorageHeader extends WebComponent {
   @state()
   accessor availablePanes: PaneDefinition[] = []
 
+  @state()
+  accessor resourceActionMenuItems: PaneMenuItem[] = []
+
+  @state()
+  accessor canManageAccess = false
+
   private availablePanesGeneration = 0
+  private resourceActionsGeneration = 0
+  private authListenersAttached = false
 
   protected updated (changedProperties: PropertyValues<this>) {
-    if (!changedProperties.has('paneList') && !changedProperties.has('browserContext')) return
-    const generation = ++this.availablePanesGeneration
-    void login.filterAvailablePanes(this.paneList)
-      .then(panes => {
-        if (generation === this.availablePanesGeneration) {
-          this.availablePanes = getCreationPanes(panes)
-        }
+    if (changedProperties.has('paneList') || changedProperties.has('browserContext')) {
+      const generation = ++this.availablePanesGeneration
+      void login.filterAvailablePanes(this.paneList)
+        .then(panes => {
+          if (generation === this.availablePanesGeneration) {
+            this.availablePanes = getCreationPanes(panes)
+          }
+        })
+        .catch(error => debug.error('Unable to load folder creation panes', error))
+    }
+
+    if (
+      changedProperties.has('selectedResource') ||
+      changedProperties.has('subject') ||
+      changedProperties.has('browserContext')
+    ) {
+      void this.loadResourceActions()
+    }
+  }
+
+  connectedCallback () {
+    super.connectedCallback()
+    if (!this.authListenersAttached) {
+      authSession.events.on('login', this.handleAuthChange)
+      authSession.events.on('logout', this.handleAuthChange)
+      this.authListenersAttached = true
+    }
+  }
+
+  disconnectedCallback () {
+    this.resourceActionsGeneration++
+    if (this.authListenersAttached) {
+      authSession.events.off('login', this.handleAuthChange)
+      authSession.events.off('logout', this.handleAuthChange)
+      this.authListenersAttached = false
+    }
+    super.disconnectedCallback()
+  }
+
+  private handleAuthChange = () => {
+    void this.loadResourceActions()
+  }
+
+  private get displayedResource () {
+    return this.selectedResource ?? this.subject
+  }
+
+  private async loadResourceActions () {
+    const generation = ++this.resourceActionsGeneration
+    const resource = this.displayedResource
+    const context = this.browserContext
+    this.resourceActionMenuItems = []
+    this.canManageAccess = false
+    if (!resource || !context) return
+
+    const resourceLogic = context.session.logic.resource
+    const folderPaneResourceLogic = resourceLogic as FolderPaneResourceLogic
+    const accessMetadata = resourceLogic.fetchMetadata(resource)
+      .then((metadata: ResourceMetadata) => metadata.access.canManageAccess)
+      .catch(error => {
+        debug.warn('Unable to load storage-header access metadata', error)
+        return false
       })
-      .catch(error => debug.error('Unable to load folder creation panes', error))
+
+      try {
+        const items = await loadResourcePaneMenuItems({
+        resource,
+        isContainer: isContainerResource(resource, folderPaneResourceLogic),
+        context,
+        resourceLogic: folderPaneResourceLogic,
+        includeFolderPane: true,
+        openPane: (paneName, event) => {
+          event.stopPropagation()
+          this.dispatchEvent(new CustomEvent('resource-open-pane', {
+            detail: { resource, paneName },
+            bubbles: true,
+            composed: true
+          }))
+        },
+        isCurrent: () => generation === this.resourceActionsGeneration && resource === this.displayedResource
+      })
+      if (items) this.resourceActionMenuItems = items
+    } catch (error) {
+      if (generation === this.resourceActionsGeneration) {
+        debug.warn('Unable to load storage-header pane actions', error)
+      }
+    } finally {
+      const canManageAccess = await accessMetadata
+      if (generation === this.resourceActionsGeneration && resource === this.displayedResource) {
+        this.canManageAccess = canManageAccess
+      }
+    }
+  }
+
+  private openAccessControls = () => {
+    const resource = this.displayedResource
+    if (!resource) return
+    resourceAccessCache.delete(resource.uri)
+    this.dispatchEvent(new CustomEvent(FILE_EXPLORER_MANAGE_ACCESS_EVENT, {
+      detail: { subjectUri: resource.uri },
+      bubbles: true,
+      composed: true
+    }))
   }
 
   private get breadcrumbResources () {
@@ -166,6 +274,17 @@ export default class FolderPaneStorageHeader extends WebComponent {
               @input=${this.updateSearch}
             >
           </label>
+          ${this.displayedResource && this.browserContext ? html`
+            <solid-ui-resource-actions-menu
+              class="folder-pane-storage-header-resource-actions"
+              .store=${this.browserContext.session.store}
+              .subjectUri=${this.displayedResource.uri}
+              .menuItems=${this.resourceActionMenuItems}
+              .canManageAccess=${this.canManageAccess}
+              .showAccessInMenu=${true}
+              .handleAccessClick=${this.openAccessControls}
+            ></solid-ui-resource-actions-menu>
+          ` : nothing}
           <div class="folder-pane-storage-header-view-controls" role="group" aria-label="Container view">
             <div class=${`folder-pane-storage-header-view-toggle ${this.view === 'grid' ? 'is-selected' : ''}`}>
               <solid-ui-button

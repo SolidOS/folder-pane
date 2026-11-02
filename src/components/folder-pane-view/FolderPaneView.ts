@@ -57,18 +57,6 @@ export default class FolderPaneView extends WebComponent {
     return this.selectedResource ?? this.subject
   }
 
-  private get activeContainer (): NamedNode | undefined {
-    const displayedResource = this.displayedResource
-    if (
-      displayedResource &&
-      this.resourceLogic &&
-      isContainerResource(displayedResource, this.resourceLogic)
-    ) {
-      return displayedResource
-    }
-    return this.subject
-  }
-
   @property({ type: Boolean, attribute: 'full-view' })
   accessor fullView = false
 
@@ -120,6 +108,7 @@ export default class FolderPaneView extends WebComponent {
     }
     this.addEventListener('folder-pane-create-pane', this.handleCreatePane)
     this.addEventListener('folder-pane-upload', this.handleUpload)
+    this.addEventListener('resource-open-pane', this.handleResourceOpenPane as EventListener)
     if (!this.authListenersAttached) {
       authSession.events.on('login', this.handleAuthChange)
       authSession.events.on('logout', this.handleAuthChange)
@@ -134,6 +123,7 @@ export default class FolderPaneView extends WebComponent {
     this.initialLoadGeneration++
     this.removeEventListener('folder-pane-create-pane', this.handleCreatePane)
     this.removeEventListener('folder-pane-upload', this.handleUpload)
+    this.removeEventListener('resource-open-pane', this.handleResourceOpenPane as EventListener)
     if (this.authListenersAttached) {
       authSession.events.off('login', this.handleAuthChange)
       authSession.events.off('logout', this.handleAuthChange)
@@ -638,7 +628,7 @@ export default class FolderPaneView extends WebComponent {
 
       if (
         this.subject?.sameTerm(selectedResource) &&
-        pane?.name !== 'folder' &&
+        !pane &&
         !indexRequested &&
         isContainerResource(selectedResource, this.resourceLogic)
       ) {
@@ -832,7 +822,7 @@ export default class FolderPaneView extends WebComponent {
         <folder-pane-provider
           .rootResource=${this.subject}
           .displayedResource=${this.displayedResource}
-          .activeContainer=${this.activeContainer}
+          .activeContainer=${this.getActiveContainer()}
           .view=${this.containerView}
           .searchQuery=${this.searchQuery}
           .canCreate=${this.canCreate}
@@ -842,7 +832,6 @@ export default class FolderPaneView extends WebComponent {
             class="folder-pane-full-view"
             ?hidden=${!!this.contentError}
             @resource-selected=${this.handleResourceSelected}
-            @resource-open-pane=${this.handleResourceOpenPane}
           ></div>
         </folder-pane-provider>
       `
@@ -852,7 +841,7 @@ export default class FolderPaneView extends WebComponent {
       <folder-pane-provider
         .rootResource=${this.subject}
         .displayedResource=${this.displayedResource}
-        .activeContainer=${this.activeContainer}
+        .activeContainer=${this.getActiveContainer()}
         .view=${this.containerView}
         .searchQuery=${this.searchQuery}
         .canCreate=${this.canCreate}
@@ -861,13 +850,12 @@ export default class FolderPaneView extends WebComponent {
         <div
           class="folder-pane-main-content"
           @resource-selected=${this.handleResourceSelected}
-          @resource-open-pane=${this.handleResourceOpenPane}
         >
           <folder-pane-sidebar
             .store=${this.store}
             .resourceLogic=${this.resourceLogic}
             .subject=${this.subject}
-            .selectedResource=${this.selectedResource ?? this.subject}
+            .selectedResource=${this.displayedResource}
           ></folder-pane-sidebar>
           <div class="folder-pane-content-column">
             ${this.renderContentError()}
@@ -883,7 +871,7 @@ export default class FolderPaneView extends WebComponent {
     return html`
       <folder-pane-storage-header
         .subject=${this.subject}
-        .selectedResource=${this.selectedResource ?? this.subject}
+        .selectedResource=${this.displayedResource}
         .browserContext=${this.browserContext}
         .paneList=${this.browserContext?.session.paneRegistry.list ?? []}
         .view=${this.containerView}
