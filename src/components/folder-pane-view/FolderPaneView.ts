@@ -669,7 +669,10 @@ export default class FolderPaneView extends WebComponent {
           return
         }
 
-        if (indexRequested || this.resourceLogic.containerHasIndexDocument(selectedResource)) {
+        if (
+          pane?.name !== 'sharing' &&
+          (indexRequested || this.resourceLogic.containerHasIndexDocument(selectedResource))
+        ) {
           const applicationSubject = this.store.sym(
             getIndexedApplicationSubject(selectedResource, pane?.name)
           )
@@ -746,12 +749,13 @@ export default class FolderPaneView extends WebComponent {
   private showSubject (resource: NamedNode, pane?: PaneDefinition) {
     // `container/index.ttl#this` is rendered exactly like selecting its container,
     // so indexed panes never show the file-explorer header on either route.
-    const indexedContainerUri = getIndexedContainer(resource)
+    const useIndexedApplication = pane?.name !== 'sharing'
+    const indexedContainerUri = useIndexedApplication ? getIndexedContainer(resource) : undefined
     const indexedContainer = indexedContainerUri && this.store
       ? this.store.sym(indexedContainerUri)
       : undefined
     const subject = indexedContainer ?? resource
-    const indexRequested = !indexedContainer &&
+    const indexRequested = useIndexedApplication && !indexedContainer &&
       !!this.resourceLogic &&
       isContainerResource(resource, this.resourceLogic) &&
       this.resourceLogic.containerHasIndexDocument(resource)

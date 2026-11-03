@@ -5,7 +5,7 @@ import type { DataBrowserContext } from 'pane-registry'
 import type { NamedNode } from 'rdflib'
 import type { ResourceMetadata } from 'solid-logic'
 import { authn, authSession } from 'solid-logic'
-import { customElement, FILE_EXPLORER_MANAGE_ACCESS_EVENT, preparePaneMenuItems, utils, WebComponent } from 'solid-ui'
+import { customElement, preparePaneMenuItems, utils, WebComponent } from 'solid-ui'
 import type { PaneMenuPane } from 'solid-ui'
 import type { Resource } from '../../types'
 import { resourceAccessCache } from '../../accessCache'
@@ -387,10 +387,9 @@ export default class FolderPaneContainer extends WebComponent {
   }
 
   private openAccessControls (resource: Resource) {
-    // Sharing may change; check again on the next visit.
     resourceAccessCache.delete(resource.subject.uri)
-    this.dispatchEvent(new CustomEvent(FILE_EXPLORER_MANAGE_ACCESS_EVENT, {
-      detail: { subjectUri: resource.subject.uri },
+    this.dispatchEvent(new CustomEvent('resource-open-pane', {
+      detail: { resource: resource.subject, paneName: 'sharing' },
       bubbles: true,
       composed: true
     }))

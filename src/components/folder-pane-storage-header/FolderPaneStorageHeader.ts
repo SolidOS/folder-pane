@@ -3,7 +3,7 @@ import { property, state } from 'lit/decorators.js'
 import type { PropertyValues } from 'lit'
 import type { DataBrowserContext, PaneDefinition } from 'pane-registry'
 import { authSession } from 'solid-logic'
-import { customElement, FILE_EXPLORER_MANAGE_ACCESS_EVENT, login, WebComponent } from 'solid-ui'
+import { customElement, login, WebComponent } from 'solid-ui'
 import type { PaneMenuItem } from 'solid-ui'
 import type { NamedNode } from 'rdflib'
 import type { ResourceMetadata } from 'solid-logic'
@@ -162,8 +162,8 @@ export default class FolderPaneStorageHeader extends WebComponent {
     const resource = this.displayedResource
     if (!resource) return
     resourceAccessCache.delete(resource.uri)
-    this.dispatchEvent(new CustomEvent(FILE_EXPLORER_MANAGE_ACCESS_EVENT, {
-      detail: { subjectUri: resource.uri },
+    this.dispatchEvent(new CustomEvent('resource-open-pane', {
+      detail: { resource, paneName: 'sharing' },
       bubbles: true,
       composed: true
     }))
