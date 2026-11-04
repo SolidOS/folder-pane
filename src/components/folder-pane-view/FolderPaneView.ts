@@ -556,9 +556,13 @@ export default class FolderPaneView extends WebComponent {
     provider.addEventListener(FILE_EXPLORER_BACK_EVENT, event => {
       if (!isExplorerEvent(event, provider)) return
       event.stopPropagation()
+      // Return to the container that owns the displayed resource. Using the
+      // explorer root here loses the user's position for resources in nested
+      // containers.
+      const parentContainer = this.getActiveContainer() || this.subject || subject
       this.renderGeneration++
       this.selectedResource = undefined
-      this.renderContainerView(this.subject || subject)
+      this.renderContainerView(parentContainer)
     })
     provider.addEventListener(FILE_EXPLORER_OPEN_PANE_EVENT, event => {
       if (!isExplorerEvent(event, provider)) return
