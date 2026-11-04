@@ -38,8 +38,6 @@ export default class FolderPaneSidebar extends WebComponent {
 
   @state()
   accessor homeExpanded = true
-  @state()
-  accessor expansionError: string | undefined = undefined
   private resourceGeneration = 0
 
   private loadResources () {
@@ -81,26 +79,37 @@ export default class FolderPaneSidebar extends WebComponent {
 
     const fetcher = this.store?.fetcher
     if (!fetcher) {
-      this.expansionError = `Unable to load ${utils.label(resource.subject)}. Try expanding it again.`
+      this.reportExpansionError(resource)
       return
     }
 
     try {
       await fetcher.load(resource.subject)
     } catch (error) {
-      debug.error('Unable to expand storage container', error)
-      this.expansionError = `Unable to load ${utils.label(resource.subject)}. Try expanding it again.`
+      this.reportExpansionError(resource, error)
       return
     }
 
     if (generation !== this.resourceGeneration) return
-    this.expansionError = undefined
     // Loading a container updates the RDF store asynchronously. Refresh the
     // root snapshot so a subsequent render sees the newly loaded members.
     if (this.store && this.subject) {
       this.resources = getResourcesForContainer(this.subject, this.resourceLogic)
     }
     this.expandedContainers = new Set(this.expandedContainers).add(resource.id)
+  }
+
+  private reportExpansionError (resource: Resource, error?: unknown) {
+    if (error) debug.error('Unable to expand storage container', error)
+    this.dispatchEvent(new CustomEvent('folder-pane-resource-error', {
+      detail: {
+        title: `Unable to load ${utils.label(resource.subject)}`,
+        message: 'Try expanding the folder again.',
+        retry: () => { void this.toggleContainer(resource) }
+      },
+      bubbles: true,
+      composed: true
+    }))
   }
 
   private isSelected (resource: Resource | null) {
@@ -232,6 +241,7 @@ export default class FolderPaneSidebar extends WebComponent {
 
   private renderResourceGroup (resources: ResourceMap | Resource[]) {
     const list = Array.isArray(resources) ? resources : [...resources.values()]
+    if (list.length === 0) return nothing
 
     return html`
       <ul role="group" class="resource-group">
@@ -279,7 +289,6 @@ export default class FolderPaneSidebar extends WebComponent {
   render () {
     return html`
       <aside>
-        ${this.expansionError ? html`<div class="folder-pane-sidebar-error" role="alert">${this.expansionError}</div>` : nothing}
         ${this.renderTree()}
       </aside>
     `

@@ -38,6 +38,12 @@ type ExplorerRenderOptions = {
   showHeader?: boolean
 }
 
+type ContentError = {
+  title: string
+  message: string
+  retry?: () => void
+}
+
 @customElement('folder-pane-view')
 export default class FolderPaneView extends WebComponent {
   @property({ attribute: false })
@@ -71,7 +77,7 @@ export default class FolderPaneView extends WebComponent {
   accessor searchQuery = ''
 
   @state()
-  private accessor contentError: { title: string, message: string } | undefined = undefined
+  private accessor contentError: ContentError | undefined = undefined
 
   @state()
   private accessor canCreate = false
@@ -283,8 +289,8 @@ export default class FolderPaneView extends WebComponent {
     return this.fullView ? this.fullViewTarget : this.contentView
   }
 
-  private showContentError (error: { title: string, message: string }) {
-    this.resourceTarget?.replaceChildren()
+  private showContentError (error: ContentError, clearContent = true) {
+    if (clearContent) this.resourceTarget?.replaceChildren()
     this.contentError = error
   }
 
@@ -319,6 +325,13 @@ export default class FolderPaneView extends WebComponent {
   }
 
   private retryContent = () => {
+    const retry = this.contentError?.retry
+    if (retry) {
+      this.clearContentError()
+      retry()
+      return
+    }
+
     const selectedResource = this.selectedResource
     const subject = this.subject
     if (!selectedResource && !subject) return
@@ -832,6 +845,21 @@ export default class FolderPaneView extends WebComponent {
     this.setContainerView(view)
   }
 
+  private handleFolderPaneResourceError = (event: CustomEvent<{
+    title?: string
+    message?: string
+    retry?: () => void
+  }>) => {
+    event.stopPropagation()
+    const title = event.detail?.title || 'Unable to load this folder'
+    const message = event.detail?.message || 'The folder could not be loaded. Try again.'
+    this.showContentError({
+      title,
+      message,
+      retry: event.detail?.retry
+    }, false)
+  }
+
   render () {
     if (this.fullView) {
       return html`
@@ -866,6 +894,7 @@ export default class FolderPaneView extends WebComponent {
         <div
           class="folder-pane-main-content"
           @resource-selected=${this.handleResourceSelected}
+          @folder-pane-resource-error=${this.handleFolderPaneResourceError}
         >
           <folder-pane-sidebar
             .store=${this.store}
