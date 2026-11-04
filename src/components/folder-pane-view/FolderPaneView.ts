@@ -22,6 +22,7 @@ import { getPaneLabel } from '../../helpers'
 import { isSafeCreationName, invalidCreationNameMessage } from '../../creationSafety'
 import { mintPaneInstance, PaneMintError, setMintStatus } from '../../mintPaneInstance'
 import * as debug from '../../debug'
+import { clearFailedResource } from './resourceLoad'
 
 type CreatedResource = {
   container: NamedNode
@@ -295,14 +296,21 @@ export default class FolderPaneView extends WebComponent {
   }
 
   private async loadResource (resource: NamedNode): Promise<void> {
-    if (!this.store) return
+    const store = this.store
+    if (!store) return
+    const fetcher = store.fetcher
+    // rdflib keeps failed requests in its cache. A later navigation (or the
+    // retry button) otherwise just observes the cached failure and never
+    // starts a new request. This is especially common when the first request
+    // races OIDC restoration.
+    clearFailedResource(fetcher, resource)
     try {
-      await this.store.fetcher.load(resource)
+      await fetcher.load(resource)
     } catch (error) {
       // A request made before OIDC restoration can leave a failed fetch cached.
       // The owner is allowed to retry the resource once with a clean fetcher entry.
       if (!isAccessDeniedError(error) || !authn.currentUser()) throw error
-      await this.store.fetcher.load(resource, { force: true, clearPreviousData: true })
+      await fetcher.load(resource, { force: true, clearPreviousData: true })
     }
   }
 
