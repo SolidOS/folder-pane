@@ -561,7 +561,7 @@ export default class FolderPaneView extends WebComponent {
       // containers.
       const parentContainer = this.getActiveContainer() || this.subject || subject
       this.renderGeneration++
-      this.selectedResource = undefined
+      this.selectedResource = parentContainer
       this.renderContainerView(parentContainer)
     })
     provider.addEventListener(FILE_EXPLORER_OPEN_PANE_EVENT, event => {
