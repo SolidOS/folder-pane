@@ -728,7 +728,7 @@ export default class FolderPaneView extends WebComponent {
         if (selectedPane?.name !== 'folder') {
           await this.renderExplorerInto(target, selectedResource, selectedPane, {
             isCurrent: () => isCurrentSelection(selectedResource),
-            showHeader: true
+            showHeader: false
           })
           return
         }
