@@ -97,7 +97,9 @@ export default class FolderPaneSidebar extends WebComponent {
     this.expansionError = undefined
     // Loading a container updates the RDF store asynchronously. Refresh the
     // root snapshot so a subsequent render sees the newly loaded members.
-    this.loadResources()
+    if (this.store && this.subject) {
+      this.resources = getResourcesForContainer(this.subject, this.resourceLogic)
+    }
     this.expandedContainers = new Set(this.expandedContainers).add(resource.id)
   }
 
