@@ -232,6 +232,7 @@ export default class FolderPaneSidebar extends WebComponent {
 
   private renderResourceGroup (resources: ResourceMap | Resource[]) {
     const list = Array.isArray(resources) ? resources : [...resources.values()]
+    if (list.length === 0) return nothing
 
     return html`
       <ul role="group" class="resource-group">
