@@ -63,7 +63,7 @@ export default class FolderPaneStorageHeader extends WebComponent {
   private resourceActionsGeneration = 0
   private authListenersAttached = false
 
-  protected updated (changedProperties: PropertyValues<this>) {
+  protected willUpdate (changedProperties: PropertyValues<this>) {
     if (changedProperties.has('paneList') || changedProperties.has('browserContext')) {
       const generation = ++this.availablePanesGeneration
       void login.filterAvailablePanes(this.paneList)

@@ -22,6 +22,7 @@ import { getPaneLabel } from '../../helpers'
 import { isSafeCreationName, invalidCreationNameMessage } from '../../creationSafety'
 import { mintPaneInstance, PaneMintError, setMintStatus } from '../../mintPaneInstance'
 import * as debug from '../../debug'
+import { clearFailedResource } from './resourceLoad'
 
 type CreatedResource = {
   container: NamedNode
@@ -295,14 +296,21 @@ export default class FolderPaneView extends WebComponent {
   }
 
   private async loadResource (resource: NamedNode): Promise<void> {
-    if (!this.store) return
+    const store = this.store
+    if (!store) return
+    const fetcher = store.fetcher
+    // rdflib keeps failed requests in its cache. A later navigation (or the
+    // retry button) otherwise just observes the cached failure and never
+    // starts a new request. This is especially common when the first request
+    // races OIDC restoration.
+    clearFailedResource(fetcher, resource)
     try {
-      await this.store.fetcher.load(resource)
+      await fetcher.load(resource)
     } catch (error) {
       // A request made before OIDC restoration can leave a failed fetch cached.
       // The owner is allowed to retry the resource once with a clean fetcher entry.
       if (!isAccessDeniedError(error) || !authn.currentUser()) throw error
-      await this.store.fetcher.load(resource, { force: true, clearPreviousData: true })
+      await fetcher.load(resource, { force: true, clearPreviousData: true })
     }
   }
 
@@ -548,9 +556,13 @@ export default class FolderPaneView extends WebComponent {
     provider.addEventListener(FILE_EXPLORER_BACK_EVENT, event => {
       if (!isExplorerEvent(event, provider)) return
       event.stopPropagation()
+      // Return to the container that owns the displayed resource. Using the
+      // explorer root here loses the user's position for resources in nested
+      // containers.
+      const parentContainer = this.getActiveContainer() || this.subject || subject
       this.renderGeneration++
-      this.selectedResource = undefined
-      this.renderContainerView(this.subject || subject)
+      this.selectedResource = parentContainer
+      this.renderContainerView(parentContainer)
     })
     provider.addEventListener(FILE_EXPLORER_OPEN_PANE_EVENT, event => {
       if (!isExplorerEvent(event, provider)) return

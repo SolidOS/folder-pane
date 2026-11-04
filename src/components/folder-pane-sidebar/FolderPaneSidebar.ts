@@ -79,8 +79,14 @@ export default class FolderPaneSidebar extends WebComponent {
       return
     }
 
+    const fetcher = this.store?.fetcher
+    if (!fetcher) {
+      this.expansionError = `Unable to load ${utils.label(resource.subject)}. Try expanding it again.`
+      return
+    }
+
     try {
-      await this.store?.fetcher?.load(resource.subject)
+      await fetcher.load(resource.subject)
     } catch (error) {
       debug.error('Unable to expand storage container', error)
       this.expansionError = `Unable to load ${utils.label(resource.subject)}. Try expanding it again.`
@@ -89,6 +95,11 @@ export default class FolderPaneSidebar extends WebComponent {
 
     if (generation !== this.resourceGeneration) return
     this.expansionError = undefined
+    // Loading a container updates the RDF store asynchronously. Refresh the
+    // root snapshot so a subsequent render sees the newly loaded members.
+    if (this.store && this.subject) {
+      this.resources = getResourcesForContainer(this.subject, this.resourceLogic)
+    }
     this.expandedContainers = new Set(this.expandedContainers).add(resource.id)
   }
 
