@@ -51,6 +51,7 @@
 
 .folder-pane-storage-header-breadcrumbs li {
   min-width: 0;
+  flex: 0 0 auto;
   gap: 5.6px;
 }
 
@@ -61,6 +62,7 @@
   color: inherit;
   cursor: pointer;
   font: inherit;
+  white-space: nowrap;
 }
 
 .folder-pane-storage-header-breadcrumbs button:hover,
@@ -216,23 +218,63 @@
 
 @media (max-width: 768px) {
   .folder-pane-storage-header {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    align-items: flex-start;
     gap: var(--folder-pane-storage-header-mobile-gap, 8px);
     padding: var(--folder-pane-storage-header-mobile-padding, 10px 0);
     border-bottom: 1px solid var(--solid-ui-color-gray-200, #e5e7eb);
   }
 
   .folder-pane-storage-header-breadcrumbs {
-    display: none;
+    flex: 1 1 0;
+    max-width: 100%;
+    overflow: visible;
+    align-items: flex-start;
   }
 
-  .folder-pane-storage-header-breadcrumbs {
-    flex: 1 1 auto;
+  .folder-pane-storage-header-breadcrumbs ol {
+    flex: 1 1 0;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    align-items: baseline;
+    row-gap: 3px;
+    font-size: var(--solid-ui-font-size-xs, .75rem);
+    text-align: left;
+  }
+
+  .folder-pane-storage-header-breadcrumbs li {
+    flex: 0 1 auto;
     max-width: 100%;
+    align-items: baseline;
+  }
+
+  .folder-pane-storage-header-breadcrumbs li button {
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-align: left;
+  }
+
+  .folder-pane-storage-header-breadcrumbs .separator {
+    flex: 0 0 auto;
+    margin-left: 0.35em;
+  }
+
+  .folder-pane-storage-header-breadcrumbs .breadcrumb-label-ending {
+    display: inline-block;
+    white-space: nowrap;
+  }
+
+  .folder-pane-storage-header-breadcrumbs [aria-current='page'] {
+    display: block;
+    min-width: 0;
+    white-space: normal;
+    max-width: 100%;
+    overflow-wrap: anywhere;
   }
 
   .folder-pane-storage-header-toolbar {
-    flex: 0 1 auto;
+    flex: 0 0 auto;
     margin-left: auto;
   }
 
