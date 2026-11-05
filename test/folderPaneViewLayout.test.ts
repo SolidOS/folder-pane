@@ -9,6 +9,7 @@ import FolderPaneView, {
   MIN_CONTENT_WIDTH,
   MIN_SIDEBAR_WIDTH
 } from '../src/components/folder-pane-view/FolderPaneView'
+import '../src/components/folder-pane-storage-header/FolderPaneStorageHeader'
 
 describe('folder pane layout state', () => {
   afterEach(() => {
@@ -61,5 +62,47 @@ describe('folder pane layout state', () => {
     expect(view.querySelector('folder-pane-sidebar')).toBe(sidebar)
     expect(view.querySelector('.folder-pane-main-content')?.getAttribute('style'))
       .toContain('--folder-pane-sidebar-width: 360px')
+  })
+
+  it('toggles navigation with an action-oriented accessible name', async () => {
+    const view = document.createElement('folder-pane-view') as FolderPaneView & {
+      sidebarCollapsed: boolean
+    }
+    document.body.append(view)
+    await view.updateComplete
+    const toggle = view.querySelector('button.folder-pane-sidebar-toggle') as HTMLElement
+    expect(toggle.getAttribute('aria-label')).toBe('Collapse navigation')
+    expect(toggle.getAttribute('aria-expanded')).toBe('true')
+
+    toggle.click()
+    await view.updateComplete
+    expect(view.sidebarCollapsed).toBe(true)
+    expect(toggle.getAttribute('aria-label')).toBe('Expand navigation')
+    expect(toggle.getAttribute('aria-expanded')).toBe('false')
+    expect(view.querySelector('.folder-pane-main-content')?.dataset.sidebarCollapsed).toBe('true')
+    expect(view.querySelector('folder-pane-sidebar')?.getAttribute('aria-hidden')).toBe('true')
+    expect(view.querySelector('.folder-pane-sidebar-resizer')?.hasAttribute('hidden')).toBe(false)
+
+    toggle.dispatchEvent(new CustomEvent('folder-pane-toggle-sidebar', { bubbles: true, composed: true }))
+    await view.updateComplete
+    expect(view.sidebarCollapsed).toBe(false)
+    expect(document.activeElement).not.toBe(toggle)
+  })
+
+  it('moves tree focus to the toggle when collapsing navigation', async () => {
+    const view = document.createElement('folder-pane-view') as FolderPaneView & {
+      sidebarCollapsed: boolean
+    }
+    document.body.append(view)
+    await view.updateComplete
+    const sidebar = view.querySelector('folder-pane-sidebar') as any
+    const toggle = view.querySelector('button.folder-pane-sidebar-toggle') as HTMLElement
+    sidebar.tabIndex = 0
+    sidebar.focus()
+
+    toggle.dispatchEvent(new CustomEvent('folder-pane-toggle-sidebar', { bubbles: true, composed: true }))
+    await view.updateComplete
+    expect(view.sidebarCollapsed).toBe(true)
+    expect(document.activeElement).toBe(toggle)
   })
 })

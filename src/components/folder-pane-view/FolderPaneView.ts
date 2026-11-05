@@ -11,10 +11,12 @@ import '../folder-pane-content'
 import '../folder-pane-storage-header'
 import type { NamedNode } from 'rdflib'
 import 'solid-ui/components/file-explorer-provider'
+import 'solid-ui/components/button'
 import type FileExplorerProvider from 'solid-ui/components/file-explorer-provider'
 import 'solid-ui/components/error-state'
 import 'solid-ui/components/file-explorer-header'
 import type FolderPaneContainer from '../folder-pane-container/FolderPaneContainer'
+import '~icons/lucide/chevron-left'
 import { getIndexedApplicationSubject, getIndexedContainer, isAccessDeniedError, isContainerResource, isJavaScriptFile, type FolderPaneResourceLogic } from '../../helpers'
 import { invalidateRenderRequest, isCurrentRenderRequest, type RenderRequest } from './renderRequest'
 import FolderPaneCreateDialog from '../folder-pane-storage-header/FolderPaneCreateDialog'
@@ -868,6 +870,21 @@ export default class FolderPaneView extends WebComponent {
     this.setContainerView(view)
   }
 
+  private handleSidebarToggle = async (event: Event) => {
+    event.stopPropagation()
+    const sidebar = this.sidebar
+    const resizer = this.renderRoot.querySelector<HTMLElement>('.folder-pane-sidebar-resizer')
+    const focusWasInSidebar = !!sidebar && (
+      sidebar.matches(':focus-within') ||
+      sidebar.shadowRoot?.activeElement != null
+    )
+    const focusWasOnResizer = resizer === this.ownerDocument.activeElement
+    this.sidebarCollapsed = !this.sidebarCollapsed
+    if (!this.sidebarCollapsed || (!focusWasInSidebar && !focusWasOnResizer)) return
+    await this.updateComplete
+    this.renderRoot.querySelector<HTMLButtonElement>('.folder-pane-sidebar-toggle')?.focus()
+  }
+
   private handleFolderPaneResourceError = (event: CustomEvent<{
     title?: string
     message?: string
@@ -912,6 +929,7 @@ export default class FolderPaneView extends WebComponent {
         .view=${this.containerView}
         .searchQuery=${this.searchQuery}
         .canCreate=${this.canCreate}
+        .sidebarCollapsed=${this.sidebarCollapsed}
       >
         ${this.renderStorageHeader()}
         <div
@@ -920,13 +938,35 @@ export default class FolderPaneView extends WebComponent {
           style=${`--folder-pane-sidebar-width: ${this.sidebarWidth}px`}
           @resource-selected=${this.handleResourceSelected}
           @folder-pane-resource-error=${this.handleFolderPaneResourceError}
+          @folder-pane-toggle-sidebar=${this.handleSidebarToggle}
         >
           <folder-pane-sidebar
+            ?inert=${this.sidebarCollapsed}
+            aria-hidden=${this.sidebarCollapsed ? 'true' : 'false'}
             .store=${this.store}
             .resourceLogic=${this.resourceLogic}
             .subject=${this.subject}
             .selectedResource=${this.displayedResource}
           ></folder-pane-sidebar>
+          <div
+            class="folder-pane-sidebar-resizer"
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize navigation"
+          >
+            <button
+              type="button"
+              class="folder-pane-sidebar-toggle"
+              aria-label=${this.sidebarCollapsed ? 'Expand navigation' : 'Collapse navigation'}
+              aria-expanded=${String(!this.sidebarCollapsed)}
+              @click=${this.handleSidebarToggle}
+            >
+              <icon-lucide-chevron-left
+                class=${`folder-pane-sidebar-toggle-icon${this.sidebarCollapsed ? ' folder-pane-sidebar-toggle-icon-collapsed' : ''}`}
+                aria-hidden="true"
+              ></icon-lucide-chevron-left>
+            </button>
+          </div>
           <div class="folder-pane-content-column">
             ${this.renderContentError()}
             <folder-pane-content ?hidden=${!!this.contentError}></folder-pane-content>

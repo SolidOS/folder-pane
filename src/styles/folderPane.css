@@ -113,6 +113,64 @@ folder-pane-sidebar {
   border-right: 1px solid var(--solid-ui-color-gray-200, #cbd5e1);
 }
 
+.folder-pane-sidebar-resizer {
+  position: relative;
+  flex: 0 0 4px;
+  width: 4px;
+  cursor: col-resize;
+  background: transparent;
+}
+
+.folder-pane-sidebar-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  color: var(--solid-ui-color-gray-900, #101828);
+  width: 25px;
+  height: 25px;
+  min-width: 25px;
+  min-height: 25px;
+  padding: 0;
+  border: 0;
+  border-radius: 20px;
+  background: var(--solid-ui-color-zinc-300, #d4d4d8);
+  position: absolute;
+  z-index: 1;
+  top: 75%;
+  left: calc(50% - 2px);
+  transform: translate(-50%, -50%);
+}
+
+.folder-pane-sidebar-toggle:hover {
+  background: var(--solid-ui-color-primary-hover);
+}
+
+.folder-pane-sidebar-toggle-icon {
+  display: block;
+  flex: 0 0 auto;
+  position: relative;
+  top: -1px;
+  width: 12.308px;
+  height: 12.308px;
+}
+
+.folder-pane-sidebar-toggle-icon-collapsed {
+  transform: rotate(90deg) scaleX(-1);
+}
+
+.folder-pane-main-content[data-sidebar-collapsed='true'] > folder-pane-sidebar {
+  flex-basis: 0;
+  width: 0;
+  min-width: 0;
+  overflow: hidden;
+  border-right: 0;
+}
+
+.folder-pane-main-content[data-sidebar-collapsed='true'] > .folder-pane-sidebar-resizer {
+  flex-basis: 4px;
+}
+
 .folder-pane-content-column {
   display: flex;
   flex-direction: column;
