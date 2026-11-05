@@ -117,8 +117,27 @@ folder-pane-sidebar {
   position: relative;
   flex: 0 0 4px;
   width: 4px;
-  cursor: col-resize;
   background: transparent;
+}
+
+.folder-pane-sidebar-resize-handle {
+  position: absolute;
+  inset: 0;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.folder-pane-sidebar-resize-handle:focus-visible {
+  outline: 1px solid var(--solid-ui-color-lavender-300, #e6dcff);
+  outline-offset: 0;
+}
+
+.folder-pane-sidebar-resizer[data-resizing='true'] {
+  background: var(--solid-ui-color-lavender-300, #e6dcff);
+}
+
+.folder-pane-main-content:has(.folder-pane-sidebar-resizer[data-resizing='true']) {
+  user-select: none;
 }
 
 .folder-pane-sidebar-toggle {
