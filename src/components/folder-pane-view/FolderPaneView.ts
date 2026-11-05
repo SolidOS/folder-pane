@@ -44,6 +44,23 @@ type ContentError = {
   retry?: () => void
 }
 
+export const DEFAULT_SIDEBAR_WIDTH = 256
+export const MIN_SIDEBAR_WIDTH = 180
+export const MAX_SIDEBAR_WIDTH = 480
+export const MIN_CONTENT_WIDTH = 320
+
+export function clampSidebarWidth (requestedWidth: number, availableWidth: number): number {
+  if (!Number.isFinite(availableWidth) || availableWidth <= MIN_CONTENT_WIDTH) {
+    return DEFAULT_SIDEBAR_WIDTH
+  }
+  const availableSidebarWidth = availableWidth - MIN_CONTENT_WIDTH
+  if (availableSidebarWidth < MIN_SIDEBAR_WIDTH) {
+    return DEFAULT_SIDEBAR_WIDTH
+  }
+  const requested = Number.isFinite(requestedWidth) ? requestedWidth : DEFAULT_SIDEBAR_WIDTH
+  return Math.min(MAX_SIDEBAR_WIDTH, availableSidebarWidth, Math.max(MIN_SIDEBAR_WIDTH, requested))
+}
+
 @customElement('folder-pane-view')
 export default class FolderPaneView extends WebComponent {
   @property({ attribute: false })
@@ -75,6 +92,12 @@ export default class FolderPaneView extends WebComponent {
 
   @state()
   accessor searchQuery = ''
+
+  @state()
+  private accessor sidebarCollapsed = false
+
+  @state()
+  private accessor sidebarWidth = DEFAULT_SIDEBAR_WIDTH
 
   @state()
   private accessor contentError: ContentError | undefined = undefined
@@ -893,6 +916,8 @@ export default class FolderPaneView extends WebComponent {
         ${this.renderStorageHeader()}
         <div
           class="folder-pane-main-content"
+          data-sidebar-collapsed=${String(this.sidebarCollapsed)}
+          style=${`--folder-pane-sidebar-width: ${this.sidebarWidth}px`}
           @resource-selected=${this.handleResourceSelected}
           @folder-pane-resource-error=${this.handleFolderPaneResourceError}
         >

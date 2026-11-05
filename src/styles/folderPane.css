@@ -104,8 +104,9 @@ folder-pane-view {
 folder-pane-sidebar {
   display: flex;
   flex-direction: column;
-  flex: 0 0 256px;
-  min-width: 256px;
+  flex: 0 0 var(--folder-pane-sidebar-width, 256px);
+  width: var(--folder-pane-sidebar-width, 256px);
+  min-width: var(--folder-pane-sidebar-width, 256px);
   min-height: 0;
   overflow: hidden;
   box-sizing: border-box;
