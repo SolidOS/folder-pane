@@ -103,6 +103,11 @@
     outline-offset: -2px;
   }
 
+  .resource-item:focus-visible > .resource-row {
+    outline: 2px solid var(--solid-ui-color-primary, #7c4dff);
+    outline-offset: -2px;
+  }
+
   .resource-label {
     min-width: 0;
     overflow: hidden;

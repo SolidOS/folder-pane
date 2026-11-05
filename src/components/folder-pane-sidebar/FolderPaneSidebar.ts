@@ -38,17 +38,110 @@ export default class FolderPaneSidebar extends WebComponent {
 
   @state()
   accessor homeExpanded = true
+  @state()
+  private accessor activeResourceId: string | null = null
+  private pendingFocusId: string | null = null
   private resourceGeneration = 0
+  private focusHomeOnUpdate = false
+  private storageEntryFocus: Element | null = null
 
   private loadResources () {
+    const hadFocus = this.isTreeFocused()
+    const previousResources = new Map(this.getVisibleResources().map(resource => [resource.id, resource]))
+    const previousActiveId = this.activeResourceId
     this.resourceGeneration++
     if (!this.store || !this.subject) {
       this.resources = new Map()
       this.expandedContainers = new Set()
+      this.activeResourceId = null
       return
     }
 
     this.resources = getResourcesForContainer(this.subject, this.resourceLogic)
+    if (hadFocus && previousActiveId && !this.getVisibleResourceIds().includes(previousActiveId)) {
+      let candidate = previousResources.get(previousActiveId)
+      while (candidate) {
+        const parentId = this.getParentResourceId(candidate)
+        if (parentId && this.getVisibleResourceIds().includes(parentId)) {
+          this.activeResourceId = parentId
+          break
+        }
+        candidate = parentId ? previousResources.get(parentId) : undefined
+      }
+      if (candidate === undefined) this.activeResourceId = this.getHomeResource()?.id ?? null
+    }
+  }
+
+  private getVisibleResources (): Resource[] {
+    const home = this.getHomeResource()
+    if (!home) return []
+    const visible: Resource[] = [home]
+    const addChildren = (resource: Resource) => {
+      const expanded = resource.id === home.id ? this.homeExpanded : this.expandedContainers.has(resource.id)
+      if (!resource.isContainer || !expanded) return
+      const children = resource.id === home.id
+        ? [...this.resources.values()]
+        : [...getResourcesForContainer(resource.subject, this.resourceLogic).values()]
+      for (const child of children) {
+        visible.push(child)
+        addChildren(child)
+      }
+    }
+    addChildren(home)
+    return visible
+  }
+
+  private getVisibleResourceIds () {
+    return this.getVisibleResources().map(resource => resource.id)
+  }
+
+  private getParentResourceId (resource: Resource) {
+    return resource.parentId ?? this.getHomeResource()?.id ?? null
+  }
+
+  private getFirstChildResource (resource: Resource) {
+    if (!resource.isContainer) return null
+    const children = resource.id === this.getHomeResource()?.id
+      ? [...this.resources.values()]
+      : [...getResourcesForContainer(resource.subject, this.resourceLogic).values()]
+    return children[0] ?? null
+  }
+
+  private getNextVisibleResourceId (id: string) {
+    const ids = this.getVisibleResourceIds()
+    return ids[ids.indexOf(id) + 1] ?? null
+  }
+
+  private getPreviousVisibleResourceId (id: string) {
+    const ids = this.getVisibleResourceIds()
+    return ids[ids.indexOf(id) - 1] ?? null
+  }
+
+  private isTreeFocused () {
+    const tree = this.renderRoot?.querySelector('[role="tree"]')
+    const activeElement = (this.renderRoot as ShadowRoot)?.activeElement ?? document.activeElement
+    return !!tree && (tree.contains(activeElement) || document.activeElement === this)
+  }
+
+  private async focusResource (id: string | null, scroll = true, fromTreeEvent = false) {
+    if (!id || (!fromTreeEvent && !this.isTreeFocused())) return
+    this.activeResourceId = id
+    await this.updateComplete
+    const item = Array.from(this.renderRoot.querySelectorAll<HTMLElement>('[role="treeitem"]'))
+      .find(candidate => candidate.dataset.resourceId === id)
+    if (!item?.isConnected) return
+    this.pendingFocusId = id
+    item.focus()
+    this.pendingFocusId = null
+    if (scroll && typeof item.scrollIntoView === 'function') item.scrollIntoView({ block: 'nearest' })
+  }
+
+  private setActiveFromFocus (event: FocusEvent) {
+    const item = (event.target as HTMLElement).closest<HTMLElement>('[role="treeitem"]')
+    if (this.pendingFocusId && item?.dataset.resourceId !== this.pendingFocusId) return
+    if (item && (this.renderRoot as ShadowRoot)?.activeElement &&
+      (this.renderRoot as ShadowRoot).activeElement !== item) return
+    if (item?.dataset.resourceId) this.activeResourceId = item.dataset.resourceId
   }
 
   refreshResources (container?: NamedNode) {
@@ -153,7 +246,7 @@ export default class FolderPaneSidebar extends WebComponent {
             @click=${(event: MouseEvent) => {
               event.preventDefault()
               event.stopPropagation()
-              toggle()
+              void this.focusResource(resource.id, false).then(toggle)
             }}
           >
             <icon-lucide-chevron-right></icon-lucide-chevron-right>
@@ -164,20 +257,7 @@ export default class FolderPaneSidebar extends WebComponent {
     return html`
       <div
         class=${special ? 'resource-row resource-row-special' : 'resource-row'}
-        tabindex="0"
         @click=${() => this.selectResource(resource)}
-        @keydown=${(event: KeyboardEvent) => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault()
-            this.selectResource(resource)
-          } else if (resource.isContainer && (event.key === 'ArrowRight' || event.key === 'ArrowLeft')) {
-            const shouldExpand = event.key === 'ArrowRight'
-            if (shouldExpand !== expanded) {
-              event.preventDefault()
-              toggle()
-            }
-          }
-        }}
       >
         ${chevron}
         ${icon}
@@ -202,17 +282,86 @@ export default class FolderPaneSidebar extends WebComponent {
         class=${selected ? 'resource-item selected' : 'resource-item'}
         notSelectable="false"
         role="treeitem"
+        tabindex=${this.activeResourceId === resource.id || this.activeResourceId === null && resource.id === this.getHomeResource()?.id ? '0' : '-1'}
+        data-resource-id=${resource.id}
         aria-label=${label}
         aria-selected=${String(selected)}
         aria-expanded=${resource.isContainer ? String(expanded) : nothing}
         data-expanded=${String(expanded)}
         about=${resource.subject.toNT()}
         .subject=${resource.subject}
+        @focusin=${this.setActiveFromFocus}
+        @keydown=${(event: KeyboardEvent) => this.handleKeydown(event, resource, expanded, toggle)}
       >
         ${this.renderRow(resource, label, icon, expanded, toggle, special)}
         ${expanded ? children : nothing}
       </li>
     `
+  }
+
+  private handleKeydown (event: KeyboardEvent, resource: Resource, expanded: boolean, toggle: () => void) {
+    if ((event.target as HTMLElement).closest('[role="treeitem"]') !== event.currentTarget) return
+    if (!['ArrowDown', 'ArrowUp', 'Home', 'End', 'ArrowRight', 'ArrowLeft', 'Enter', ' '].includes(event.key)) return
+    event.stopPropagation()
+    // Keep the navigation origin current even when focusin was not emitted
+    // (for example, repeated key events on the same DOM node).
+    const currentId = (event.currentTarget as HTMLElement).dataset.resourceId ?? resource.id
+    const currentResource = this.getVisibleResources().find(candidate => candidate.id === currentId)
+    if (currentResource) {
+      resource = currentResource
+      expanded = resource.id === this.getHomeResource()?.id
+        ? this.homeExpanded
+        : this.expandedContainers.has(resource.id)
+      toggle = () => {
+        if (resource.id === this.getHomeResource()?.id) this.homeExpanded = !this.homeExpanded
+        else void this.toggleContainer(resource)
+      }
+    }
+    this.activeResourceId = currentId
+    const focus = (id: string | null) => {
+      if (id) {
+        event.preventDefault()
+        this.activeResourceId = id
+        void this.focusResource(id, true, true)
+      }
+    }
+    switch (event.key) {
+      case 'ArrowDown':
+        focus(this.getNextVisibleResourceId(resource.id))
+        break
+      case 'ArrowUp':
+        focus(this.getPreviousVisibleResourceId(resource.id))
+        break
+      case 'Home':
+        focus(this.getVisibleResourceIds()[0] ?? null)
+        break
+      case 'End':
+        focus(this.getVisibleResourceIds().slice(-1)[0] ?? null)
+        break
+      case 'ArrowRight':
+        if (!resource.isContainer) break
+        if (!expanded) {
+          event.preventDefault()
+          void toggle()
+        } else {
+          focus(this.getFirstChildResource(resource)?.id ?? null)
+        }
+        break
+      case 'ArrowLeft': {
+        if (resource.isContainer && expanded) {
+          event.preventDefault()
+          void this.focusResource(resource.id, false, true).then(toggle)
+        } else {
+          focus(this.getParentResourceId(resource))
+        }
+        break
+      }
+      case 'Enter':
+      case ' ':
+        event.preventDefault()
+        this.selectResource(resource)
+        break
+    }
   }
 
   private renderSpecialIcon (icon: SpecialIcon) {
@@ -274,8 +423,11 @@ export default class FolderPaneSidebar extends WebComponent {
   protected willUpdate (changedProperties: PropertyValues<this>) {
     super.willUpdate(changedProperties)
     if (changedProperties.has('subject')) {
+      this.focusHomeOnUpdate = !!this.subject
+      this.storageEntryFocus = this.ownerDocument.activeElement
       this.expandedContainers = new Set()
       this.homeExpanded = true
+      this.activeResourceId = this.subject?.value ?? null
     }
     if (
       changedProperties.has('store') ||
@@ -284,6 +436,15 @@ export default class FolderPaneSidebar extends WebComponent {
     ) {
       this.loadResources()
     }
+  }
+
+  protected updated (changedProperties: PropertyValues<this>) {
+    super.updated(changedProperties)
+    if (!this.focusHomeOnUpdate) return
+    const home = this.renderRoot.querySelector<HTMLElement>('[role="treeitem"]')
+    if (!home) return
+    this.focusHomeOnUpdate = false
+    if (this.ownerDocument.activeElement === this.storageEntryFocus) home.focus()
   }
 
   render () {
