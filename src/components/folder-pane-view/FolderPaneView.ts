@@ -11,10 +11,12 @@ import '../folder-pane-content'
 import '../folder-pane-storage-header'
 import type { NamedNode } from 'rdflib'
 import 'solid-ui/components/file-explorer-provider'
+import 'solid-ui/components/button'
 import type FileExplorerProvider from 'solid-ui/components/file-explorer-provider'
 import 'solid-ui/components/error-state'
 import 'solid-ui/components/file-explorer-header'
 import type FolderPaneContainer from '../folder-pane-container/FolderPaneContainer'
+import '~icons/lucide/chevron-left'
 import { getIndexedApplicationSubject, getIndexedContainer, isAccessDeniedError, isContainerResource, isJavaScriptFile, type FolderPaneResourceLogic } from '../../helpers'
 import { invalidateRenderRequest, isCurrentRenderRequest, type RenderRequest } from './renderRequest'
 import FolderPaneCreateDialog from '../folder-pane-storage-header/FolderPaneCreateDialog'
@@ -42,6 +44,25 @@ type ContentError = {
   title: string
   message: string
   retry?: () => void
+}
+
+export const DEFAULT_SIDEBAR_WIDTH = 256
+export const MIN_SIDEBAR_WIDTH = 180
+export const MAX_SIDEBAR_WIDTH = 480
+export const MIN_CONTENT_WIDTH = 320
+export const SIDEBAR_RESIZE_STEP = 16
+export const NARROW_PANE_BREAKPOINT = 768
+
+export function clampSidebarWidth (requestedWidth: number, availableWidth: number): number {
+  if (!Number.isFinite(availableWidth) || availableWidth <= MIN_CONTENT_WIDTH) {
+    return DEFAULT_SIDEBAR_WIDTH
+  }
+  const availableSidebarWidth = availableWidth - MIN_CONTENT_WIDTH
+  if (availableSidebarWidth < MIN_SIDEBAR_WIDTH) {
+    return DEFAULT_SIDEBAR_WIDTH
+  }
+  const requested = Number.isFinite(requestedWidth) ? requestedWidth : DEFAULT_SIDEBAR_WIDTH
+  return Math.min(MAX_SIDEBAR_WIDTH, availableSidebarWidth, Math.max(MIN_SIDEBAR_WIDTH, requested))
 }
 
 @customElement('folder-pane-view')
@@ -77,6 +98,15 @@ export default class FolderPaneView extends WebComponent {
   accessor searchQuery = ''
 
   @state()
+  private accessor sidebarCollapsed = false
+
+  @state()
+  private accessor sidebarWidth = DEFAULT_SIDEBAR_WIDTH
+
+  @state()
+  private accessor sidebarMaximumWidth = MAX_SIDEBAR_WIDTH
+
+  @state()
   private accessor contentError: ContentError | undefined = undefined
 
   @state()
@@ -89,6 +119,14 @@ export default class FolderPaneView extends WebComponent {
   private creationInFlight = false
   private authListenersAttached = false
   private dropProtectionAttached = false
+  private sidebarResizeObserver: ResizeObserver | undefined
+  private responsiveLayoutInitialized = false
+  private sidebarDrag: {
+    separator: HTMLElement
+    pointerId: number
+    startX: number
+    startWidth: number
+  } | undefined
 
   @query('folder-pane-content')
   private accessor contentView: HTMLElement | null = null
@@ -109,6 +147,8 @@ export default class FolderPaneView extends WebComponent {
 
   connectedCallback () {
     super.connectedCallback()
+    const shell = this.querySelector('.folder-pane-main-content')
+    if (shell) this.sidebarResizeObserver?.observe(shell)
     if (!this.dropProtectionAttached) {
       aclControl.preventBrowserDropEvents(this.ownerDocument)
       this.dropProtectionAttached = true
@@ -124,6 +164,8 @@ export default class FolderPaneView extends WebComponent {
   }
 
   disconnectedCallback () {
+    this.finishSidebarResize()
+    this.sidebarResizeObserver?.disconnect()
     // Invalidate awaited renders before detaching listeners. A late response
     // must never replace content in a detached view.
     this.renderGeneration = invalidateRenderRequest(this.renderGeneration)
@@ -137,6 +179,24 @@ export default class FolderPaneView extends WebComponent {
       this.authListenersAttached = false
     }
     super.disconnectedCallback()
+  }
+
+  protected firstUpdated () {
+    this.updateSidebarBounds()
+    if (typeof ResizeObserver !== 'undefined') {
+      this.sidebarResizeObserver = new ResizeObserver(entries => {
+        this.updateSidebarBounds()
+        const width = entries[0]?.contentRect.width ?? 0
+        if (this.responsiveLayoutInitialized || width <= 0) return
+        this.responsiveLayoutInitialized = true
+        if (width < NARROW_PANE_BREAKPOINT) {
+          void this.handleSidebarToggle(new Event('folder-pane-responsive-collapse'))
+        }
+      })
+      const shell = this.querySelector('.folder-pane-main-content')
+      if (shell) this.sidebarResizeObserver.observe(shell)
+      this.sidebarResizeObserver.observe(this)
+    }
   }
 
   private handleAuthChange = () => {
@@ -845,6 +905,90 @@ export default class FolderPaneView extends WebComponent {
     this.setContainerView(view)
   }
 
+  private get sidebarAvailableWidth () {
+    const shell = this.renderRoot.querySelector<HTMLElement>('.folder-pane-main-content')
+    const divider = this.renderRoot.querySelector<HTMLElement>('.folder-pane-sidebar-resizer')
+    return (shell?.clientWidth ?? 0) - (divider?.getBoundingClientRect().width ?? 0)
+  }
+
+  private resizeSidebar (width: number) {
+    this.sidebarWidth = clampSidebarWidth(width, this.sidebarAvailableWidth)
+  }
+
+  private updateSidebarBounds = () => {
+    if (!this.isConnected) return
+    this.sidebarMaximumWidth = clampSidebarWidth(MAX_SIDEBAR_WIDTH, this.sidebarAvailableWidth)
+    this.resizeSidebar(this.sidebarWidth)
+  }
+
+  private handleSidebarPointerDown = (event: PointerEvent) => {
+    if (!this.isConnected || this.sidebarCollapsed || this.sidebarDrag ||
+      event.button !== 0 || !event.isPrimary) return
+    event.preventDefault()
+    const separator = event.currentTarget as HTMLElement
+    separator.setPointerCapture(event.pointerId)
+    separator.focus()
+    this.sidebarDrag = {
+      separator,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startWidth: this.sidebarWidth
+    }
+    this.requestUpdate()
+  }
+
+  private handleSidebarPointerMove = (event: PointerEvent) => {
+    const drag = this.sidebarDrag
+    if (!this.isConnected || this.sidebarCollapsed || !drag || drag.pointerId !== event.pointerId) return
+    this.resizeSidebar(drag.startWidth + event.clientX - drag.startX)
+  }
+
+  private finishSidebarResize () {
+    const drag = this.sidebarDrag
+    if (!drag) return
+    this.sidebarDrag = undefined
+    if (drag.separator.hasPointerCapture(drag.pointerId)) {
+      drag.separator.releasePointerCapture(drag.pointerId)
+    }
+    if (this.isConnected) this.requestUpdate()
+  }
+
+  private handleSidebarPointerEnd = (event: PointerEvent) => {
+    if (this.sidebarDrag?.pointerId === event.pointerId) this.finishSidebarResize()
+  }
+
+  private handleSidebarResizeKey = (event: KeyboardEvent) => {
+    if (!this.isConnected || this.sidebarCollapsed || this.sidebarDrag ||
+      event.altKey || event.ctrlKey || event.metaKey) return
+    let width: number
+    switch (event.key) {
+      case 'ArrowLeft': width = this.sidebarWidth - SIDEBAR_RESIZE_STEP; break
+      case 'ArrowRight': width = this.sidebarWidth + SIDEBAR_RESIZE_STEP; break
+      case 'Home': width = MIN_SIDEBAR_WIDTH; break
+      case 'End': width = MAX_SIDEBAR_WIDTH; break
+      default: return
+    }
+    event.preventDefault()
+    event.stopPropagation()
+    this.resizeSidebar(width)
+  }
+
+  private handleSidebarToggle = async (event: Event) => {
+    event.stopPropagation()
+    const sidebar = this.sidebar
+    const resizer = this.renderRoot.querySelector<HTMLElement>('.folder-pane-sidebar-resize-handle')
+    const focusWasInSidebar = !!sidebar && (
+      sidebar.matches(':focus-within') ||
+      sidebar.shadowRoot?.activeElement != null
+    )
+    const focusWasOnResizer = resizer === this.ownerDocument.activeElement
+    this.finishSidebarResize()
+    this.sidebarCollapsed = !this.sidebarCollapsed
+    if (!this.sidebarCollapsed || (!focusWasInSidebar && !focusWasOnResizer)) return
+    await this.updateComplete
+    this.renderRoot.querySelector<HTMLButtonElement>('.folder-pane-sidebar-toggle')?.focus()
+  }
+
   private handleFolderPaneResourceError = (event: CustomEvent<{
     title?: string
     message?: string
@@ -889,19 +1033,60 @@ export default class FolderPaneView extends WebComponent {
         .view=${this.containerView}
         .searchQuery=${this.searchQuery}
         .canCreate=${this.canCreate}
+        .sidebarCollapsed=${this.sidebarCollapsed}
       >
         ${this.renderStorageHeader()}
         <div
           class="folder-pane-main-content"
+          data-sidebar-collapsed=${String(this.sidebarCollapsed)}
+          style=${`--folder-pane-sidebar-width: ${this.sidebarWidth}px`}
           @resource-selected=${this.handleResourceSelected}
           @folder-pane-resource-error=${this.handleFolderPaneResourceError}
+          @folder-pane-toggle-sidebar=${this.handleSidebarToggle}
         >
           <folder-pane-sidebar
+            ?inert=${this.sidebarCollapsed}
+            aria-hidden=${this.sidebarCollapsed ? 'true' : 'false'}
             .store=${this.store}
             .resourceLogic=${this.resourceLogic}
             .subject=${this.subject}
             .selectedResource=${this.displayedResource}
           ></folder-pane-sidebar>
+          <div
+            class="folder-pane-sidebar-resizer"
+            data-resizing=${String(!!this.sidebarDrag)}
+          >
+            <div
+              class="folder-pane-sidebar-resize-handle"
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Resize navigation sidebar"
+              aria-valuemin=${MIN_SIDEBAR_WIDTH}
+              aria-valuemax=${this.sidebarMaximumWidth}
+              aria-valuenow=${this.sidebarWidth}
+              tabindex=${this.sidebarCollapsed ? -1 : 0}
+              ?hidden=${this.sidebarCollapsed}
+              ?inert=${this.sidebarCollapsed}
+              @pointerdown=${this.handleSidebarPointerDown}
+              @pointermove=${this.handleSidebarPointerMove}
+              @pointerup=${this.handleSidebarPointerEnd}
+              @pointercancel=${this.handleSidebarPointerEnd}
+              @lostpointercapture=${this.handleSidebarPointerEnd}
+              @keydown=${this.handleSidebarResizeKey}
+            ></div>
+            <button
+              type="button"
+              class="folder-pane-sidebar-toggle"
+              aria-label=${this.sidebarCollapsed ? 'Expand navigation' : 'Collapse navigation'}
+              aria-expanded=${String(!this.sidebarCollapsed)}
+              @click=${this.handleSidebarToggle}
+            >
+              <icon-lucide-chevron-left
+                class=${`folder-pane-sidebar-toggle-icon${this.sidebarCollapsed ? ' folder-pane-sidebar-toggle-icon-collapsed' : ''}`}
+                aria-hidden="true"
+              ></icon-lucide-chevron-left>
+            </button>
+          </div>
           <div class="folder-pane-content-column">
             ${this.renderContentError()}
             <folder-pane-content ?hidden=${!!this.contentError}></folder-pane-content>
