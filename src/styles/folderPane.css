@@ -56,6 +56,7 @@ folder-pane-view {
   height: 80vh;
   min-height: 32rem;
   overflow: hidden;
+  min-width: 0;
   border-radius: 5px;
   border: 1px solid var(--solid-ui-color-gray-200, #cbd5e1);
   background: var(--solid-ui-color-white, #ffffff);
@@ -106,7 +107,8 @@ folder-pane-sidebar {
   flex-direction: column;
   flex: 0 0 var(--folder-pane-sidebar-width, 256px);
   width: var(--folder-pane-sidebar-width, 256px);
-  min-width: var(--folder-pane-sidebar-width, 256px);
+  min-width: 0;
+  max-width: 100%;
   min-height: 0;
   overflow: hidden;
   box-sizing: border-box;
@@ -165,6 +167,11 @@ folder-pane-sidebar {
   background: var(--solid-ui-color-primary-hover);
 }
 
+.folder-pane-sidebar-toggle:focus-visible {
+  outline: 1px solid var(--solid-ui-color-lavender-300, #e6dcff);
+  outline-offset: 1px;
+}
+
 .folder-pane-sidebar-toggle-icon {
   display: block;
   flex: 0 0 auto;
@@ -197,6 +204,15 @@ folder-pane-sidebar {
   min-width: 0;
   min-height: 0;
   position: relative;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .folder-pane-main-content,
+  folder-pane-sidebar,
+  .folder-pane-sidebar-toggle-icon,
+  .resource-expand-button icon-lucide-chevron-right {
+    transition: none;
+  }
 }
 
 .folder-pane-content-column > folder-pane-content {

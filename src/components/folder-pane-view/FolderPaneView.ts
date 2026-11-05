@@ -51,6 +51,7 @@ export const MIN_SIDEBAR_WIDTH = 180
 export const MAX_SIDEBAR_WIDTH = 480
 export const MIN_CONTENT_WIDTH = 320
 export const SIDEBAR_RESIZE_STEP = 16
+export const NARROW_PANE_BREAKPOINT = 768
 
 export function clampSidebarWidth (requestedWidth: number, availableWidth: number): number {
   if (!Number.isFinite(availableWidth) || availableWidth <= MIN_CONTENT_WIDTH) {
@@ -119,6 +120,7 @@ export default class FolderPaneView extends WebComponent {
   private authListenersAttached = false
   private dropProtectionAttached = false
   private sidebarResizeObserver: ResizeObserver | undefined
+  private responsiveLayoutInitialized = false
   private sidebarDrag: {
     separator: HTMLElement
     pointerId: number
@@ -182,9 +184,16 @@ export default class FolderPaneView extends WebComponent {
   protected firstUpdated () {
     this.updateSidebarBounds()
     if (typeof ResizeObserver !== 'undefined') {
-      this.sidebarResizeObserver = new ResizeObserver(this.updateSidebarBounds)
+      this.sidebarResizeObserver = new ResizeObserver(entries => {
+        this.updateSidebarBounds()
+        const width = entries[0]?.contentRect.width ?? 0
+        if (this.responsiveLayoutInitialized || width <= 0) return
+        this.responsiveLayoutInitialized = true
+        if (width < NARROW_PANE_BREAKPOINT) this.sidebarCollapsed = true
+      })
       const shell = this.querySelector('.folder-pane-main-content')
       if (shell) this.sidebarResizeObserver.observe(shell)
+      this.sidebarResizeObserver.observe(this)
     }
   }
 

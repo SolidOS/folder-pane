@@ -99,13 +99,13 @@
   }
 
   .resource-row:focus-visible {
-    outline: 2px solid var(--solid-ui-color-primary, #7c4dff);
-    outline-offset: -2px;
+    outline: 1px solid var(--solid-ui-color-primary, #7c4dff);
+    outline-offset: -1px;
   }
 
   .resource-item:focus-visible > .resource-row {
-    outline: 2px solid var(--solid-ui-color-primary, #7c4dff);
-    outline-offset: -2px;
+    outline: 1px solid var(--solid-ui-color-primary, #7c4dff);
+    outline-offset: -1px;
   }
 
   .resource-label {
@@ -157,6 +157,11 @@
     background: transparent;
     color: inherit;
     cursor: pointer;
+  }
+
+  .resource-expand-button:focus-visible {
+    outline: 1px solid var(--solid-ui-color-lavender-300, #e6dcff);
+    outline-offset: 1px;
   }
 
   .resource-expand-button icon-lucide-chevron-right {
