@@ -58,7 +58,7 @@ export default class FolderPaneSidebar extends WebComponent {
 
     this.resources = getResourcesForContainer(this.subject, this.resourceLogic)
     const visibleIds = this.getVisibleResourceIds()
-    if (hadFocus && previousActiveId && !visibleIds.includes(previousActiveId)) {
+    if (previousActiveId && !visibleIds.includes(previousActiveId)) {
       let candidate = previousResources.get(previousActiveId)
       let fallback: string | null = null
       while (candidate) {
@@ -209,7 +209,11 @@ export default class FolderPaneSidebar extends WebComponent {
       this.resources = getResourcesForContainer(this.subject, this.resourceLogic)
     }
     this.expandedContainers = new Set(this.expandedContainers).add(resource.id)
-    if (hadFocus && this.isTreeFocused()) await this.focusResource(resource.id, false, true)
+    if (hadFocus && this.activeResourceId === resource.id && this.isTreeFocused()) {
+      await this.updateComplete
+      if (this.activeResourceId !== resource.id || !this.isTreeFocused()) return
+      await this.focusResource(resource.id, false, true)
+    }
   }
 
   private reportExpansionError (resource: Resource, error?: unknown) {
@@ -442,6 +446,9 @@ export default class FolderPaneSidebar extends WebComponent {
 
   protected willUpdate (changedProperties: PropertyValues<this>) {
     super.willUpdate(changedProperties)
+    if (this.pendingFocusResourceId && !this.isTreeFocused()) {
+      this.pendingFocusResourceId = null
+    }
     if (changedProperties.has('subject')) {
       const hadFocus = this.isTreeFocused()
       this.focusHomeOnUpdate = !!this.subject &&

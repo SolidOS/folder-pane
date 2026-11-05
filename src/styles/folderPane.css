@@ -197,6 +197,11 @@ folder-pane-sidebar {
   flex-basis: 4px;
 }
 
+.folder-pane-main-content[data-sidebar-collapsed='true'] > .folder-pane-sidebar-resizer
+  > .folder-pane-sidebar-toggle {
+  left: calc(50% + 12.5px);
+}
+
 .folder-pane-content-column {
   display: flex;
   flex-direction: column;
@@ -443,10 +448,6 @@ solid-ui-file-explorer-provider > .exceptionPane {
     height: auto;
     min-height: 0;
     overflow: visible;
-  }
-
-  folder-pane-sidebar {
-    display: none;
   }
 
   .folder-pane-explicit-drop-icon {

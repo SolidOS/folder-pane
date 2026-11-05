@@ -9,6 +9,7 @@ const folder = namedNode('https://example.test/folder/')
 const file = namedNode('https://example.test/file.txt')
 const secondFile = namedNode('https://example.test/1doktest.html')
 const thirdFile = namedNode('https://example.test/2.ttl')
+const laterFile = namedNode('https://example.test/z.txt')
 
 function createSidebar (members = [folder, file]) {
   const sidebar = document.createElement('folder-pane-sidebar') as any
@@ -112,6 +113,18 @@ describe('folder pane sidebar tree', () => {
     expect(document.activeElement).toBe(button)
   })
 
+  it('cancels removal focus restoration when focus leaves the tree in the same turn', async () => {
+    const sidebar = createSidebar()
+    const items = await rendered(sidebar)
+    items[1].focus()
+    const button = document.createElement('button')
+    document.body.append(button)
+    sidebar.refreshResources()
+    button.focus()
+    await sidebar.updateComplete
+    expect(document.activeElement).toBe(button)
+  })
+
   it('keeps a failed expansion collapsed and retries it', async () => {
     const load = vi.fn()
       .mockRejectedValueOnce(new Error('offline'))
@@ -171,6 +184,54 @@ describe('folder pane sidebar tree', () => {
     sidebar.refreshResources()
     await sidebar.updateComplete
     expect(sidebar.shadowRoot.activeElement?.dataset.resourceId).toBe(home.value)
+  })
+
+  it('repairs the roving tab stop when the active resource disappears without tree focus', async () => {
+    const members = [folder, file]
+    const sidebar = createSidebar(members)
+    const items = await rendered(sidebar)
+    const fileItem = items.find(item => item.dataset.resourceId === file.value)!
+    const button = document.createElement('button')
+    document.body.append(button)
+    button.focus()
+    sidebar.activeResourceId = file.value
+    members.splice(1, 1)
+    sidebar.refreshResources()
+    await sidebar.updateComplete
+    const remaining = await rendered(sidebar)
+    expect(remaining.filter(item => item.tabIndex === 0).map(item => item.dataset.resourceId))
+      .toEqual([home.value])
+    expect(fileItem.isConnected).toBe(false)
+    expect(document.activeElement).toBe(button)
+  })
+
+  it('does not restore delayed expansion focus after navigating to another item', async () => {
+    let resolveLoad!: () => void
+    const sidebar = createSidebar([folder, file, laterFile])
+    sidebar.store.fetcher.load = vi.fn().mockImplementation(() => new Promise<void>(resolve => {
+      resolveLoad = resolve
+    }))
+    let items = await rendered(sidebar)
+    const folderItem = items.find(item => item.dataset.resourceId === folder.value)!
+    const nextItem = items[items.indexOf(folderItem) + 1]
+    expect(nextItem).toBeDefined()
+    folderItem.focus()
+    folderItem.dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'ArrowRight', bubbles: true, cancelable: true
+    }))
+    await Promise.resolve()
+    folderItem.dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'ArrowDown', bubbles: true, cancelable: true
+    }))
+    await sidebar.updateComplete
+    expect(sidebar.shadowRoot.activeElement?.dataset.resourceId).toBe(nextItem.dataset.resourceId)
+    resolveLoad()
+    await Promise.resolve()
+    await sidebar.updateComplete
+    items = await rendered(sidebar)
+    expect(sidebar.shadowRoot.activeElement?.dataset.resourceId).toBe(nextItem.dataset.resourceId)
+    expect(items.find(item => item.dataset.resourceId === folder.value)
+      ?.getAttribute('aria-expanded')).toBe('true')
   })
 
   it('does not let an old subject expansion focus the new subject', async () => {

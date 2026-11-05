@@ -82,6 +82,7 @@ describe('folder pane layout state', () => {
     expect(view.querySelector('.folder-pane-main-content')?.dataset.sidebarCollapsed).toBe('true')
     expect(view.querySelector('folder-pane-sidebar')?.getAttribute('aria-hidden')).toBe('true')
     expect(view.querySelector('.folder-pane-sidebar-resizer')?.hasAttribute('hidden')).toBe(false)
+    expect(toggle.closest('.folder-pane-sidebar-resizer')).toBeTruthy()
 
     toggle.dispatchEvent(new CustomEvent('folder-pane-toggle-sidebar', { bubbles: true, composed: true }))
     await view.updateComplete

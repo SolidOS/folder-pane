@@ -189,7 +189,9 @@ export default class FolderPaneView extends WebComponent {
         const width = entries[0]?.contentRect.width ?? 0
         if (this.responsiveLayoutInitialized || width <= 0) return
         this.responsiveLayoutInitialized = true
-        if (width < NARROW_PANE_BREAKPOINT) this.sidebarCollapsed = true
+        if (width < NARROW_PANE_BREAKPOINT) {
+          void this.handleSidebarToggle(new Event('folder-pane-responsive-collapse'))
+        }
       })
       const shell = this.querySelector('.folder-pane-main-content')
       if (shell) this.sidebarResizeObserver.observe(shell)
