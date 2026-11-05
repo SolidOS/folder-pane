@@ -40,10 +40,9 @@ export default class FolderPaneSidebar extends WebComponent {
   accessor homeExpanded = true
   @state()
   private accessor activeResourceId: string | null = null
-  private pendingFocusId: string | null = null
+  private pendingFocusResourceId: string | null = null
   private resourceGeneration = 0
   private focusHomeOnUpdate = false
-  private storageEntryFocus: Element | null = null
 
   private loadResources () {
     const hadFocus = this.isTreeFocused()
@@ -58,18 +57,21 @@ export default class FolderPaneSidebar extends WebComponent {
     }
 
     this.resources = getResourcesForContainer(this.subject, this.resourceLogic)
-    if (hadFocus && previousActiveId && !this.getVisibleResourceIds().includes(previousActiveId)) {
+    const visibleIds = this.getVisibleResourceIds()
+    if (hadFocus && previousActiveId && !visibleIds.includes(previousActiveId)) {
       let candidate = previousResources.get(previousActiveId)
+      let fallback: string | null = null
       while (candidate) {
         const parentId = this.getParentResourceId(candidate)
-        if (parentId && this.getVisibleResourceIds().includes(parentId)) {
-          this.activeResourceId = parentId
+        if (parentId && visibleIds.includes(parentId)) {
+          fallback = parentId
           break
         }
         candidate = parentId ? previousResources.get(parentId) : undefined
       }
-      if (candidate === undefined) this.activeResourceId = this.getHomeResource()?.id ?? null
+      this.activeResourceId = fallback ?? this.getHomeResource()?.id ?? null
     }
+    if (hadFocus && this.activeResourceId) this.pendingFocusResourceId = this.activeResourceId
   }
 
   private getVisibleResources (): Resource[] {
@@ -129,16 +131,20 @@ export default class FolderPaneSidebar extends WebComponent {
     await this.updateComplete
     const item = Array.from(this.renderRoot.querySelectorAll<HTMLElement>('[role="treeitem"]'))
       .find(candidate => candidate.dataset.resourceId === id)
-    if (!item?.isConnected) return
-    this.pendingFocusId = id
+    if (!item?.isConnected) {
+      this.pendingFocusResourceId = null
+      return
+    }
+    if (!fromTreeEvent && !this.isTreeFocused()) return
+    this.pendingFocusResourceId = id
     item.focus()
-    this.pendingFocusId = null
+    this.pendingFocusResourceId = null
     if (scroll && typeof item.scrollIntoView === 'function') item.scrollIntoView({ block: 'nearest' })
   }
 
   private setActiveFromFocus (event: FocusEvent) {
     const item = (event.target as HTMLElement).closest<HTMLElement>('[role="treeitem"]')
-    if (this.pendingFocusId && item?.dataset.resourceId !== this.pendingFocusId) return
+    if (this.pendingFocusResourceId && item?.dataset.resourceId !== this.pendingFocusResourceId) return
     if (item && (this.renderRoot as ShadowRoot)?.activeElement &&
       (this.renderRoot as ShadowRoot).activeElement !== item) return
     if (item?.dataset.resourceId) this.activeResourceId = item.dataset.resourceId
@@ -163,6 +169,10 @@ export default class FolderPaneSidebar extends WebComponent {
     if (!resource.isContainer) return
 
     const generation = this.resourceGeneration
+    const subject = this.subject
+    const store = this.store
+    const resourceLogic = this.resourceLogic
+    const hadFocus = this.isTreeFocused()
     const nextExpandedContainers = new Set(this.expandedContainers)
     if (nextExpandedContainers.has(resource.id)) {
       nextExpandedContainers.delete(resource.id)
@@ -179,17 +189,27 @@ export default class FolderPaneSidebar extends WebComponent {
     try {
       await fetcher.load(resource.subject)
     } catch (error) {
+      if (generation !== this.resourceGeneration ||
+        this.subject !== subject ||
+        this.store !== store ||
+        this.resourceLogic !== resourceLogic) return
       this.reportExpansionError(resource, error)
       return
     }
 
-    if (generation !== this.resourceGeneration) return
+    if (generation !== this.resourceGeneration ||
+      this.subject !== subject ||
+      this.store !== store ||
+      this.resourceLogic !== resourceLogic ||
+      !this.getVisibleResources().some(candidate =>
+        candidate.id === resource.id && candidate.subject.sameTerm(resource.subject))) return
     // Loading a container updates the RDF store asynchronously. Refresh the
     // root snapshot so a subsequent render sees the newly loaded members.
     if (this.store && this.subject) {
       this.resources = getResourcesForContainer(this.subject, this.resourceLogic)
     }
     this.expandedContainers = new Set(this.expandedContainers).add(resource.id)
+    if (hadFocus && this.isTreeFocused()) await this.focusResource(resource.id, false, true)
   }
 
   private reportExpansionError (resource: Resource, error?: unknown) {
@@ -423,8 +443,9 @@ export default class FolderPaneSidebar extends WebComponent {
   protected willUpdate (changedProperties: PropertyValues<this>) {
     super.willUpdate(changedProperties)
     if (changedProperties.has('subject')) {
-      this.focusHomeOnUpdate = !!this.subject
-      this.storageEntryFocus = this.ownerDocument.activeElement
+      const hadFocus = this.isTreeFocused()
+      this.focusHomeOnUpdate = !!this.subject &&
+        (hadFocus || changedProperties.get('subject') === undefined)
       this.expandedContainers = new Set()
       this.homeExpanded = true
       this.activeResourceId = this.subject?.value ?? null
@@ -440,11 +461,21 @@ export default class FolderPaneSidebar extends WebComponent {
 
   protected updated (changedProperties: PropertyValues<this>) {
     super.updated(changedProperties)
-    if (!this.focusHomeOnUpdate) return
-    const home = this.renderRoot.querySelector<HTMLElement>('[role="treeitem"]')
-    if (!home) return
-    this.focusHomeOnUpdate = false
-    if (this.ownerDocument.activeElement === this.storageEntryFocus) home.focus()
+    if (this.focusHomeOnUpdate) {
+      const home = this.renderRoot.querySelector<HTMLElement>('[role="treeitem"]')
+      if (home) {
+        this.focusHomeOnUpdate = false
+        home.focus()
+        this.pendingFocusResourceId = null
+      }
+      return
+    }
+    if (this.pendingFocusResourceId) {
+      const item = Array.from(this.renderRoot.querySelectorAll<HTMLElement>('[role="treeitem"]'))
+        .find(candidate => candidate.dataset.resourceId === this.pendingFocusResourceId)
+      if (item?.isConnected) item.focus()
+      this.pendingFocusResourceId = null
+    }
   }
 
   render () {

@@ -111,4 +111,84 @@ describe('folder pane sidebar tree', () => {
     await sidebar.updateComplete
     expect(document.activeElement).toBe(button)
   })
+
+  it('keeps a failed expansion collapsed and retries it', async () => {
+    const load = vi.fn()
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce(undefined)
+    const sidebar = createSidebar()
+    sidebar.store.fetcher.load = load
+    const errors: CustomEvent[] = []
+    sidebar.addEventListener('folder-pane-resource-error', (event: Event) => {
+      errors.push(event as CustomEvent)
+    })
+    const folderItem = (await rendered(sidebar)).find(item => item.dataset.resourceId === folder.value)!
+    folderItem.focus()
+    folderItem.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }))
+    await Promise.resolve()
+    await sidebar.updateComplete
+    expect(folderItem.getAttribute('aria-expanded')).toBe('false')
+    expect(errors).toHaveLength(1)
+
+    errors[0].detail.retry()
+    await Promise.resolve()
+    await sidebar.updateComplete
+    expect((await rendered(sidebar)).find(item => item.dataset.resourceId === folder.value)
+      ?.getAttribute('aria-expanded')).toBe('true')
+    expect(load).toHaveBeenCalledTimes(2)
+  })
+
+  it('ignores a stale expansion after refresh and does not restore old focus', async () => {
+    let resolveLoad!: () => void
+    const load = vi.fn().mockImplementation(() => new Promise<void>(resolve => {
+      resolveLoad = resolve
+    }))
+    const sidebar = createSidebar()
+    sidebar.store.fetcher.load = load
+    const folderItem = (await rendered(sidebar)).find(item => item.dataset.resourceId === folder.value)!
+    folderItem.focus()
+    folderItem.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }))
+    await Promise.resolve()
+    const button = document.createElement('button')
+    document.body.append(button)
+    button.focus()
+    sidebar.refreshResources()
+    resolveLoad()
+    await Promise.resolve()
+    await sidebar.updateComplete
+    expect((await rendered(sidebar)).find(item => item.dataset.resourceId === folder.value)
+      ?.getAttribute('aria-expanded')).toBe('false')
+    expect(document.activeElement).toBe(button)
+  })
+
+  it('moves active focus to Home when its resource disappears on refresh', async () => {
+    const members = [folder, file]
+    const sidebar = createSidebar(members)
+    const items = await rendered(sidebar)
+    const fileItem = items.find(item => item.dataset.resourceId === file.value)!
+    fileItem.focus()
+    members.splice(1, 1)
+    sidebar.refreshResources()
+    await sidebar.updateComplete
+    expect(sidebar.shadowRoot.activeElement?.dataset.resourceId).toBe(home.value)
+  })
+
+  it('does not let an old subject expansion focus the new subject', async () => {
+    let resolveLoad!: () => void
+    const sidebar = createSidebar()
+    sidebar.store.fetcher.load = vi.fn().mockImplementation(() => new Promise<void>(resolve => {
+      resolveLoad = resolve
+    }))
+    const folderItem = (await rendered(sidebar)).find(item => item.dataset.resourceId === folder.value)!
+    folderItem.focus()
+    folderItem.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }))
+    await Promise.resolve()
+    const nextHome = namedNode('https://example.test/other/')
+    sidebar.subject = nextHome
+    await sidebar.updateComplete
+    resolveLoad()
+    await Promise.resolve()
+    await sidebar.updateComplete
+    expect(sidebar.shadowRoot.activeElement?.dataset.resourceId).toBe(nextHome.value)
+  })
 })
