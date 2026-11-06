@@ -92,6 +92,9 @@ export default class FolderPaneView extends WebComponent {
   accessor selectedResource: NamedNode | undefined = undefined
 
   @state()
+  private accessor standaloneBreadcrumbRoot: NamedNode | undefined = undefined
+
+  @state()
   accessor containerView: 'grid' | 'list' = 'grid'
 
   @state()
@@ -108,6 +111,9 @@ export default class FolderPaneView extends WebComponent {
 
   @state()
   private accessor contentError: ContentError | undefined = undefined
+
+  @state()
+  private accessor showingContainer = false
 
   @state()
   private accessor canCreate = false
@@ -320,6 +326,9 @@ export default class FolderPaneView extends WebComponent {
       (changedProperties.has('subject') || changedProperties.has('browserContext')) &&
       this.subject
     ) {
+      this.standaloneBreadcrumbRoot = this.fullView
+        ? this.getStandaloneBreadcrumbRoot(this.subject)
+        : this.subject
       if (changedProperties.has('subject') || changedProperties.has('browserContext')) {
         this.selectedResource = undefined
         this.renderGeneration++
@@ -335,11 +344,27 @@ export default class FolderPaneView extends WebComponent {
     }
 
     if (changedProperties.has('fullView') && changedProperties.get('fullView') !== undefined) {
+      if (this.subject) {
+        this.standaloneBreadcrumbRoot = this.fullView
+          ? this.getStandaloneBreadcrumbRoot(this.subject)
+          : this.subject
+      }
       if (this.selectedResource) {
         void this.showResourceInContentView(this.selectedResource)
       } else if (this.subject) {
         this.renderContainerView(this.subject)
       }
+    }
+  }
+
+  private getStandaloneBreadcrumbRoot (subject: NamedNode): NamedNode {
+    try {
+      const url = new URL(subject.uri)
+      const pathSegments = url.pathname.split('/').filter(Boolean)
+      if (pathSegments.length <= 1) return subject
+      return this.store?.sym(`${url.origin}/${pathSegments[0]}/`) ?? subject
+    } catch {
+      return subject
     }
   }
 
@@ -433,7 +458,7 @@ export default class FolderPaneView extends WebComponent {
       return selected
     }
 
-    const root = this.subject
+    const root = this.fullView ? this.standaloneBreadcrumbRoot : this.subject
     const parent = selected?.dir()
     const rootUri = root?.uri.endsWith('/') ? root.uri : `${root?.uri}/`
     if (root && parent && rootUri && parent.uri.startsWith(rootUri)) {
@@ -545,6 +570,7 @@ export default class FolderPaneView extends WebComponent {
     containerView.view = this.containerView
     containerView.searchQuery = this.searchQuery
 
+    this.showingContainer = true
     target.replaceChildren(containerView)
   }
 
@@ -676,6 +702,7 @@ export default class FolderPaneView extends WebComponent {
     })
     if (options.isCurrent && !options.isCurrent()) return
     this.contentError = undefined
+    this.showingContainer = false
     target.replaceChildren(provider)
   }
 
@@ -881,7 +908,10 @@ export default class FolderPaneView extends WebComponent {
 
   private handleSelectHome = () => {
     this.searchQuery = ''
-    if (this.subject) this.showSubject(this.subject)
+    const home = this.subject && this.standaloneBreadcrumbRoot?.sameTerm(this.subject)
+      ? this.subject
+      : this.standaloneBreadcrumbRoot
+    if (home) this.showSubject(home)
   }
 
   private handleSearch = (event: CustomEvent<{ query: string }>) => {
@@ -1015,12 +1045,14 @@ export default class FolderPaneView extends WebComponent {
           .searchQuery=${this.searchQuery}
           .canCreate=${this.canCreate}
         >
+          ${this.showingContainer ? this.renderStorageHeader() : nothing}
           ${this.renderContentError()}
           <div
             class="folder-pane-full-view"
             ?hidden=${!!this.contentError}
             @resource-selected=${this.handleResourceSelected}
           ></div>
+          <div class="folder-pane-status"></div>
         </folder-pane-provider>
       `
     }
@@ -1101,6 +1133,7 @@ export default class FolderPaneView extends WebComponent {
     return html`
       <folder-pane-storage-header
         .subject=${this.subject}
+        .breadcrumbRoot=${this.standaloneBreadcrumbRoot}
         .selectedResource=${this.displayedResource}
         .browserContext=${this.browserContext}
         .paneList=${this.browserContext?.session.paneRegistry.list ?? []}

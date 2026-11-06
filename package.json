@@ -1,6 +1,6 @@
 {
   "name": "folder-pane",
-  "version": "4.0.1-1",
+  "version": "4.0.1-2",
   "description": "Solid-compatible Panes: File browser",
   "main": "dist/index.cjs.js",
   "types": "dist/index.d.ts",
@@ -78,7 +78,7 @@
     "pane-registry": "5.0.2-2",
     "rdflib": "2.4.1",
     "solid-logic": "6.0.1-5",
-    "solid-ui": "5.0.2-6"
+    "solid-ui": "5.0.2-7"
   },
   "solidosDependencies": [
     "rdflib",
