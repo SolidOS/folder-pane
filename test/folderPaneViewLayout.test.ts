@@ -10,6 +10,7 @@ import FolderPaneView, {
   MIN_SIDEBAR_WIDTH
 } from '../src/components/folder-pane-view/FolderPaneView'
 import '../src/components/folder-pane-storage-header/FolderPaneStorageHeader'
+import type FolderPaneContainer from '../src/components/folder-pane-container/FolderPaneContainer'
 
 describe('folder pane layout state', () => {
   afterEach(() => {
@@ -29,6 +30,61 @@ describe('folder pane layout state', () => {
     expect(view.sidebarCollapsed).toBe(false)
     expect(shell.dataset.sidebarCollapsed).toBe('false')
     expect(shell.getAttribute('style')).toContain(`--folder-pane-sidebar-width: ${DEFAULT_SIDEBAR_WIDTH}px`)
+    expect(view.querySelectorAll('folder-pane-storage-header')).toHaveLength(1)
+    expect(view.querySelectorAll('folder-pane-sidebar')).toHaveLength(1)
+  })
+
+  it('shows the storage toolbar above a standalone container without a sidebar or file-explorer header', async () => {
+    const view = document.createElement('folder-pane-view') as FolderPaneView
+    view.fullView = true
+    view.subject = namedNode('http://localhost:3100/sharon/public/')
+    document.body.append(view)
+    await view.updateComplete
+    view['renderContainerView'](view.subject)
+    await view.updateComplete
+
+    const header = view.querySelector('folder-pane-storage-header')!
+    const container = view.querySelector('folder-pane-container') as FolderPaneContainer
+    expect(header).toBeTruthy()
+    expect(header.compareDocumentPosition(container) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(container.subject?.sameTerm(view.subject)).toBe(true)
+    expect(view.querySelector('folder-pane-sidebar')).toBeNull()
+    expect(view.querySelector('.folder-pane-sidebar-resizer')).toBeNull()
+    expect(view.querySelector('solid-ui-file-explorer-header')).toBeNull()
+    expect(view.querySelector('.folder-pane-status')).toBeTruthy()
+
+    header.dispatchEvent(new CustomEvent('folder-pane-change-view', {
+      detail: { view: 'list' },
+      bubbles: true
+    }))
+    await view.updateComplete
+    expect(container.view).toBe('list')
+    expect(view.containerView).toBe('list')
+
+    header.dispatchEvent(new CustomEvent('folder-pane-search', {
+      detail: { query: 'notes' },
+      bubbles: true
+    }))
+    await view.updateComplete
+    expect(container.searchQuery).toBe('notes')
+    expect(view.searchQuery).toBe('notes')
+
+    header.dispatchEvent(new CustomEvent('folder-pane-change-view', {
+      detail: { view: 'grid' },
+      bubbles: true
+    }))
+    await view.updateComplete
+    expect(container.view).toBe('grid')
+  })
+
+  it('does not add a storage toolbar to standalone content that is not a container listing', async () => {
+    const view = document.createElement('folder-pane-view') as FolderPaneView
+    view.fullView = true
+    document.body.append(view)
+    await view.updateComplete
+
+    expect(view.querySelector('folder-pane-storage-header')).toBeNull()
+    expect(view.querySelector('folder-pane-sidebar')).toBeNull()
   })
 
   it('clamps widths to the minimum, maximum, and content minimum', () => {

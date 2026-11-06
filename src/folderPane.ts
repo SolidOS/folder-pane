@@ -17,7 +17,7 @@ export { getCreationNoun, getCreationPanes, getPaneLabel } from './helpers'
  * How a folder is presented:
  * - `explorer`: storage header, sidebar and content (the viewer's own storage, the server root)
  * - `storage`: storage header, sidebar and content under the navbar of someone else's pod
- * - `container`: the container alone (a container URL opened on its own)
+ * - `container`: storage header and container contents, without a sidebar (a container URL opened on its own)
  */
 export type FolderView = 'explorer' | 'storage' | 'container'
 
