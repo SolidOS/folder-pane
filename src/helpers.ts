@@ -6,7 +6,7 @@ import type { ResourceMap } from './types'
 
 export type FolderPaneResourceLogic = Pick<
   ResourceLogic,
-  'getContainerMembers' | 'isHiddenFile' | 'isContainer' | 'containerHasIndexDocument' | 'getContainerIndexThing'
+  'getContainerMembers' | 'isHiddenFile' | 'isContainer' | 'containerHasIndexDocument' | 'getContainerIndexThing' | 'uploadFiles'
 >
 
 function isJavaScriptFile (resource: NamedNode): boolean {

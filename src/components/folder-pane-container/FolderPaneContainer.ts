@@ -58,6 +58,12 @@ export default class FolderPaneContainer extends WebComponent {
   @property()
   accessor searchQuery = ''
 
+  @property({ type: Boolean, attribute: 'can-upload' })
+  accessor canUpload = false
+
+  @property({ type: Boolean, attribute: 'upload-busy' })
+  accessor uploadBusy = false
+
   @state()
   private accessor resourceActionMenuItems = new Map<string, ResourceActionMenuItem[]>()
 
@@ -76,11 +82,14 @@ export default class FolderPaneContainer extends WebComponent {
   private accessor loading = true
   @state()
   private accessor loadError: string | undefined = undefined
+  @state()
+  private accessor dragActive = false
 
   private resourceActionMenuLoads = new Map<string, 'loading' | 'loaded' | 'error'>()
   private resourceGeneration = 0
   private authGeneration = 0
   private updateWorkScheduled = false
+  private fileDragDepth = 0
   // Two at a time: each request may also need a CORS preflight, and pod hosts
   // such as solidcommunity.net rate-limit bursts.
   private detailsQueue = createRequestQueue({ concurrency: 2 })
@@ -92,6 +101,72 @@ export default class FolderPaneContainer extends WebComponent {
       detail: { resource: resource.subject },
       bubbles: true,
       composed: true,
+    }))
+  }
+
+  private hasDraggedFiles (event: DragEvent) {
+    return Array.from(event.dataTransfer?.types ?? []).includes('Files')
+  }
+
+  private handleFileDragEnter = (event: DragEvent) => {
+    if (!this.canUpload || !this.hasDraggedFiles(event)) return
+    event.preventDefault()
+    event.stopPropagation()
+    this.fileDragDepth++
+    this.dragActive = true
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy'
+  }
+
+  private handleFileDragLeave = (event: DragEvent) => {
+    if (this.fileDragDepth === 0) return
+    event.preventDefault()
+    event.stopPropagation()
+    this.fileDragDepth = Math.max(0, this.fileDragDepth - 1)
+    this.dragActive = this.fileDragDepth > 0
+  }
+
+  private handleFileDragOver = (event: DragEvent) => {
+    if (!this.canUpload || !this.hasDraggedFiles(event)) return
+    event.preventDefault()
+    event.stopPropagation()
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy'
+  }
+
+  private handleFileDrop = (event: DragEvent) => {
+    const dataTransfer = event.dataTransfer
+    const files = Array.from(event.dataTransfer?.files ?? [])
+    const hasDirectory = Array.from(dataTransfer?.items ?? []).some(item => {
+      const entry = (item as DataTransferItem & {
+        webkitGetAsEntry?: () => { isDirectory?: boolean } | null
+      }).webkitGetAsEntry?.()
+      return entry?.isDirectory === true
+    })
+    if (!files.length && !hasDirectory) return
+    event.preventDefault()
+    event.stopPropagation()
+    this.fileDragDepth = 0
+    this.dragActive = false
+    if (hasDirectory) {
+      this.dispatchEvent(new CustomEvent('folder-pane-upload-rejected', {
+        detail: { message: 'Folder drops are not supported. Select files instead.' },
+        bubbles: true,
+        composed: true
+      }))
+      return
+    }
+    if (this.uploadBusy) {
+      this.dispatchEvent(new CustomEvent('folder-pane-upload-rejected', {
+        detail: { message: 'Please wait for the current upload or creation to finish.' },
+        bubbles: true,
+        composed: true
+      }))
+      return
+    }
+    if (!this.canUpload) return
+    this.dispatchEvent(new CustomEvent('folder-pane-upload-files', {
+      detail: { files },
+      bubbles: true,
+      composed: true
     }))
   }
 
@@ -364,6 +439,11 @@ export default class FolderPaneContainer extends WebComponent {
   }
 
   protected updated (changedProperties: Map<string, unknown>) {
+    if (changedProperties.has('canUpload') && !this.canUpload) {
+      this.fileDragDepth = 0
+      this.dragActive = false
+    }
+
     if (
       changedProperties.has('subject') ||
       changedProperties.has('resourceLogic') ||
@@ -638,7 +718,14 @@ export default class FolderPaneContainer extends WebComponent {
   render () {
     const resources = this.visibleResources
     return html`
-      <div class="folder-pane-container-content">
+      <div
+        class="folder-pane-container-content"
+        data-drag-active=${String(this.dragActive)}
+        @dragenter=${this.handleFileDragEnter}
+        @dragleave=${this.handleFileDragLeave}
+        @dragover=${this.handleFileDragOver}
+        @drop=${this.handleFileDrop}
+      >
         ${this.loadError ? html`<div class="folder-pane-container-error" role="alert">${this.loadError}</div>` : nothing}
         ${this.loading
           ? html`<div class="folder-pane-container-loading" role="status">Loading resources…</div>`

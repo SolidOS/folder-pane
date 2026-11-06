@@ -1,4 +1,4 @@
-import { aclControl, composeExplorer, customElement, FILE_EXPLORER_BACK_EVENT, FILE_EXPLORER_OPEN_PANE_EVENT, getPreferredPane, getRelevantPanes, isExplorerEvent, log, ns, preparePaneMenuItems, showDialog, WebComponent, widgets } from 'solid-ui'
+import { aclControl, composeExplorer, customElement, FILE_EXPLORER_BACK_EVENT, FILE_EXPLORER_OPEN_PANE_EVENT, getPreferredPane, getRelevantPanes, isExplorerEvent, log, ns, preparePaneMenuItems, showDialog, WebComponent } from 'solid-ui'
 import { authn, authSession } from 'solid-logic'
 import { resourceAccessCache } from '../../accessCache'
 import { html, nothing } from 'lit'
@@ -161,6 +161,8 @@ export default class FolderPaneView extends WebComponent {
     }
     this.addEventListener('folder-pane-create-pane', this.handleCreatePane)
     this.addEventListener('folder-pane-upload', this.handleUpload)
+    this.addEventListener('folder-pane-upload-files', this.handleDroppedFiles)
+    this.addEventListener('folder-pane-upload-rejected', this.handleUploadRejected)
     this.addEventListener('resource-open-pane', this.handleResourceOpenPane as EventListener)
     if (!this.authListenersAttached) {
       authSession.events.on('login', this.handleAuthChange)
@@ -178,6 +180,8 @@ export default class FolderPaneView extends WebComponent {
     this.initialLoadGeneration++
     this.removeEventListener('folder-pane-create-pane', this.handleCreatePane)
     this.removeEventListener('folder-pane-upload', this.handleUpload)
+    this.removeEventListener('folder-pane-upload-files', this.handleDroppedFiles)
+    this.removeEventListener('folder-pane-upload-rejected', this.handleUploadRejected)
     this.removeEventListener('resource-open-pane', this.handleResourceOpenPane as EventListener)
     if (this.authListenersAttached) {
       authSession.events.off('login', this.handleAuthChange)
@@ -221,6 +225,7 @@ export default class FolderPaneView extends WebComponent {
     const statusArea = this.statusArea
     if (!container || !statusArea) return
     this.creationInFlight = true
+    this.updateUploadAvailability()
     const operationGeneration = ++this.renderGeneration
     const paneName = getPaneLabel(pane)
     try {
@@ -263,62 +268,104 @@ export default class FolderPaneView extends WebComponent {
       }
     } finally {
       this.creationInFlight = false
+      this.updateUploadAvailability()
     }
   }
 
   private handleUpload = (event: Event) => {
     event.stopPropagation()
     if (this.creationInFlight || !authn.currentUser()) return
-    const container = this.getActiveContainer()
-    const statusArea = this.statusArea
-    if (!container || !statusArea || !this.store) return
     const input = this.ownerDocument.createElement('input')
     input.type = 'file'
     input.multiple = true
     input.addEventListener('change', () => {
-      const files = Array.from(input.files ?? [])
-      const validFiles = files.filter(file => isSafeCreationName(file.name))
-      const invalidFiles = files.filter(file => !isSafeCreationName(file.name))
-      invalidFiles.forEach(file => setMintStatus(statusArea, 'error', `${file.name}: ${invalidCreationNameMessage}`))
-      if (!validFiles.length) return
-      this.creationInFlight = true
-      const uploadGeneration = this.renderGeneration
-      const uploadContext = this.browserContext
-      let remaining = validFiles.length
-      let refreshes = Promise.resolve()
-      setMintStatus(statusArea, 'progress', `Uploading ${validFiles.length} file${validFiles.length === 1 ? '' : 's'}`)
-      const finish = () => {
-        remaining--
-        if (remaining === 0) {
-          this.creationInFlight = false
-          if (statusArea.dataset.status === 'progress') statusArea.replaceChildren()
-        }
-      }
-      widgets.uploadFiles(
-        this.store!.fetcher,
-        validFiles,
-        container.uri,
-        container.uri,
-        (_file: File, uri: string) => {
-          refreshes = refreshes.then(() => {
-            const canNavigateToUpload = this.renderGeneration === uploadGeneration &&
-              this.browserContext === uploadContext
-            return this.showCreatedResource({
-              container,
-              containedResource: this.store!.sym(uri),
-              newInstance: validFiles.length === 1 && canNavigateToUpload
-                ? this.store!.sym(uri)
-                : undefined
-            })
-          }).finally(finish)
-        },
-        (_file: File, message: string) => {
-          setMintStatus(statusArea, 'error', message)
-          finish()
-        }
-      )
+      void this.uploadFiles(Array.from(input.files ?? []), true)
     })
     input.click()
+  }
+
+  private handleDroppedFiles = (event: Event) => {
+    event.stopPropagation()
+    const files = (event as CustomEvent<{ files: File[] }>).detail?.files ?? []
+    void this.uploadFiles(files, false)
+  }
+
+  private handleUploadRejected = (event: Event) => {
+    event.stopPropagation()
+    const message = (event as CustomEvent<{ message?: string }>).detail?.message
+    if (message && this.statusArea) setMintStatus(this.statusArea, 'error', message)
+  }
+
+  private async uploadFiles (files: File[], openUploadedResource: boolean) {
+    if (this.creationInFlight || !authn.currentUser() || !this.canCreate) return
+    const container = this.getActiveContainer()
+    const statusArea = this.statusArea
+    const resourceLogic = this.resourceLogic
+    if (!files.length || !container || !statusArea || !this.store || !resourceLogic) return
+
+    const validFiles = files.filter(file => isSafeCreationName(file.name))
+    const invalidFiles = files.filter(file => !isSafeCreationName(file.name))
+    const errors = invalidFiles.map(file => `${file.name}: ${invalidCreationNameMessage}`)
+    if (!validFiles.length) {
+      if (errors.length) setMintStatus(statusArea, 'error', errors.join('; '))
+      return
+    }
+
+    this.creationInFlight = true
+    this.updateUploadAvailability()
+    const uploadGeneration = this.renderGeneration
+    const uploadContext = this.browserContext
+    let remaining = validFiles.length
+    const finish = () => {
+      remaining--
+      if (remaining === 0) {
+        this.creationInFlight = false
+        this.updateUploadAvailability()
+        if (statusArea.dataset.status === 'progress') statusArea.replaceChildren()
+      }
+    }
+
+    setMintStatus(statusArea, 'progress', `Uploading ${validFiles.length} file${validFiles.length === 1 ? '' : 's'}`)
+    try {
+      const results = await resourceLogic.uploadFiles(validFiles, container.uri)
+      for (const result of results) {
+        if (!result.success) {
+          const prefix = result.error.destinationUri
+            ? `Upload failed while putting ${result.error.destinationUri}`
+            : `Upload failed for ${result.file.name}`
+          const message = result.error.status === 413
+            ? `${prefix}: storage quota was exceeded. ${result.error.message}`
+            : result.error.status
+              ? `${prefix} (HTTP ${result.error.status}). ${result.error.message}`
+              : `${prefix}. ${result.error.message}`
+          errors.push(message)
+          finish()
+          continue
+        }
+
+        try {
+          const canNavigateToUpload = this.renderGeneration === uploadGeneration &&
+            this.browserContext === uploadContext
+          await this.showCreatedResource({
+            container,
+            containedResource: this.store.sym(result.uploadedUri),
+            newInstance: openUploadedResource && validFiles.length === 1 && canNavigateToUpload
+              ? this.store.sym(result.uploadedUri)
+              : undefined
+          })
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error)
+          errors.push(`Uploaded ${result.file.name}, but could not refresh the folder: ${message}`)
+        } finally {
+          finish()
+        }
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      errors.push(`Unable to upload files: ${message}`)
+      while (remaining > 0) finish()
+    }
+    if (errors.length) setMintStatus(statusArea, 'error', errors.join('; '))
   }
 
   protected updated (changedProperties: PropertyValues<this>) {
@@ -480,7 +527,7 @@ export default class FolderPaneView extends WebComponent {
     ) return
 
     const permissionGeneration = ++this.permissionGeneration
-    this.canCreate = false
+    this.setCanCreate(false)
     this.permissionRequest = container && resourceLogic
       ? { containerUri: container.uri, resourceLogic }
       : undefined
@@ -492,7 +539,7 @@ export default class FolderPaneView extends WebComponent {
           permissionGeneration === this.permissionGeneration &&
           this.getActiveContainer()?.sameTerm(container) === true
         ) {
-          this.canCreate = metadata.access.canEdit
+          this.setCanCreate(metadata.access.canEdit)
         }
       })
       .catch(error => {
@@ -501,6 +548,23 @@ export default class FolderPaneView extends WebComponent {
           debug.warn('Unable to determine folder creation permission', error)
         }
       })
+  }
+
+  private updateUploadAvailability () {
+    const containerView = this.resourceTarget?.querySelector('folder-pane-container') as
+      (FolderPaneContainer & { subject?: NamedNode, uploadBusy?: boolean }) | null
+    const activeContainer = this.getActiveContainer()
+    if (!containerView) return
+    containerView.canUpload = this.canCreate &&
+      !this.creationInFlight &&
+      !!activeContainer &&
+      containerView.subject?.sameTerm(activeContainer) === true
+    containerView.uploadBusy = this.creationInFlight
+  }
+
+  private setCanCreate (canCreate: boolean) {
+    this.canCreate = canCreate
+    this.updateUploadAvailability()
   }
 
   clearContentForCreation () {
@@ -525,6 +589,7 @@ export default class FolderPaneView extends WebComponent {
         return false
       }
     }
+
     const confirmed = await reload(container)
     if (containedResource.uri.endsWith('/')) {
       await reload(containedResource)
@@ -567,6 +632,11 @@ export default class FolderPaneView extends WebComponent {
     containerView.subject = selectedResource
     containerView.resourceLogic = this.resourceLogic ?? null
     containerView.browserContext = this.browserContext
+    const activeContainer = this.getActiveContainer()
+    containerView.canUpload = this.canCreate &&
+      !!activeContainer &&
+      selectedResource.sameTerm(activeContainer)
+    containerView.uploadBusy = this.creationInFlight
     containerView.view = this.containerView
     containerView.searchQuery = this.searchQuery
 
