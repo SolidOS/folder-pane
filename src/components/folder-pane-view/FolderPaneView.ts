@@ -361,21 +361,19 @@ export default class FolderPaneView extends WebComponent {
     })
   }
 
-  private async loadResource (resource: NamedNode): Promise<void> {
+  private async loadResource (resource: NamedNode, retryFailed = false): Promise<void> {
     const store = this.store
     if (!store) return
     const fetcher = store.fetcher
-    // rdflib keeps failed requests in its cache. A later navigation (or the
-    // retry button) otherwise just observes the cached failure and never
-    // starts a new request. This is especially common when the first request
-    // races OIDC restoration.
-    clearFailedResource(fetcher, resource)
+    // A failed request can be cached by rdflib. Do not clear it during normal
+    // navigation: persistent failures such as CORS errors should settle once
+    // instead of causing a new request on every render. An explicit retry is
+    // the point at which the cached failure should be discarded.
+    if (retryFailed) clearFailedResource(fetcher, resource)
     try {
       await fetcher.load(resource)
     } catch (error) {
-      // A request made before OIDC restoration can leave a failed fetch cached.
-      // The owner is allowed to retry the resource once with a clean fetcher entry.
-      if (!isAccessDeniedError(error) || !authn.currentUser()) throw error
+      if (!retryFailed || !isAccessDeniedError(error) || !authn.currentUser()) throw error
       await fetcher.load(resource, { force: true, clearPreviousData: true })
     }
   }
@@ -397,7 +395,7 @@ export default class FolderPaneView extends WebComponent {
     if (!selectedResource && !subject) return
     this.clearContentError()
     if (selectedResource) {
-      void this.showResourceInContentView(selectedResource)
+      void this.showResourceInContentView(selectedResource, undefined, false, true)
     } else if (subject) {
       void this.showInitialContainer(subject)
     }
@@ -687,7 +685,8 @@ export default class FolderPaneView extends WebComponent {
   private async showResourceInContentView (
     selectedResource: NamedNode,
     pane?: PaneDefinition,
-    indexRequested = false
+    indexRequested = false,
+    retryFailed = false
   ) {
     const renderGeneration = ++this.renderGeneration
 
@@ -731,7 +730,7 @@ export default class FolderPaneView extends WebComponent {
         (pane?.name !== 'source' || indexRequested)
       ) {
         try {
-          await this.loadResource(selectedResource)
+          await this.loadResource(selectedResource, retryFailed)
         } catch (error) {
           if (!isCurrentSelection(selectedResource)) return
           if (isAccessDeniedError(error)) {
@@ -762,7 +761,7 @@ export default class FolderPaneView extends WebComponent {
             getIndexedApplicationSubject(selectedResource, pane?.name)
           )
           try {
-            await this.loadResource(applicationSubject.doc())
+            await this.loadResource(applicationSubject.doc(), retryFailed)
           } catch (error) {
             if (!isCurrentSelection(selectedResource)) return
             if (isAccessDeniedError(error)) {
@@ -798,7 +797,7 @@ export default class FolderPaneView extends WebComponent {
       }
 
       try {
-        await this.loadResource(selectedResource)
+        await this.loadResource(selectedResource, retryFailed)
       } catch (error) {
         if (!isCurrentSelection(selectedResource)) return
         if (isAccessDeniedError(error)) {
