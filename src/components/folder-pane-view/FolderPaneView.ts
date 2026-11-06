@@ -397,6 +397,7 @@ export default class FolderPaneView extends WebComponent {
     if (selectedResource) {
       void this.showResourceInContentView(selectedResource, undefined, false, true)
     } else if (subject) {
+      if (this.store) clearFailedResource(this.store.fetcher, subject)
       void this.showInitialContainer(subject)
     }
   }
