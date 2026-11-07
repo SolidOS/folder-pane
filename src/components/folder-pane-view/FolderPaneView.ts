@@ -164,6 +164,7 @@ export default class FolderPaneView extends WebComponent {
     this.addEventListener('folder-pane-upload-files', this.handleDroppedFiles)
     this.addEventListener('folder-pane-upload-rejected', this.handleUploadRejected)
     this.addEventListener('resource-open-pane', this.handleResourceOpenPane as EventListener)
+    this.ownerDocument.addEventListener('solid-resource-deleted', this.handleResourceDeleted)
     if (!this.authListenersAttached) {
       authSession.events.on('login', this.handleAuthChange)
       authSession.events.on('logout', this.handleAuthChange)
@@ -183,6 +184,7 @@ export default class FolderPaneView extends WebComponent {
     this.removeEventListener('folder-pane-upload-files', this.handleDroppedFiles)
     this.removeEventListener('folder-pane-upload-rejected', this.handleUploadRejected)
     this.removeEventListener('resource-open-pane', this.handleResourceOpenPane as EventListener)
+    this.ownerDocument.removeEventListener('solid-resource-deleted', this.handleResourceDeleted)
     if (this.authListenersAttached) {
       authSession.events.off('login', this.handleAuthChange)
       authSession.events.off('logout', this.handleAuthChange)
@@ -294,6 +296,33 @@ export default class FolderPaneView extends WebComponent {
     event.stopPropagation()
     const message = (event as CustomEvent<{ message?: string }>).detail?.message
     if (message && this.statusArea) setMintStatus(this.statusArea, 'error', message)
+  }
+
+  private handleResourceDeleted = (event: Event) => {
+    const resource = (event as CustomEvent<{ resource?: NamedNode }>).detail?.resource
+    if (!resource) return
+
+    const parent = resource.dir()
+    const activeContainer = this.getActiveContainer()
+    if (parent) {
+      this.sidebar?.refreshResources?.(parent)
+    }
+
+    const containerView = this.resourceTarget?.querySelector('folder-pane-container') as
+      (HTMLElement & { refresh?: () => void }) | null
+    if (parent && activeContainer?.sameTerm(parent)) {
+      void containerView?.refresh?.()
+    }
+
+    if (!this.selectedResource?.sameTerm(resource)) return
+    this.renderGeneration = invalidateRenderRequest(this.renderGeneration)
+    const container = parent ?? this.subject
+    if (container) {
+      this.selectedResource = container
+      this.renderContainerView(container)
+    } else {
+      this.selectedResource = undefined
+    }
   }
 
   private async uploadFiles (files: File[], openUploadedResource: boolean) {

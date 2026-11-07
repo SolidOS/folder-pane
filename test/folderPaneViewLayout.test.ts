@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { namedNode } from 'rdflib'
 import FolderPaneView, {
   clampSidebarWidth,
@@ -118,6 +118,33 @@ describe('folder pane layout state', () => {
     expect(view.querySelector('folder-pane-sidebar')).toBe(sidebar)
     expect(view.querySelector('.folder-pane-main-content')?.getAttribute('style'))
       .toContain('--folder-pane-sidebar-width: 360px')
+  })
+
+  it('keeps the parent selected after deleting a nested resource', async () => {
+    const view = document.createElement('folder-pane-view') as FolderPaneView & {
+      selectedResource: ReturnType<typeof namedNode>
+      renderGeneration: number
+      renderContainerView: (resource: ReturnType<typeof namedNode>) => void
+      handleResourceDeleted: (event: Event) => void
+    }
+    const parent = namedNode('https://example.test/parent/')
+    const resource = namedNode('https://example.test/parent/file.txt')
+    view.subject = namedNode('https://example.test/')
+    document.body.append(view)
+    await view.updateComplete
+    view.selectedResource = resource
+
+    const renderContainerView = vi.spyOn(view as unknown as {
+      renderContainerView: (resource: ReturnType<typeof namedNode>) => void
+    }, 'renderContainerView')
+    const generation = view.renderGeneration
+    view.handleResourceDeleted(new CustomEvent('solid-resource-deleted', {
+      detail: { resource }
+    }))
+
+    expect(view.renderGeneration).toBe(generation + 1)
+    expect(view.selectedResource?.sameTerm(parent)).toBe(true)
+    expect(renderContainerView).toHaveBeenCalledWith(parent)
   })
 
   it('toggles navigation with an action-oriented accessible name', async () => {
