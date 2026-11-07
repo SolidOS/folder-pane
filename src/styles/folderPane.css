@@ -437,7 +437,13 @@ solid-ui-file-explorer-provider > .exceptionPane {
     border: 0;
   }
 
+  folder-pane-sidebar,
+  .folder-pane-sidebar-resizer {
+    display: none;
+  }
+
   .folder-pane-content-column {
+    width: 100%;
     min-height: 0;
     overflow: visible;
   }
