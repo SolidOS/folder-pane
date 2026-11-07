@@ -9,6 +9,7 @@
   flex: 1 1 auto;
 
   .folder-pane-container-content {
+    position: relative;
     display: flex;
     flex: 1 1 auto;
     flex-direction: column;
@@ -20,6 +21,31 @@
     overflow-x: hidden;
     scrollbar-width: thin;
     scrollbar-color: transparent transparent;
+    transition: background-color 180ms ease;
+  }
+
+  .folder-pane-container-content[data-drag-active="true"] {
+    background-color: #eee9ff;
+    background-color: color-mix(
+      in srgb,
+      var(--solid-ui-color-lavender-200, #DDD6FE) 40%,
+      white
+    );
+    box-shadow:
+      0 0 0 5px rgb(196 181 253 / 8%),
+      0 0 20px rgb(124 77 255 / 10%);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .folder-pane-container-content {
+      transition: none;
+    }
+
+    .folder-pane-container-content[data-drag-active="true"] {
+      box-shadow:
+        0 0 0 5px rgb(196 181 253 / 8%),
+        0 0 20px rgb(124 77 255 / 10%);
+    }
   }
 
   .folder-pane-container-loading {
