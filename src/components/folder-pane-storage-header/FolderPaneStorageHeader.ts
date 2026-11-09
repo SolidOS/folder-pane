@@ -189,8 +189,19 @@ export default class FolderPaneStorageHeader extends WebComponent {
     return resources
   }
 
-  private getResourceLabel (resource: NamedNode, index: number) {
-    if (index === 0) return 'Home'
+  private isHomeResource (resource: NamedNode) {
+    try {
+      const url = new URL(resource.uri)
+      const pathSegments = url.pathname.split('/').filter(Boolean)
+      return pathSegments.length === 0 ||
+        (url.hostname === 'localhost' && pathSegments.length === 1)
+    } catch {
+      return false
+    }
+  }
+
+  private getResourceLabel (resource: NamedNode) {
+    if (this.isHomeResource(resource)) return 'Home'
 
     try {
       const pathSegments = new URL(resource.uri).pathname.split('/').filter(Boolean)
@@ -255,12 +266,12 @@ export default class FolderPaneStorageHeader extends WebComponent {
             ${this.breadcrumbResources.map((resource, index, resources) => html`
               <li>
                 ${index === resources.length - 1
-                  ? html`<span aria-current="page">${this.getResourceLabel(resource, index)}</span>`
+                  ? html`<span aria-current="page">${this.getResourceLabel(resource)}</span>`
                   : html`
                       <button
                         type="button"
-                        @click=${() => index === 0 ? this.selectHome() : this.selectResource(resource)}
-                      >${this.getResourceLabel(resource, index)}</button>
+                        @click=${() => this.isHomeResource(resource) ? this.selectHome() : this.selectResource(resource)}
+                      >${this.getResourceLabel(resource)}</button>
                       <span class="separator" aria-hidden="true">/</span>
                     `}
               </li>

@@ -77,6 +77,35 @@ describe('folder pane layout state', () => {
     expect(container.view).toBe('grid')
   })
 
+  it('labels a top-level folder by name and navigates to it from breadcrumbs', async () => {
+    const header = document.createElement('folder-pane-storage-header') as
+      HTMLElement & {
+        subject: ReturnType<typeof namedNode>
+        breadcrumbRoot: ReturnType<typeof namedNode>
+        selectedResource: ReturnType<typeof namedNode>
+        updateComplete: Promise<void>
+        renderRoot: ParentNode
+      }
+    const publicFolder = namedNode('http://sharonsubdomain.localhost:3200/public/')
+    const nestedFolder = namedNode('http://sharonsubdomain.localhost:3200/public/inside/')
+    header.subject = publicFolder
+    header.breadcrumbRoot = publicFolder
+    header.selectedResource = nestedFolder
+    document.body.append(header)
+    await header.updateComplete
+
+    const root = header.renderRoot
+    const buttons = Array.from(root.querySelectorAll('button'))
+    expect(buttons.map(button => button.textContent?.trim())).toContain('public')
+
+    const selectResource = vi.fn()
+    header.addEventListener('folder-pane-select-resource', selectResource)
+    buttons.find(button => button.textContent?.trim() === 'public')?.click()
+
+    expect(selectResource).toHaveBeenCalledOnce()
+    expect(selectResource.mock.calls[0][0].detail.resource.sameTerm(publicFolder)).toBe(true)
+  })
+
   it('does not add a storage toolbar to standalone content that is not a container listing', async () => {
     const view = document.createElement('folder-pane-view') as FolderPaneView
     view.fullView = true
