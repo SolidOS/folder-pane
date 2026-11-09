@@ -51,6 +51,43 @@ describe('folder pane sidebar tree', () => {
     expect(sidebar.selectedResource).toBeUndefined()
   })
 
+  it('uses the single roving tab stop to enter the tree and leaves Tab navigation to the browser', async () => {
+    const sidebar = createSidebar()
+    const items = await rendered(sidebar)
+    const tabStop = items.find(item => item.tabIndex === 0)!
+
+    expect(tabStop).toBe(items[0])
+    expect(items.filter(item => item.tabIndex === 0)).toHaveLength(1)
+
+    tabStop.focus()
+    const tab = new KeyboardEvent('keydown', {
+      key: 'Tab',
+      bubbles: true,
+      cancelable: true
+    })
+    tabStop.dispatchEvent(tab)
+
+    expect(tab.defaultPrevented).toBe(false)
+    expect(sidebar.activeResourceId).toBe(home.value)
+  })
+
+  it('uses arrow keys within the tree while preserving one tab stop', async () => {
+    const sidebar = createSidebar()
+    const items = await rendered(sidebar)
+    items[0].focus()
+    items[0].dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'ArrowDown',
+      bubbles: true,
+      cancelable: true
+    }))
+    await sidebar.updateComplete
+
+    const nextItems = await rendered(sidebar)
+    expect(nextItems.filter(item => item.tabIndex === 0).map(item => item.dataset.resourceId))
+      .toEqual([file.value])
+    expect(nextItems.filter(item => item.tabIndex === -1)).toHaveLength(2)
+  })
+
   it('navigates and expands containers without selecting them', async () => {
     const sidebar = createSidebar()
     let items = await rendered(sidebar)
