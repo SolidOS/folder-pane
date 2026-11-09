@@ -173,6 +173,6 @@
   }
 
   li[data-expanded='true'] > .resource-row icon-lucide-chevron-right {
-    transform: rotate(90deg);
+    transform: rotate(180deg);
   }
 }
