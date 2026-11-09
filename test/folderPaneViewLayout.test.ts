@@ -86,10 +86,11 @@ describe('folder pane layout state', () => {
         updateComplete: Promise<void>
         renderRoot: ParentNode
       }
-    const publicFolder = namedNode('http://sharonsubdomain.localhost:3200/public/')
-    const nestedFolder = namedNode('http://sharonsubdomain.localhost:3200/public/inside/')
-    header.subject = publicFolder
-    header.breadcrumbRoot = publicFolder
+    const podRoot = namedNode('https://pod.example/')
+    const publicFolder = namedNode('https://pod.example/public/')
+    const nestedFolder = namedNode('https://pod.example/public/inside/')
+    header.subject = podRoot
+    header.breadcrumbRoot = podRoot
     header.selectedResource = nestedFolder
     document.body.append(header)
     await header.updateComplete

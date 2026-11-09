@@ -190,11 +190,13 @@ export default class FolderPaneStorageHeader extends WebComponent {
   }
 
   private isHomeResource (resource: NamedNode) {
+    const root = this.breadcrumbRoot ?? this.subject
+    if (root?.sameTerm(resource)) return true
+
     try {
       const url = new URL(resource.uri)
       const pathSegments = url.pathname.split('/').filter(Boolean)
-      return pathSegments.length === 0 ||
-        (url.hostname === 'localhost' && pathSegments.length === 1)
+      return pathSegments.length === 0
     } catch {
       return false
     }
