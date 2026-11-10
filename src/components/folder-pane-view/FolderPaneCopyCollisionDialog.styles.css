@@ -1,0 +1,43 @@
+:host {
+  display: block;
+
+  .folder-pane-copy-collision-dialog-header {
+    padding: 20px 25px;
+    gap: 25px;
+    border-radius: 5px 5px 0 0;
+    border: 1px solid var(--solid-ui-color-slate-200, #E2E8F0);
+    background: var(--solid-ui-color-slate-50, #F8FAFC);
+  }
+
+  h1 {
+    margin: 0;
+    font-weight: 500;
+    color: var(--solid-ui-color-gray-800, #1E2939);
+    font-size: var(--solid-ui-font-size-xl, 1.25rem);
+  }
+
+  solid-ui-dialog-content {
+    display: flex;
+    padding: 25px;
+    align-items: flex-start;
+    align-self: stretch;
+    color: var(--solid-ui-color-gray-600, #4A5565);
+    font-size: var(--solid-ui-font-size-sm, .875rem);
+  }
+
+  p {
+    margin: 0;
+  }
+
+  solid-ui-dialog-footer {
+    display: flex;
+    padding: 20px 30px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 15px;
+    align-self: stretch;
+    border-top: 1px solid var(--solid-ui-color-slate-200, #E2E8F0);
+    background: var(--solid-ui-color-gray-50, #F9FAFB);
+  }
+}
