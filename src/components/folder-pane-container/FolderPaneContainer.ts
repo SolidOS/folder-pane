@@ -1,11 +1,13 @@
 import { html, nothing } from 'lit'
 import { property } from 'lit/decorators.js'
 import { state } from 'lit/decorators.js'
+import { ref } from 'lit/directives/ref.js'
+import { repeat } from 'lit/directives/repeat.js'
 import type { DataBrowserContext } from 'pane-registry'
 import type { NamedNode } from 'rdflib'
 import type { ResourceMetadata } from 'solid-logic'
 import { authn, authSession } from 'solid-logic'
-import { customElement, preparePaneMenuItems, utils, WebComponent } from 'solid-ui'
+import { customElement, preparePaneMenuItems, utils, WebComponent, widgets } from 'solid-ui'
 import type { PaneMenuPane } from 'solid-ui'
 import type { Resource } from '../../types'
 import { resourceAccessCache } from '../../accessCache'
@@ -90,6 +92,7 @@ export default class FolderPaneContainer extends WebComponent {
   private authGeneration = 0
   private updateWorkScheduled = false
   private fileDragDepth = 0
+  private draggableItems = new WeakSet<Element>()
   // Two at a time: each request may also need a CORS preflight, and pod hosts
   // such as solidcommunity.net rate-limit bursts.
   private detailsQueue = createRequestQueue({ concurrency: 2 })
@@ -102,6 +105,12 @@ export default class FolderPaneContainer extends WebComponent {
       bubbles: true,
       composed: true,
     }))
+  }
+
+  private makeResourceDraggable (element: Element | undefined, resource: Resource) {
+    if (!element || this.draggableItems.has(element)) return
+    widgets.makeDraggable(element, resource.subject)
+    this.draggableItems.add(element)
   }
 
   private hasDraggedFiles (event: DragEvent) {
@@ -604,6 +613,7 @@ export default class FolderPaneContainer extends WebComponent {
 
     return html`
       <li
+        ${ref(element => this.makeResourceDraggable(element, resource))}
         class="resource-list-item"
         data-resource-id=${resource.id}
         notSelectable="false"
@@ -642,7 +652,7 @@ export default class FolderPaneContainer extends WebComponent {
           <span>Name</span>
           <span>Actions</span>
         </li>
-        ${resources.map((resource) => this.renderResourceItem(resource))}
+        ${repeat(resources, resource => resource.id, resource => this.renderResourceItem(resource))}
       </ul>
     `
   }
@@ -655,6 +665,7 @@ export default class FolderPaneContainer extends WebComponent {
 
     return html`
       <li
+        ${ref(element => this.makeResourceDraggable(element, resource))}
         class="resource-grid-item"
         data-resource-id=${resource.id}
         notSelectable="false"
@@ -691,7 +702,7 @@ export default class FolderPaneContainer extends WebComponent {
   private renderGridView (resources: Resource[]) {
     return html`
       <ul class="resource-grid" role="listbox" aria-label="Container resources">
-        ${resources.map(resource => this.renderGridItem(resource))}
+        ${repeat(resources, resource => resource.id, resource => this.renderGridItem(resource))}
       </ul>
     `
   }

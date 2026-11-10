@@ -31,9 +31,85 @@ async function rendered (sidebar: any) {
   return Array.from(sidebar.renderRoot.querySelectorAll('[role="treeitem"]')) as HTMLElement[]
 }
 
+function expectResourceDrag (item: HTMLElement) {
+  const row = item.querySelector<HTMLElement>('.resource-row')!
+  expect(row.draggable).toBe(true)
+  const setData = vi.fn()
+  const dispatchDrag = (type: string) => {
+    const event = new Event(type, { bubbles: true, composed: true, cancelable: true })
+    Object.defineProperty(event, 'dataTransfer', { value: { setData, dropEffect: 'none' } })
+    row.querySelector('.resource-label')!.dispatchEvent(event)
+    return event
+  }
+  expect(dispatchDrag('dragstart').defaultPrevented).toBe(false)
+  expect(setData.mock.calls).toEqual([
+    ['text/uri-list', item.dataset.resourceId],
+    ['text/plain', item.dataset.resourceId],
+    ['text/html', row.outerHTML]
+  ])
+  expect(row.style.fontWeight).toBe('bold')
+  dispatchDrag('dragend')
+  expect(row.style.fontWeight).toBe('normal')
+}
+
 describe('folder pane sidebar tree', () => {
   afterEach(() => {
     document.body.replaceChildren()
+  })
+
+  it('drags Home, files and folders without selecting or expanding them', async () => {
+    const sidebar = createSidebar()
+    const selected = vi.fn()
+    sidebar.addEventListener('resource-selected', selected)
+    const items = await rendered(sidebar)
+
+    expect(items).toHaveLength(3)
+    items.forEach(expectResourceDrag)
+    expect(selected).not.toHaveBeenCalled()
+    expect(sidebar.expandedContainers.size).toBe(0)
+    expect(sidebar.store.fetcher.load).not.toHaveBeenCalled()
+  })
+
+  it('drags nested resources without overwriting their URLs with ancestor URLs', async () => {
+    const sidebar = createSidebar()
+    const nested = namedNode(`${folder.value}nested.txt`)
+    const getContainerMembers = sidebar.resourceLogic.getContainerMembers
+    sidebar.resourceLogic.getContainerMembers = (resource: ReturnType<typeof namedNode>) =>
+      resource.sameTerm(folder) ? [nested] : getContainerMembers(resource)
+    await rendered(sidebar)
+    sidebar.expandedContainers = new Set([folder.value])
+
+    const items = await rendered(sidebar)
+    expect(items.map(item => item.dataset.resourceId)).toContain(nested.value)
+    items.forEach(expectResourceDrag)
+  })
+
+  it('does not duplicate drag handlers after refresh, expansion or reconnection', async () => {
+    const sidebar = createSidebar()
+    await rendered(sidebar)
+    sidebar.refreshResources()
+    sidebar.expandedContainers = new Set([folder.value])
+    const expandedItems = await rendered(sidebar)
+    expandedItems.forEach(expectResourceDrag)
+    sidebar.expandedContainers = new Set()
+    await rendered(sidebar)
+    sidebar.remove()
+    document.body.append(sidebar)
+    const items = await rendered(sidebar)
+    expect(items).toHaveLength(3)
+    items.forEach(expectResourceDrag)
+  })
+
+  it('drags the new Home URL after changing storage', async () => {
+    const sidebar = createSidebar()
+    await rendered(sidebar)
+    const newHome = namedNode('https://other.example/')
+    sidebar.subject = newHome
+    const items = await rendered(sidebar)
+
+    expect(items).toHaveLength(1)
+    expect(items[0].dataset.resourceId).toBe(newHome.value)
+    expectResourceDrag(items[0])
   })
 
   it('uses one roving tabindex and keeps selection separate from focus', async () => {
