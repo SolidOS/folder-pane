@@ -1,5 +1,7 @@
-import { customElement, utils, WebComponent } from 'solid-ui'
+import { customElement, utils, WebComponent, widgets } from 'solid-ui'
 import { html, nothing } from 'lit'
+import { keyed } from 'lit/directives/keyed.js'
+import { ref } from 'lit/directives/ref.js'
 import { repeat } from 'lit/directives/repeat.js'
 import { property, state } from 'lit/decorators.js'
 import type { PropertyValues } from 'lit'
@@ -43,6 +45,13 @@ export default class FolderPaneSidebar extends WebComponent {
   private pendingFocusResourceId: string | null = null
   private resourceGeneration = 0
   private focusHomeOnUpdate = false
+  private draggableRows = new WeakSet<Element>()
+
+  private makeResourceDraggable (element: Element | undefined, resource: Resource) {
+    if (!element || this.draggableRows.has(element)) return
+    widgets.makeDraggable(element, resource.subject)
+    this.draggableRows.add(element)
+  }
 
   private loadResources () {
     const hadFocus = this.isTreeFocused()
@@ -280,6 +289,7 @@ export default class FolderPaneSidebar extends WebComponent {
 
     return html`
       <div
+        ${ref(element => this.makeResourceDraggable(element, resource))}
         class=${special ? 'resource-row resource-row-special' : 'resource-row'}
         @click=${() => this.selectResource(resource)}
       >
@@ -488,7 +498,7 @@ export default class FolderPaneSidebar extends WebComponent {
   render () {
     return html`
       <aside>
-        ${this.renderTree()}
+        ${keyed(this.subject?.value, this.renderTree())}
       </aside>
     `
   }

@@ -4,9 +4,9 @@ Folder browser fo Sold file system: traverse, add new folders, objects, upload f
 
 To upload files drag them, onto the green "+"
 
-Resources in the folder content area can be dragged from either grid or list view
-to targets that accept resource links. Dragging shares the resource URL; it does
-not move or copy the resource. Tree dragging is not yet supported.
+Resources in the folder content area (grid or list view) and sidebar tree
+(including Home) can be dragged to targets that accept resource links.
+Dragging shares the resource URL; it does not move or copy the resource.
 
 To delete a file, to into the Internals pane (cogwheel button)
 
