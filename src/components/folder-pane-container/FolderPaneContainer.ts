@@ -28,6 +28,7 @@ import '~icons/lucide/folder'
 import '~icons/lucide/globe'
 import '~icons/lucide/lock-keyhole'
 import styles from './FolderPaneContainer.styles.css'
+import { extractDroppedResourceUrl, hasDroppedResourceUrl } from '../../dropResources'
 
 type ResourceActionMenuItem = {
   key?: string
@@ -118,7 +119,7 @@ export default class FolderPaneContainer extends WebComponent {
   }
 
   private handleFileDragEnter = (event: DragEvent) => {
-    if (!this.canUpload || !this.hasDraggedFiles(event)) return
+    if (!this.canUpload || (!this.hasDraggedFiles(event) && !hasDroppedResourceUrl(event.dataTransfer))) return
     event.preventDefault()
     event.stopPropagation()
     this.fileDragDepth++
@@ -135,7 +136,7 @@ export default class FolderPaneContainer extends WebComponent {
   }
 
   private handleFileDragOver = (event: DragEvent) => {
-    if (!this.canUpload || !this.hasDraggedFiles(event)) return
+    if (!this.canUpload || (!this.hasDraggedFiles(event) && !hasDroppedResourceUrl(event.dataTransfer))) return
     event.preventDefault()
     event.stopPropagation()
     if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy'
@@ -150,7 +151,11 @@ export default class FolderPaneContainer extends WebComponent {
       }).webkitGetAsEntry?.()
       return entry?.isDirectory === true
     })
-    if (!files.length && !hasDirectory) return
+    const resourceUrl = !files.length && !hasDirectory
+      ? extractDroppedResourceUrl(dataTransfer)
+      : undefined
+    const hasResourceData = !files.length && !hasDirectory && hasDroppedResourceUrl(dataTransfer)
+    if (!files.length && !hasDirectory && !resourceUrl && !hasResourceData) return
     event.preventDefault()
     event.stopPropagation()
     this.fileDragDepth = 0
@@ -172,6 +177,22 @@ export default class FolderPaneContainer extends WebComponent {
       return
     }
     if (!this.canUpload) return
+    if (resourceUrl) {
+      this.dispatchEvent(new CustomEvent('folder-pane-copy-resource', {
+        detail: { url: resourceUrl },
+        bubbles: true,
+        composed: true
+      }))
+      return
+    }
+    if (hasResourceData) {
+      this.dispatchEvent(new CustomEvent('folder-pane-upload-rejected', {
+        detail: { message: 'The dropped URL is not a valid HTTP(S) resource.' },
+        bubbles: true,
+        composed: true
+      }))
+      return
+    }
     this.dispatchEvent(new CustomEvent('folder-pane-upload-files', {
       detail: { files },
       bubbles: true,
