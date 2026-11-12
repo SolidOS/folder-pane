@@ -8,6 +8,7 @@ import type { PropertyValues } from 'lit'
 import styles from './FolderPaneSidebar.styles.css'
 import type { LiveStore, NamedNode } from 'rdflib'
 import type { Resource, ResourceMap } from '../../types'
+import '~icons/lucide/chevron-down'
 import '~icons/lucide/chevron-right'
 import '~icons/lucide/circle-small'
 import '~icons/lucide/folder'
@@ -282,7 +283,9 @@ export default class FolderPaneSidebar extends WebComponent {
               void this.focusResource(resource.id, false).then(toggle)
             }}
           >
-            <icon-lucide-chevron-right></icon-lucide-chevron-right>
+            ${expanded
+              ? html`<icon-lucide-chevron-down></icon-lucide-chevron-down>`
+              : html`<icon-lucide-chevron-right></icon-lucide-chevron-right>`}
           </button>
         `
       : html`<span class="resource-expand-spacer" aria-hidden="true"></span>`

@@ -121,6 +121,7 @@
   }
 
   .resource-item.selected > .resource-row icon-lucide-chevron-right,
+  .resource-item.selected > .resource-row icon-lucide-chevron-down,
   .resource-item.selected > .resource-row icon-lucide-circle-small {
     color: currentColor;
     stroke: currentColor;
@@ -164,15 +165,11 @@
     outline-offset: 1px;
   }
 
-  .resource-expand-button icon-lucide-chevron-right {
+  .resource-expand-button icon-lucide-chevron-right,
+  .resource-expand-button icon-lucide-chevron-down {
     width: 16px;
     height: 16px;
     /* The lucide icon strokes with currentColor, so fill has no effect. */
     color: var(--solid-ui-color-gray-300, #d1d5dc);
-    transition: transform 120ms ease;
-  }
-
-  li[data-expanded='true'] > .resource-row icon-lucide-chevron-right {
-    transform: rotate(180deg);
   }
 }
