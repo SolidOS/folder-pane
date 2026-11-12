@@ -265,7 +265,8 @@ export default class FolderPaneStorageHeader extends WebComponent {
         <nav class="folder-pane-storage-header-breadcrumbs" aria-label="Storage breadcrumb">
           <icon-lucide-folder-open aria-hidden="true"></icon-lucide-folder-open>
           <ol>
-            ${this.breadcrumbResources.map((resource, index, resources) => html`
+            ${this.breadcrumbResources.map((resource, index, resources) => {
+              return html`
               <li>
                 ${index === resources.length - 1
                   ? html`<span aria-current="page">${this.getResourceLabel(resource)}</span>`
@@ -274,10 +275,9 @@ export default class FolderPaneStorageHeader extends WebComponent {
                         type="button"
                         @click=${() => this.isHomeResource(resource) ? this.selectHome() : this.selectResource(resource)}
                       >${this.getResourceLabel(resource)}</button>
-                      <span class="separator" aria-hidden="true">/</span>
                     `}
               </li>
-            `)}
+            `})}
           </ol>
         </nav>
         <div class="folder-pane-storage-header-toolbar">
