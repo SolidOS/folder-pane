@@ -1,4 +1,4 @@
-import type { DataBrowserContext } from 'pane-registry'
+import type { DataBrowserContext, PaneDefinition } from 'pane-registry'
 import type { NamedNode } from 'rdflib'
 import { getPreferredPane, getRelevantPanes, preparePaneMenuItems } from 'solid-ui'
 import type { PaneMenuItem, PaneMenuPane } from 'solid-ui'
@@ -10,15 +10,14 @@ export type ResourcePaneMenuOptions = {
   isContainer: boolean
   context: DataBrowserContext
   resourceLogic?: Pick<FolderPaneResourceLogic, 'containerHasIndexDocument'> | null
-  includeFolderPane?: boolean
-  openPane: (paneName: string, event: Event) => void
+  openPane: (subject: NamedNode, paneName: string, event: Event) => void
   isCurrent: () => boolean
 }
 
 /**
- * Builds the pane entries for a resource's three-dots menu: the preferred
- * pane first, folder excluded, and indexed containers resolved to their
- * application subject. Returns undefined when the request became stale.
+ * Builds pane entries from the loaded resource and its application index.
+ * The preferred pane comes first; the rest retain registry order.
+ * Returns undefined when the request became stale.
  */
 export async function loadResourcePaneMenuItems (
   options: ResourcePaneMenuOptions
@@ -43,29 +42,33 @@ export async function loadResourcePaneMenuItems (
     if (!isCurrent()) return undefined
   }
 
-  const panes = await getRelevantPanes(paneSubject, context, {
-    excludedPaneNames: ['sharing'],
-    fallbackPaneName: 'internal'
-  })
+  const relevanceOptions = { excludedPaneNames: ['sharing'] }
+  const resourcePanes = await getRelevantPanes(resource, context, relevanceOptions)
+  const applicationPanes = paneSubject.sameTerm(resource)
+    ? []
+    : await getRelevantPanes(paneSubject, context, relevanceOptions)
   if (!isCurrent()) return undefined
-
-  const preferredPane = getPreferredPane(paneSubject, context, panes)
-  const nonFolderPanes = panes.filter(pane => pane.name !== 'folder')
-  const orderedPanes = preferredPane && preferredPane.name !== 'folder'
-    ? [preferredPane, ...nonFolderPanes.filter(pane => pane !== preferredPane)]
-    : nonFolderPanes
-  const menuPanes = options.includeFolderPane && options.isContainer
-    ? (preferredPane?.name === 'folder' ? [preferredPane, ...nonFolderPanes] : [...nonFolderPanes, ...panes.filter(pane => pane.name === 'folder')])
-    : orderedPanes
-  const items = await preparePaneMenuItems({
-    subject: paneSubject,
-    context,
-    panes: menuPanes as PaneMenuPane[],
-    openPane: (_subject, paneName, event) => options.openPane(paneName, event)
-  })
-  if (options.includeFolderPane) {
-    const folderItem = items.find(item => item.key === 'folder')
-    if (folderItem) folderItem.label = 'Contents'
+  const primaryApplicationPane = getPreferredPane(paneSubject, context, applicationPanes)
+  const paneSubjects = new Map<PaneDefinition, NamedNode>(
+    resourcePanes.map(pane => [pane, resource])
+  )
+  if (primaryApplicationPane) paneSubjects.set(primaryApplicationPane, paneSubject)
+  let panes = context.session.paneRegistry.list.filter(pane => paneSubjects.has(pane))
+  if (!panes.length) {
+    panes = await getRelevantPanes(resource, context, {
+      ...relevanceOptions,
+      fallbackPaneName: 'internal'
+    })
   }
+  const preferredPane = primaryApplicationPane || getPreferredPane(resource, context, resourcePanes)
+  const orderedPanes = preferredPane
+    ? [preferredPane, ...panes.filter(pane => pane !== preferredPane)]
+    : panes
+  const items = (await Promise.all(orderedPanes.map(pane => preparePaneMenuItems({
+    subject: paneSubjects.get(pane) ?? resource,
+    context,
+    panes: [pane as PaneMenuPane],
+    openPane: (subject, paneName, event) => options.openPane(subject, paneName, event)
+  })))).flat()
   return isCurrent() ? items : undefined
 }

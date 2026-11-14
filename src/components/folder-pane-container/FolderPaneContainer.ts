@@ -7,8 +7,7 @@ import type { DataBrowserContext } from 'pane-registry'
 import type { NamedNode } from 'rdflib'
 import type { ResourceMetadata } from 'solid-logic'
 import { authn, authSession } from 'solid-logic'
-import { customElement, preparePaneMenuItems, utils, WebComponent, widgets } from 'solid-ui'
-import type { PaneMenuPane } from 'solid-ui'
+import { customElement, utils, WebComponent, widgets } from 'solid-ui'
 import type { Resource } from '../../types'
 import { resourceAccessCache } from '../../accessCache'
 import { loadResourcePaneMenuItems } from '../../resourceActionItems'
@@ -497,32 +496,12 @@ export default class FolderPaneContainer extends WebComponent {
         : nothing
   }
 
-  private openResourcePane (resource: Resource, paneName: string) {
+  private openResourcePane (subject: NamedNode, paneName: string) {
     this.dispatchEvent(new CustomEvent('resource-open-pane', {
-      detail: { resource: resource.subject, paneName },
+      detail: { resource: subject, paneName },
       bubbles: true,
       composed: true
     }))
-  }
-
-  private async getContentsMenuItem (resource: Resource): Promise<ResourceActionMenuItem | undefined> {
-    if (!resource.isContainer || !this.browserContext) return undefined
-    const folderPane = this.browserContext.session.paneRegistry.byName('folder')
-    if (!folderPane) return undefined
-    const [item] = await preparePaneMenuItems({
-      subject: resource.subject,
-      context: this.browserContext,
-      panes: [folderPane as PaneMenuPane],
-      openPane: (_subject, paneName, event) => {
-        event.stopPropagation()
-        this.openResourcePane(resource, paneName)
-      }
-    })
-    const action = item?.action ?? ((event: Event) => {
-      event.stopPropagation()
-      this.openResourcePane(resource, folderPane.name)
-    })
-    return { ...item, key: folderPane.name, label: 'Contents', action }
   }
 
   private async loadResourceActionMenuItems (resource: Resource) {
@@ -541,25 +520,20 @@ export default class FolderPaneContainer extends WebComponent {
         debug.warn('Unable to load folder-pane access metadata for resource actions', error)
         return undefined
       })
-    const contents = await this.getContentsMenuItem(resource)
-    if (!this.isCurrentAccessRequest(resourceGeneration, authGeneration, viewer)) return
-    if (contents) this.setResourceActionMenuItems(resource, [contents])
-
     try {
       const items: ResourceActionMenuItem[] | undefined = await loadResourcePaneMenuItems({
         resource: resource.subject,
         isContainer: resource.isContainer,
         context: this.browserContext,
         resourceLogic: this.resourceLogic,
-        openPane: (paneName, event) => {
+        openPane: (subject, paneName, event) => {
           event.stopPropagation()
-          this.openResourcePane(resource, paneName)
+          this.openResourcePane(subject, paneName)
         },
         isCurrent: () => this.isCurrentAccessRequest(resourceGeneration, authGeneration, viewer)
       })
       if (!items) return
 
-      if (contents) items.splice(1, 0, contents)
       this.setResourceActionMenuItems(resource, items)
       this.resourceActionMenuLoads.set(resource.id, 'loaded')
     } catch (error) {
