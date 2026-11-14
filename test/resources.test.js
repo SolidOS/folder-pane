@@ -22,7 +22,17 @@ vi.mock('../src/components/folder-pane-storage-header/FolderPaneCreateDialog', (
 
 const container = sym('https://example.test/')
 const store = { each: () => [], holds: () => true }
-const context = { session: { store } }
+const context = {
+  session: {
+    store,
+    logic: {
+      resource: {
+        isContainer: resource => resource.uri.endsWith('/'),
+        getContainerMemberCount: () => 0
+      }
+    }
+  }
+}
 const resourceLogic = {
   isContainer: () => true,
   isHiddenFile: () => false,
@@ -45,7 +55,7 @@ describe('JavaScript resource classification', () => {
   it('preserves folders whose names end in .js and containers without RDF metadata', () => {
     const resource = sym('https://example.test/scripts.js/')
     expect(isContainerResource(resource, { ...resourceLogic, isContainer: () => false })).toBe(true)
-    expect(folderPane.label(resource, context)).toBe('Container (0)')
+    expect(folderPane.label(resource, context)).toBe('Contents (0)')
   })
 
   it('filters a container index.ttl#this from resource targets', () => {

@@ -131,17 +131,16 @@ export default class FolderPaneStorageHeader extends WebComponent {
         return false
       })
 
-      try {
-        const items = await loadResourcePaneMenuItems({
+    try {
+      const items = await loadResourcePaneMenuItems({
         resource,
         isContainer: isContainerResource(resource, folderPaneResourceLogic),
         context,
         resourceLogic: folderPaneResourceLogic,
-        includeFolderPane: true,
-        openPane: (paneName, event) => {
+        openPane: (subject, paneName, event) => {
           event.stopPropagation()
           this.dispatchEvent(new CustomEvent('resource-open-pane', {
-            detail: { resource, paneName },
+            detail: { resource: subject, paneName },
             bubbles: true,
             composed: true
           }))

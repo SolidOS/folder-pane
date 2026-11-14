@@ -530,6 +530,10 @@ export default class FolderPaneView extends WebComponent {
    */
   getActiveContainer (): NamedNode | undefined {
     const selected = this.selectedResource
+    const indexedContainerUri = selected ? getIndexedContainer(selected) : undefined
+    if (indexedContainerUri && this.store) {
+      return this.store.sym(indexedContainerUri)
+    }
     if (selected && this.resourceLogic && isContainerResource(selected, this.resourceLogic)) {
       return selected
     }
@@ -881,11 +885,11 @@ export default class FolderPaneView extends WebComponent {
         }
 
         if (
-          pane?.name !== 'sharing' &&
+          !pane &&
           (indexRequested || this.resourceLogic.containerHasIndexDocument(selectedResource))
         ) {
           const applicationSubject = this.store.sym(
-            getIndexedApplicationSubject(selectedResource, pane?.name)
+            getIndexedApplicationSubject(selectedResource)
           )
           try {
             await this.loadResource(applicationSubject.doc(), retryFailed)
@@ -957,10 +961,10 @@ export default class FolderPaneView extends WebComponent {
     }
   }
 
-  private showSubject (resource: NamedNode, pane?: PaneDefinition) {
+  private showSubject (resource: NamedNode, pane?: PaneDefinition, preserveSubject = false) {
     // `container/index.ttl#this` is rendered exactly like selecting its container,
     // so indexed panes never show the file-explorer header on either route.
-    const useIndexedApplication = pane?.name !== 'sharing'
+    const useIndexedApplication = !preserveSubject && pane?.name !== 'sharing'
     const indexedContainerUri = useIndexedApplication ? getIndexedContainer(resource) : undefined
     const indexedContainer = indexedContainerUri && this.store
       ? this.store.sym(indexedContainerUri)
@@ -991,12 +995,12 @@ export default class FolderPaneView extends WebComponent {
     event.stopPropagation()
     this.searchQuery = ''
     if (pane.name === 'folder') {
-      this.showSubject(resource, pane)
+      this.showSubject(resource, pane, true)
       return
     }
     // Some minting panes (e.g. Dokieli) delegate viewing to another pane and
     // have no render(); let the relevant-pane lookup choose in that case.
-    this.showSubject(resource, typeof pane?.render === 'function' ? pane : undefined)
+    this.showSubject(resource, typeof pane?.render === 'function' ? pane : undefined, true)
   }
 
   private setContainerView (view: 'grid' | 'list') {
@@ -1233,7 +1237,7 @@ export default class FolderPaneView extends WebComponent {
       <folder-pane-storage-header
         .subject=${this.subject}
         .breadcrumbRoot=${this.standaloneBreadcrumbRoot}
-        .selectedResource=${this.displayedResource}
+        .selectedResource=${this.getActiveContainer()}
         .browserContext=${this.browserContext}
         .paneList=${this.browserContext?.session.paneRegistry.list ?? []}
         .view=${this.containerView}

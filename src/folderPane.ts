@@ -6,7 +6,7 @@
 import './components/folder-pane-view'
 import './components/folder-pane-provider'
 import type FolderPaneView from './components/folder-pane-view/FolderPaneView'
-import { icons, ns } from 'solid-ui'
+import { icons } from 'solid-ui'
 import { isJavaScriptFile, isJsonFile } from './helpers'
 import './styles/folderPane.css'
 import './styles/utilities.css'
@@ -59,16 +59,13 @@ export default {
 
   label: function (subject, context) {
     if (isJavaScriptFile(subject) || isJsonFile(subject)) return null
-    const kb = context.session.store
-    const n = kb.each(subject, ns.ldp('contains')).length
+    const resourceLogic = context.session.logic.resource
+    if (!resourceLogic.isContainer(subject)) return null
+    const n = resourceLogic.getContainerMemberCount(subject)
     if (n > 0) {
       return 'Contents (' + n + ')' // Show how many in hover text
     }
-    if (kb.holds(subject, ns.rdf('type'), ns.ldp('Container'))) {
-      // It is declared as being a container
-      return 'Container (0)'
-    }
-    return null // Suppress pane otherwise
+    return 'Contents (0)'
   },
 
   // Render a file folder in a LDP/solid system
