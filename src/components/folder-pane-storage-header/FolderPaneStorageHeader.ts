@@ -189,9 +189,6 @@ export default class FolderPaneStorageHeader extends WebComponent {
   }
 
   private isHomeResource (resource: NamedNode) {
-    const root = this.breadcrumbRoot ?? this.subject
-    if (root?.sameTerm(resource)) return true
-
     try {
       const url = new URL(resource.uri)
       const pathSegments = url.pathname.split('/').filter(Boolean)
@@ -267,6 +264,7 @@ export default class FolderPaneStorageHeader extends WebComponent {
             ${this.breadcrumbResources.map((resource, index, resources) => {
               return html`
               <li>
+                ${index > 0 ? html`<span class="separator" aria-hidden="true">/</span>` : nothing}
                 ${index === resources.length - 1
                   ? html`<span aria-current="page">${this.getResourceLabel(resource)}</span>`
                   : html`

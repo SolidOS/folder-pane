@@ -96,6 +96,10 @@ describe('folder pane layout state', () => {
     await header.updateComplete
 
     const root = header.renderRoot
+    const breadcrumbs = Array.from(root.querySelectorAll('.folder-pane-storage-header-breadcrumbs li'))
+    expect(breadcrumbs.map(item => item.querySelector('.separator')?.textContent ?? null))
+      .toEqual([null, '/', '/'])
+    expect(breadcrumbs[1].querySelector('.separator')?.getAttribute('aria-hidden')).toBe('true')
     const buttons = Array.from(root.querySelectorAll('button'))
     expect(buttons.map(button => button.textContent?.trim())).toContain('public')
 
@@ -105,6 +109,31 @@ describe('folder pane layout state', () => {
 
     expect(selectResource).toHaveBeenCalledOnce()
     expect(selectResource.mock.calls[0][0].detail.resource.sameTerm(publicFolder)).toBe(true)
+
+    header.selectedResource = podRoot
+    await header.updateComplete
+    expect(root.querySelectorAll('.folder-pane-storage-header-breadcrumbs li')).toHaveLength(1)
+    expect(root.querySelector('.folder-pane-storage-header-breadcrumbs .separator')).toBeNull()
+  })
+
+  it('labels a non-root breadcrumb root by its container name', async () => {
+    const header = document.createElement('folder-pane-storage-header') as
+      HTMLElement & {
+        subject: ReturnType<typeof namedNode>
+        breadcrumbRoot: ReturnType<typeof namedNode>
+        selectedResource: ReturnType<typeof namedNode>
+        updateComplete: Promise<void>
+        renderRoot: ParentNode
+      }
+    const publicFolder = namedNode('https://pod.example/public/')
+    header.subject = publicFolder
+    header.breadcrumbRoot = publicFolder
+    header.selectedResource = publicFolder
+    document.body.append(header)
+    await header.updateComplete
+
+    const breadcrumb = header.renderRoot.querySelector('.folder-pane-storage-header-breadcrumbs li')
+    expect(breadcrumb?.textContent?.trim()).toBe('public')
   })
 
   it('does not add a storage toolbar to standalone content that is not a container listing', async () => {

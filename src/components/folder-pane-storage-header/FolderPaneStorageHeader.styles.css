@@ -29,6 +29,7 @@
   gap: 5.6px;
   overflow-x: auto;
   overflow-y: hidden;
+  padding-left: 10px;
 }
 
 .folder-pane-storage-header-breadcrumbs icon-lucide-folder-open {
