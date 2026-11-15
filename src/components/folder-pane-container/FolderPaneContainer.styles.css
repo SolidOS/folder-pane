@@ -268,6 +268,10 @@
       padding: 0;
     }
 
+    .resource-grid {
+      padding-top: 20px;
+    }
+
     .resource-grid-item {
       flex: 0 0 calc((100% - 15px) / 2);
       width: calc((100% - 15px) / 2);
