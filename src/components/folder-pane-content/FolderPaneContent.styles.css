@@ -16,6 +16,10 @@
   overflow-y: auto;
 }
 
+:host([hidden]) {
+  display: none;
+}
+
 ::slotted(*) {
   flex: 1 1 auto;
   min-height: 0;

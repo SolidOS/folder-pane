@@ -95,7 +95,9 @@ describe('Turtle resource classification', () => {
   it('recognizes Turtle documents independently of server-reported RDF types', () => {
     expect(isTurtleFile(sym('https://example.test/notes.ttl'))).toBe(true)
     expect(isTurtleFile(sym('https://example.test/notes.ttl#this'))).toBe(true)
-    expect(isContainerResource(sym('https://example.test/notes.ttl'), resourceLogic)).toBe(false)
+    const resource = sym('https://example.test/notes.ttl')
+    expect(isContainerResource(resource, resourceLogic)).toBe(false)
+    expect(folderPane.label(resource, context)).toBeNull()
   })
 
   it('preserves folders whose names end in .ttl', () => {

@@ -120,6 +120,7 @@ export default class FolderPaneView extends WebComponent {
 
   private initialLoadGeneration = 0
   private renderGeneration = 0
+  private downstreamListenerGeneration = 0
   private permissionGeneration = 0
   private permissionRequest: { containerUri: string, resourceLogic: unknown } | undefined
   private creationInFlight = false
@@ -170,6 +171,7 @@ export default class FolderPaneView extends WebComponent {
       authSession.events.on('logout', this.handleAuthChange)
       this.authListenersAttached = true
     }
+    if (this.subject) this.subscribeToContainerChanges()
   }
 
   disconnectedCallback () {
@@ -179,6 +181,7 @@ export default class FolderPaneView extends WebComponent {
     // must never replace content in a detached view.
     this.renderGeneration = invalidateRenderRequest(this.renderGeneration)
     this.initialLoadGeneration++
+    this.downstreamListenerGeneration++
     this.removeEventListener('folder-pane-create-pane', this.handleCreatePane)
     this.removeEventListener('folder-pane-upload', this.handleUpload)
     this.removeEventListener('folder-pane-upload-files', this.handleDroppedFiles)
@@ -215,6 +218,27 @@ export default class FolderPaneView extends WebComponent {
     resourceAccessCache.clear()
     this.refreshCreationPermission(true)
     this.requestUpdate()
+  }
+
+  private subscribeToContainerChanges () {
+    const store = this.store
+    const subject = this.subject
+    const generation = ++this.downstreamListenerGeneration
+    if (!store || !subject) return
+
+    store.updater.addDownstreamChangeListener(subject, () => {
+      if (
+        generation !== this.downstreamListenerGeneration ||
+        !this.isConnected ||
+        this.store !== store ||
+        !this.subject?.sameTerm(subject)
+      ) return
+
+      this.sidebar?.refreshResources?.(subject)
+      const containerView = this.resourceTarget?.querySelector('folder-pane-container') as
+        (HTMLElement & { refresh?: (reloadFromServer?: boolean) => Promise<void> }) | null
+      void containerView?.refresh?.(false)
+    })
   }
 
   private handleCreatePane = async (event: Event) => {
@@ -402,6 +426,7 @@ export default class FolderPaneView extends WebComponent {
       (changedProperties.has('subject') || changedProperties.has('browserContext')) &&
       this.subject
     ) {
+      this.subscribeToContainerChanges()
       this.standaloneBreadcrumbRoot = this.fullView
         ? this.getStandaloneBreadcrumbRoot(this.subject)
         : this.subject

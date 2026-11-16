@@ -14,7 +14,13 @@ const laterFile = namedNode('https://example.test/z.txt')
 function createSidebar (members = [folder, file]) {
   const sidebar = document.createElement('folder-pane-sidebar') as any
   sidebar.subject = home
-  sidebar.store = { fetcher: { load: vi.fn().mockResolvedValue(undefined) } }
+  sidebar.store = {
+    fetcher: {
+      load: vi.fn().mockResolvedValue(undefined),
+      getState: vi.fn().mockReturnValue(undefined),
+      unload: vi.fn()
+    }
+  }
   sidebar.resourceLogic = {
     getContainerMembers: (resource: any) => resource.sameTerm(home) ? members : [],
     isHiddenFile: () => false,
@@ -244,6 +250,7 @@ describe('folder pane sidebar tree', () => {
       .mockResolvedValueOnce(undefined)
     const sidebar = createSidebar()
     sidebar.store.fetcher.load = load
+    sidebar.store.fetcher.getState.mockReturnValueOnce(undefined).mockReturnValueOnce('failed')
     const errors: CustomEvent[] = []
     sidebar.addEventListener('folder-pane-resource-error', (event: Event) => {
       errors.push(event as CustomEvent)
@@ -262,6 +269,7 @@ describe('folder pane sidebar tree', () => {
     expect((await rendered(sidebar)).find(item => item.dataset.resourceId === folder.value)
       ?.getAttribute('aria-expanded')).toBe('true')
     expect(load).toHaveBeenCalledTimes(2)
+    expect(sidebar.store.fetcher.unload).toHaveBeenCalledWith(folder)
   })
 
   it('ignores a stale expansion after refresh and does not restore old focus', async () => {
