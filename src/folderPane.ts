@@ -7,7 +7,7 @@ import './components/folder-pane-view'
 import './components/folder-pane-provider'
 import type FolderPaneView from './components/folder-pane-view/FolderPaneView'
 import { icons } from 'solid-ui'
-import { isJavaScriptFile, isJsonFile } from './helpers'
+import { isJavaScriptFile, isJsonFile, isTurtleFile } from './helpers'
 import './styles/folderPane.css'
 import './styles/utilities.css'
 
@@ -58,7 +58,7 @@ export default {
   },
 
   label: function (subject, context) {
-    if (isJavaScriptFile(subject) || isJsonFile(subject)) return null
+    if (isJavaScriptFile(subject) || isTurtleFile(subject) || isJsonFile(subject)) return null
     const resourceLogic = context.session.logic.resource
     if (!resourceLogic.isContainer(subject)) return null
     const n = resourceLogic.getContainerMemberCount(subject)
@@ -83,11 +83,6 @@ export default {
     const folderView = folderViewFor(renderOptions)
     div.classList.add(`folder-pane--${folderView}`)
     folderPaneView.fullView = folderView === 'container'
-
-    // The pane registry is needed to open the internal pane on Alt-click.
-    // addDownstreamChangeListener is a high level function which when someone else changes the resource,
-    // reloads it into the kb, then must call addDownstreamChangeListener to be able to update the folder pane.
-    // SAM need to figure out how to add this line later kb.updater.addDownstreamChangeListener(subject, refresh) // Update store and call me if folder changes
 
     return div
   }

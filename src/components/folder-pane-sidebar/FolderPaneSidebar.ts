@@ -13,6 +13,7 @@ import '~icons/lucide/chevron-right'
 import '~icons/lucide/circle-small'
 import '~icons/lucide/folder'
 import { getResourcesForContainer, type FolderPaneResourceLogic } from '../../helpers'
+import { clearFailedResource } from '../folder-pane-view/resourceLoad'
 import * as debug from '../../debug'
 
 type SpecialIcon = 'folder'
@@ -197,6 +198,7 @@ export default class FolderPaneSidebar extends WebComponent {
     }
 
     try {
+      clearFailedResource(fetcher, resource.subject)
       await fetcher.load(resource.subject)
     } catch (error) {
       if (generation !== this.resourceGeneration ||
