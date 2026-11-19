@@ -116,7 +116,7 @@ describe('folder pane layout state', () => {
     expect(root.querySelector('.folder-pane-storage-header-breadcrumbs .separator')).toBeNull()
   })
 
-  it('labels a non-root breadcrumb root by its container name', async () => {
+  it('labels a named subject breadcrumb root by its container name', async () => {
     const header = document.createElement('folder-pane-storage-header') as
       HTMLElement & {
         subject: ReturnType<typeof namedNode>

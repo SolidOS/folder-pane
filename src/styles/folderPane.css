@@ -240,6 +240,10 @@ folder-pane-sidebar {
   overflow: auto;
 }
 
+.folder-pane-full-view[hidden] {
+  display: none;
+}
+
 .folder-pane-access-denied-message {
   display: flex;
   box-sizing: border-box;

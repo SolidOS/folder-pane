@@ -46,6 +46,12 @@ type ContentError = {
   retry?: () => void
 }
 
+type DownstreamChangeDetail = {
+  token: string
+  store: object
+  subject: NamedNode
+}
+
 export const DEFAULT_SIDEBAR_WIDTH = 256
 export const MIN_SIDEBAR_WIDTH = 180
 export const MAX_SIDEBAR_WIDTH = 480
@@ -120,6 +126,8 @@ export default class FolderPaneView extends WebComponent {
 
   private initialLoadGeneration = 0
   private renderGeneration = 0
+  private readonly downstreamListenerToken = `folder-pane-${Math.random().toString(36).slice(2)}`
+  private downstreamSubscriptions: Array<{ store: object, uri: string }> = []
   private permissionGeneration = 0
   private permissionRequest: { containerUri: string, resourceLogic: unknown } | undefined
   private creationInFlight = false
@@ -165,11 +173,13 @@ export default class FolderPaneView extends WebComponent {
     this.addEventListener('folder-pane-upload-rejected', this.handleUploadRejected)
     this.addEventListener('resource-open-pane', this.handleResourceOpenPane as EventListener)
     this.ownerDocument.addEventListener('solid-resource-deleted', this.handleResourceDeleted)
+    this.ownerDocument.addEventListener('folder-pane-downstream-change', this.handleDownstreamChange)
     if (!this.authListenersAttached) {
       authSession.events.on('login', this.handleAuthChange)
       authSession.events.on('logout', this.handleAuthChange)
       this.authListenersAttached = true
     }
+    if (this.subject) this.subscribeToContainerChanges()
   }
 
   disconnectedCallback () {
@@ -185,6 +195,7 @@ export default class FolderPaneView extends WebComponent {
     this.removeEventListener('folder-pane-upload-rejected', this.handleUploadRejected)
     this.removeEventListener('resource-open-pane', this.handleResourceOpenPane as EventListener)
     this.ownerDocument.removeEventListener('solid-resource-deleted', this.handleResourceDeleted)
+    this.ownerDocument.removeEventListener('folder-pane-downstream-change', this.handleDownstreamChange)
     if (this.authListenersAttached) {
       authSession.events.off('login', this.handleAuthChange)
       authSession.events.off('logout', this.handleAuthChange)
@@ -215,6 +226,39 @@ export default class FolderPaneView extends WebComponent {
     resourceAccessCache.clear()
     this.refreshCreationPermission(true)
     this.requestUpdate()
+  }
+
+  private handleDownstreamChange = (event: Event) => {
+    const detail = (event as CustomEvent<DownstreamChangeDetail>).detail
+    if (
+      detail?.token !== this.downstreamListenerToken ||
+      !this.isConnected ||
+      this.store !== detail.store ||
+      this.creationInFlight ||
+      (!this.subject?.sameTerm(detail.subject) && !this.selectedResource?.sameTerm(detail.subject))
+    ) return
+
+    this.sidebar?.refreshResources?.(detail.subject)
+    const containerView = this.resourceTarget?.querySelector('folder-pane-container') as
+      (HTMLElement & { refresh?: (reloadFromServer?: boolean) => Promise<void> }) | null
+    void containerView?.refresh?.(false)
+  }
+
+  private subscribeToContainerChanges (container = this.subject) {
+    const store = this.store
+    if (!store || !container) return
+    if (this.downstreamSubscriptions.some(subscription =>
+      subscription.store === store && subscription.uri === container.uri
+    )) return
+
+    this.downstreamSubscriptions.push({ store, uri: container.uri })
+    const ownerDocument = this.ownerDocument
+    const token = this.downstreamListenerToken
+    store.updater.addDownstreamChangeListener(container, () => {
+      ownerDocument.dispatchEvent(new CustomEvent<DownstreamChangeDetail>('folder-pane-downstream-change', {
+        detail: { token, store, subject: container }
+      }))
+    })
   }
 
   private handleCreatePane = async (event: Event) => {
@@ -402,6 +446,7 @@ export default class FolderPaneView extends WebComponent {
       (changedProperties.has('subject') || changedProperties.has('browserContext')) &&
       this.subject
     ) {
+      this.subscribeToContainerChanges()
       this.standaloneBreadcrumbRoot = this.fullView
         ? this.getStandaloneBreadcrumbRoot(this.subject)
         : this.subject
@@ -416,6 +461,7 @@ export default class FolderPaneView extends WebComponent {
     }
 
     if (changedProperties.has('selectedResource')) {
+      if (this.selectedResource) this.subscribeToContainerChanges(this.selectedResource)
       this.refreshCreationPermission()
     }
 
@@ -519,7 +565,7 @@ export default class FolderPaneView extends WebComponent {
     const currentPane = pane?.name
       ? this.browserContext?.session.paneRegistry.byName(pane.name) ?? pane
       : pane
-    this.showSubject(resource, typeof currentPane?.render === 'function' ? currentPane : undefined)
+    this.showSubject(resource, typeof currentPane?.render === 'function' ? currentPane : undefined, true)
   }
 
   /**
@@ -708,7 +754,12 @@ export default class FolderPaneView extends WebComponent {
     this.sidebar?.refreshResources?.()
     this.requestUpdate()
     if (!this.selectedResource) {
-      this.showSubject(subject)
+      if (this.resourceLogic.containerHasIndexDocument(subject)) {
+        this.showSubject(subject)
+      } else {
+        this.selectedResource = subject
+        this.renderContainerView(subject)
+      }
     }
   }
 
@@ -817,7 +868,8 @@ export default class FolderPaneView extends WebComponent {
     selectedResource: NamedNode,
     pane?: PaneDefinition,
     indexRequested = false,
-    retryFailed = false
+    retryFailed = false,
+    forceContainer = false
   ) {
     const renderGeneration = ++this.renderGeneration
 
@@ -879,12 +931,18 @@ export default class FolderPaneView extends WebComponent {
         if (!isCurrentSelection(selectedResource)) return
         this.sidebar?.refreshResources?.()
 
+        if (forceContainer) {
+          this.renderContainerView(selectedResource)
+          return
+        }
+
         if (pane?.name === 'folder') {
           this.renderContainerView(selectedResource)
           return
         }
 
         if (
+          !forceContainer &&
           !pane &&
           (indexRequested || this.resourceLogic.containerHasIndexDocument(selectedResource))
         ) {
@@ -918,6 +976,9 @@ export default class FolderPaneView extends WebComponent {
         if (selectedPane?.name !== 'folder') {
           await this.renderExplorerInto(target, selectedResource, selectedPane, {
             isCurrent: () => isCurrentSelection(selectedResource),
+            // Container resources are already represented by the storage
+            // header; do not add a second file-explorer header when a pane
+            // such as Manage Access is opened for them.
             showHeader: false
           })
           return
@@ -947,7 +1008,11 @@ export default class FolderPaneView extends WebComponent {
         return
       }
       await this.renderExplorerInto(target, selectedResource, pane || sourcePane, {
-        isCurrent: () => isCurrentSelection(selectedResource)
+        isCurrent: () => isCurrentSelection(selectedResource),
+        // This branch renders a resource pane, not a container listing. Keep
+        // the explorer header available for every resource pane, including
+        // resources whose metadata caused an indexed route to be requested.
+        showHeader: true
       })
     } catch (error) {
       log.error('Unable to render selected resource: ' + error)
@@ -961,22 +1026,37 @@ export default class FolderPaneView extends WebComponent {
     }
   }
 
-  private showSubject (resource: NamedNode, pane?: PaneDefinition, preserveSubject = false) {
+  private showSubject (
+    resource: NamedNode,
+    pane?: PaneDefinition,
+    preserveSubject = false,
+    forceContainer = false
+  ) {
     // `container/index.ttl#this` is rendered exactly like selecting its container,
     // so indexed panes never show the file-explorer header on either route.
     const useIndexedApplication = !preserveSubject && pane?.name !== 'sharing'
-    const indexedContainerUri = useIndexedApplication ? getIndexedContainer(resource) : undefined
-    const indexedContainer = indexedContainerUri && this.store
+    const indexedResource = resource.uri.includes('/index.ttl')
+    const indexedContainerUri = pane?.name !== 'sharing' && (!preserveSubject || indexedResource)
+      ? getIndexedContainer(resource)
+      : undefined
+    const indexedContainer = useIndexedApplication && indexedContainerUri && this.store
       ? this.store.sym(indexedContainerUri)
       : undefined
     const subject = indexedContainer ?? resource
-    const indexRequested = useIndexedApplication && !indexedContainer &&
+    const hasIndexedContainer = indexedContainerUri !== null && indexedContainerUri !== undefined
+    const indexRequested = hasIndexedContainer || (useIndexedApplication && !indexedContainer &&
       !!this.resourceLogic &&
       isContainerResource(resource, this.resourceLogic) &&
-      this.resourceLogic.containerHasIndexDocument(resource)
+      this.resourceLogic.containerHasIndexDocument(resource))
     this.selectedResource = subject
     // Render directly so re-selecting the same resource still replaces the content target.
-    void this.showResourceInContentView(subject, pane, !!indexedContainer || indexRequested)
+    void this.showResourceInContentView(
+      subject,
+      pane,
+      !!indexedContainer || indexRequested,
+      false,
+      forceContainer
+    )
   }
 
   private handleResourceSelected = (event: CustomEvent<{ resource: NamedNode }>) => {
@@ -984,7 +1064,9 @@ export default class FolderPaneView extends WebComponent {
     if (!resource) return
     event.stopPropagation()
     this.searchQuery = ''
-    this.showSubject(resource)
+    const forceContainer = !!this.resourceLogic?.isContainer(resource) &&
+      !this.resourceLogic?.containerHasIndexDocument(resource)
+    this.showSubject(resource, undefined, false, forceContainer)
   }
 
   private handleResourceOpenPane = (event: CustomEvent<{ resource: NamedNode, paneName: string }>) => {
@@ -1014,7 +1096,7 @@ export default class FolderPaneView extends WebComponent {
     const home = this.subject && this.standaloneBreadcrumbRoot?.sameTerm(this.subject)
       ? this.subject
       : this.standaloneBreadcrumbRoot
-    if (home) this.showSubject(home)
+    if (home) this.showSubject(home, undefined, false, true)
   }
 
   private handleSearch = (event: CustomEvent<{ query: string }>) => {
@@ -1028,7 +1110,8 @@ export default class FolderPaneView extends WebComponent {
     const resource = event.detail?.resource
     if (!resource) return
     event.stopPropagation()
-    this.showSubject(resource)
+    const forceContainer = !!this.resourceLogic?.isContainer(resource)
+    this.showSubject(resource, undefined, false, forceContainer)
   }
 
   private handleContainerViewChange = (event: CustomEvent<{ view: 'grid' | 'list' }>) => {

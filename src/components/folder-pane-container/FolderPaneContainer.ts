@@ -11,6 +11,7 @@ import { customElement, utils, WebComponent, widgets } from 'solid-ui'
 import type { Resource } from '../../types'
 import { resourceAccessCache } from '../../accessCache'
 import { loadResourcePaneMenuItems } from '../../resourceActionItems'
+import { clearFailedResource } from '../folder-pane-view/resourceLoad'
 import {
   getContainerMemberCountLabel,
   getResourceAccessState,
@@ -300,7 +301,13 @@ export default class FolderPaneContainer extends WebComponent {
     const fetcher = this.browserContext.session.store.fetcher
     this.memberLoad = new Map(this.memberLoad).set(resource.id, 'loading')
     try {
-      await this.detailsQueue.run(() => fetcher.load(resource.subject))
+      await this.detailsQueue.run(async () => {
+        // rdflib caches failed requests, so clear that state before every
+        // queued attempt. Force a fresh response so WAC-Allow belongs to the
+        // viewer that initiated this load.
+        clearFailedResource(fetcher, resource.subject)
+        await fetcher.load(resource.subject, { force: true, clearPreviousData: true })
+      })
       if (!this.isCurrentAccessRequest(generation, authGeneration, viewer)) return
       this.memberLoad = new Map(this.memberLoad).set(resource.id, 'loaded')
     } catch (error) {
