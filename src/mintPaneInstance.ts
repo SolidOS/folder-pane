@@ -52,6 +52,11 @@ function isExtensionlessSourceFile (pane: PaneDefinition, name: string): boolean
   return extensionStart <= 0 || extensionStart === fileName.length - 1
 }
 
+function createsContainer (pane: PaneDefinition): boolean {
+  const name = pane.name?.toLowerCase()
+  return name !== 'folder' && name !== 'source' && name !== 'dokieli'
+}
+
 /**
  * Legacy newThingUI containment rule: apps that create a folder of files are
  * contained as `newBase`; single-file results (source, dokieli) as themselves.
@@ -167,13 +172,44 @@ async function mintPaneInstance ({
     setMintStatus(statusArea, 'error', message)
     throw new PaneMintError(message)
   }
+  let effectiveNewBase = newBase
+  if (createsContainer(pane)) {
+    try {
+      const response = await context.session.store.fetcher.webOperation('POST', container.uri, {
+        data: ' ',
+        contentType: 'text/turtle',
+        headers: {
+          Link: '<http://www.w3.org/ns/ldp#BasicContainer>; rel="type"',
+          Slug: `${encodeURIComponent(normalizedName)}/`
+        }
+      })
+      const location = response.headers.get('Location')
+      if (location) {
+        let serverAssignedUri: string
+        try {
+          serverAssignedUri = new URL(location, container.uri).href
+        } catch (error) {
+          throw new PaneMintError('The server returned an invalid container location.', error)
+        }
+        effectiveNewBase = serverAssignedUri.endsWith('/') ? serverAssignedUri : `${serverAssignedUri}/`
+      }
+    } catch (error) {
+      if (error instanceof PaneMintError) {
+        setMintStatus(statusArea, 'error', `Unable to create ${noun} "${name}": ${error.message}`)
+        throw error
+      }
+      const reason = error instanceof Error ? error.message : String(error)
+      setMintStatus(statusArea, 'error', `Unable to create ${noun} "${name}": could not create its container: ${reason}`)
+      throw new PaneMintError(reason, error)
+    }
+  }
   const timeoutMessage = `The ${noun} pane did not finish creating the resource within ${mintTimeoutMs}ms. The result is uncertain; refresh the folder before retrying.`
   let timeout: ReturnType<typeof setTimeout> | undefined
   let result: Awaited<ReturnType<NonNullable<PaneDefinition['mintNew']>>> | undefined
   try {
     const mintOptions = {
       folder: container,
-      newBase,
+      newBase: effectiveNewBase,
       title: normalizedName,
       pane,
       noun,
@@ -211,9 +247,9 @@ async function mintPaneInstance ({
 
   const sym = (uri: string) => context.session.store.sym(uri)
   return {
-    newBase,
+    newBase: effectiveNewBase,
     newInstance: result.newInstance,
-    containedResource: getContainedResource(container, newBase, result.newInstance, sym)
+    containedResource: getContainedResource(container, effectiveNewBase, result.newInstance, sym)
   }
 }
 

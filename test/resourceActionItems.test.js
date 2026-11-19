@@ -88,7 +88,7 @@ describe('loadResourcePaneMenuItems', () => {
   it('preserves shared container panes and maps only the primary indexed pane to the application', async () => {
     const contact = { ...pane('contact'), label: () => 'Contacts' }
     const folder = { ...pane('folder'), label: () => 'Contents (2)' }
-    const shared = ['dataContents', 'source', 'n3', 'RDFXML', 'default', 'internal'].map(pane)
+    const shared = ['slideshow', 'dataContents', 'source', 'n3', 'RDFXML', 'default', 'internal'].map(pane)
     const applicationOnly = pane('applicationOnly')
     const panes = [contact, folder, ...shared, applicationOnly]
     solidUi.getRelevantPanes.mockImplementation(async subject =>
@@ -131,9 +131,8 @@ describe('loadResourcePaneMenuItems', () => {
     expect(items.map(item => item.label)).toEqual(['source', 'folder'])
   })
 
-  it('gets Contents from relevance and keeps it second in slideshow registry order', async () => {
-    const slideshow = pane('slideshow')
-    const panes = [slideshow, pane('folder'), pane('source')]
+  it('keeps Contents first and Slideshow second in registry order', async () => {
+    const panes = [pane('folder'), pane('slideshow'), pane('source')]
     solidUi.getRelevantPanes.mockResolvedValue(panes)
 
     const items = await loadResourcePaneMenuItems({
@@ -144,11 +143,11 @@ describe('loadResourcePaneMenuItems', () => {
       isCurrent: () => true
     })
 
-    expect(items.map(item => item.label)).toEqual(['slideshow', 'folder', 'source'])
+    expect(items.map(item => item.label)).toEqual(['folder', 'slideshow', 'source'])
   })
 
-  it('does not force Contents into second place ahead of an earlier registered pane', async () => {
-    const panes = [pane('slideshow'), pane('source'), pane('folder')]
+  it('preserves registry order for the remaining container panes', async () => {
+    const panes = [pane('folder'), pane('slideshow'), pane('source')]
     solidUi.getRelevantPanes.mockResolvedValue(panes)
 
     const items = await loadResourcePaneMenuItems({
@@ -159,7 +158,7 @@ describe('loadResourcePaneMenuItems', () => {
       isCurrent: () => true
     })
 
-    expect(items.map(item => item.label)).toEqual(['slideshow', 'source', 'folder'])
+    expect(items.map(item => item.label)).toEqual(['folder', 'slideshow', 'source'])
   })
 
   it('waits for the document to load before asking for relevant panes', async () => {
