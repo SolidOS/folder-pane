@@ -519,7 +519,14 @@ export default class FolderPaneView extends WebComponent {
     const currentPane = pane?.name
       ? this.browserContext?.session.paneRegistry.byName(pane.name) ?? pane
       : pane
-    this.showSubject(resource, typeof currentPane?.render === 'function' ? currentPane : undefined)
+    // Explicitly opening a freshly-created resource must preserve its subject.
+    // Indexed panes such as Pad use `index.ttl#this`; mapping that subject back
+    // to the folder would render the pane against a container with no pad data.
+    this.showSubject(
+      resource,
+      typeof currentPane?.render === 'function' ? currentPane : undefined,
+      true
+    )
   }
 
   /**
