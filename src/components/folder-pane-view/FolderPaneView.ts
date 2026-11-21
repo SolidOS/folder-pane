@@ -20,6 +20,7 @@ import '~icons/lucide/chevron-left'
 import { getIndexedApplicationSubject, getIndexedContainer, isAccessDeniedError, isContainerResource, isJavaScriptFile, type FolderPaneResourceLogic } from '../../helpers'
 import { invalidateRenderRequest, isCurrentRenderRequest, type RenderRequest } from './renderRequest'
 import FolderPaneCreateDialog from '../folder-pane-storage-header/FolderPaneCreateDialog'
+import { requestCopyCollision } from './FolderPaneCopyCollisionDialog'
 import { getPaneLabel } from '../../helpers'
 import { isSafeCreationName, invalidCreationNameMessage } from '../../creationSafety'
 import { mintPaneInstance, PaneMintError, setMintStatus } from '../../mintPaneInstance'
@@ -162,6 +163,7 @@ export default class FolderPaneView extends WebComponent {
     this.addEventListener('folder-pane-create-pane', this.handleCreatePane)
     this.addEventListener('folder-pane-upload', this.handleUpload)
     this.addEventListener('folder-pane-upload-files', this.handleDroppedFiles)
+    this.addEventListener('folder-pane-copy-resource', this.handleCopyResource)
     this.addEventListener('folder-pane-upload-rejected', this.handleUploadRejected)
     this.addEventListener('resource-open-pane', this.handleResourceOpenPane as EventListener)
     this.ownerDocument.addEventListener('solid-resource-deleted', this.handleResourceDeleted)
@@ -182,6 +184,7 @@ export default class FolderPaneView extends WebComponent {
     this.removeEventListener('folder-pane-create-pane', this.handleCreatePane)
     this.removeEventListener('folder-pane-upload', this.handleUpload)
     this.removeEventListener('folder-pane-upload-files', this.handleDroppedFiles)
+    this.removeEventListener('folder-pane-copy-resource', this.handleCopyResource)
     this.removeEventListener('folder-pane-upload-rejected', this.handleUploadRejected)
     this.removeEventListener('resource-open-pane', this.handleResourceOpenPane as EventListener)
     this.ownerDocument.removeEventListener('solid-resource-deleted', this.handleResourceDeleted)
@@ -290,6 +293,35 @@ export default class FolderPaneView extends WebComponent {
     event.stopPropagation()
     const files = (event as CustomEvent<{ files: File[] }>).detail?.files ?? []
     void this.uploadFiles(files, false)
+  }
+
+  private handleCopyResource = (event: Event) => {
+    event.stopPropagation()
+    const url = (event as CustomEvent<{ url?: string }>).detail?.url
+    if (url) void this.copyResource(url)
+  }
+
+  private async copyResource (sourceUrl: string) {
+    if (this.creationInFlight || !authn.currentUser() || !this.canCreate) return
+    const container = this.getActiveContainer()
+    const statusArea = this.statusArea
+    const resourceLogic = this.resourceLogic
+    if (!container || !statusArea || !resourceLogic) return
+    this.creationInFlight = true
+    this.updateUploadAvailability()
+    try {
+      const source = this.store!.sym(sourceUrl)
+      const destination = resourceLogic.isContainer(source)
+        ? await resourceLogic.copyContainer(source, container, { onCollision: requestCopyCollision })
+        : await resourceLogic.copyResource(source, container, { onCollision: requestCopyCollision })
+      if (!destination) return
+      await this.showCreatedResource({ container, containedResource: this.store!.sym(destination) })
+    } catch (error) {
+      setMintStatus(statusArea, 'error', `Unable to copy resource: ${error instanceof Error ? error.message : String(error)}`)
+    } finally {
+      this.creationInFlight = false
+      this.updateUploadAvailability()
+    }
   }
 
   private handleUploadRejected = (event: Event) => {

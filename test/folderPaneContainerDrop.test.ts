@@ -116,4 +116,64 @@ describe('folder pane container file drop', () => {
       detail: { message: 'Please wait for the current upload or creation to finish.' }
     }))
   })
+
+  it('dispatches one copy event for a resource URL drop', async () => {
+    const container = document.createElement('folder-pane-container') as HTMLElement & {
+      subject: ReturnType<typeof sym>
+      canUpload: boolean
+      updateComplete: Promise<void>
+    }
+    container.subject = sym('https://pod.example/files/')
+    container.canUpload = true
+    document.body.append(container)
+    await container.updateComplete
+    const target = container.shadowRoot!.querySelector('.folder-pane-container-content')!
+    const copied = vi.fn()
+    container.addEventListener('folder-pane-copy-resource', copied)
+    const dataTransfer = {
+      types: ['text/uri-list', 'text/plain'],
+      files: [],
+      items: [],
+      getData: (type: string) => type === 'text/uri-list' ? 'https://source.example/a.txt' : 'https://source.example/a.txt',
+      dropEffect: 'none'
+    }
+    const drop = new Event('drop', { bubbles: true, cancelable: true })
+    Object.defineProperty(drop, 'dataTransfer', { value: dataTransfer })
+    target.dispatchEvent(drop)
+    expect(drop.defaultPrevented).toBe(true)
+    expect(copied).toHaveBeenCalledTimes(1)
+    expect(copied.mock.calls[0][0].detail).toEqual({ url: 'https://source.example/a.txt' })
+  })
+
+  it('processes files instead of URL data when both are present', async () => {
+    const container = document.createElement('folder-pane-container') as HTMLElement & {
+      subject: ReturnType<typeof sym>
+      canUpload: boolean
+      resourceLogic: Record<string, unknown>
+      updateComplete: Promise<void>
+    }
+    container.subject = sym('https://pod.example/files/')
+    container.canUpload = true
+    container.resourceLogic = { getContainerMembers: vi.fn(() => []), isHiddenFile: vi.fn(() => false), isContainer: vi.fn(() => false), containerHasIndexDocument: vi.fn(() => false), getContainerIndexThing: vi.fn(), uploadFiles: vi.fn() }
+    document.body.append(container)
+    await container.updateComplete
+    const target = container.shadowRoot!.querySelector('.folder-pane-container-content')!
+    const file = new File(['content'], 'file.txt')
+    const uploaded = vi.fn()
+    const copied = vi.fn()
+    container.addEventListener('folder-pane-upload-files', uploaded)
+    container.addEventListener('folder-pane-copy-resource', copied)
+    const dataTransfer = {
+      types: ['Files', 'text/uri-list'],
+      files: [file],
+      items: [],
+      getData: () => 'https://source.example/a.txt',
+      dropEffect: 'none'
+    }
+    const drop = new Event('drop', { bubbles: true, cancelable: true })
+    Object.defineProperty(drop, 'dataTransfer', { value: dataTransfer })
+    target.dispatchEvent(drop)
+    expect(uploaded).toHaveBeenCalledTimes(1)
+    expect(copied).not.toHaveBeenCalled()
+  })
 })
