@@ -222,6 +222,34 @@ export default class FolderPaneView extends WebComponent {
     }
   }
 
+  protected willUpdate (changedProperties: PropertyValues<this>) {
+    if (changedProperties.has('subject') || changedProperties.has('browserContext')) {
+      if (this.subject) {
+        this.standaloneBreadcrumbRoot = this.fullView
+          ? this.getStandaloneBreadcrumbRoot(this.subject)
+          : this.subject
+      }
+      this.selectedResource = undefined
+      this.renderGeneration++
+      this.initialLoadGeneration++
+      this.refreshCreationPermission()
+    } else if (changedProperties.has('selectedResource')) {
+      this.refreshCreationPermission()
+    }
+
+    if (changedProperties.has('fullView') && changedProperties.get('fullView') !== undefined) {
+      if (this.subject) {
+        this.standaloneBreadcrumbRoot = this.fullView
+          ? this.getStandaloneBreadcrumbRoot(this.subject)
+          : this.subject
+      }
+      if (!this.selectedResource) {
+        this.showingContainer = true
+        this.contentError = undefined
+      }
+    }
+  }
+
   private handleAuthChange = () => {
     resourceAccessCache.clear()
     this.refreshCreationPermission(true)
@@ -447,30 +475,15 @@ export default class FolderPaneView extends WebComponent {
       this.subject
     ) {
       this.subscribeToContainerChanges()
-      this.standaloneBreadcrumbRoot = this.fullView
-        ? this.getStandaloneBreadcrumbRoot(this.subject)
-        : this.subject
-      if (changedProperties.has('subject') || changedProperties.has('browserContext')) {
-        this.selectedResource = undefined
-        this.renderGeneration++
-        this.initialLoadGeneration++
-      }
-      this.refreshCreationPermission()
       void this.showInitialContainer(this.subject)
       return
     }
 
     if (changedProperties.has('selectedResource')) {
       if (this.selectedResource) this.subscribeToContainerChanges(this.selectedResource)
-      this.refreshCreationPermission()
     }
 
     if (changedProperties.has('fullView') && changedProperties.get('fullView') !== undefined) {
-      if (this.subject) {
-        this.standaloneBreadcrumbRoot = this.fullView
-          ? this.getStandaloneBreadcrumbRoot(this.subject)
-          : this.subject
-      }
       if (this.selectedResource) {
         void this.showResourceInContentView(this.selectedResource)
       } else if (this.subject) {
