@@ -478,7 +478,8 @@ export default class FolderPaneContainer extends WebComponent {
   private openAccessControls (resource: Resource) {
     resourceAccessCache.delete(resource.subject.uri)
     showDialog(AccessControlModal, {
-      props: { subjectUri: resource.subject.uri }
+      props: { subjectUri: resource.subject.uri },
+      onClose: () => { void this.refresh(false) }
     })
   }
 
