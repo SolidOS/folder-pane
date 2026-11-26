@@ -166,7 +166,8 @@ export default class FolderPaneStorageHeader extends WebComponent {
     if (!resource) return
     resourceAccessCache.delete(resource.uri)
     showDialog(AccessControlModal, {
-      props: { subjectUri: resource.uri }
+      props: { subjectUri: resource.uri },
+      onClose: () => { void this.loadResourceActions() }
     })
   }
 
