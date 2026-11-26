@@ -7,7 +7,8 @@ import type { DataBrowserContext } from 'pane-registry'
 import type { NamedNode } from 'rdflib'
 import type { ResourceMetadata } from 'solid-logic'
 import { authn, authSession } from 'solid-logic'
-import { customElement, utils, WebComponent, widgets } from 'solid-ui'
+import { customElement, showDialog, utils, WebComponent, widgets } from 'solid-ui'
+import AccessControlModal from 'solid-ui/components/access-control-modal'
 import type { Resource } from '../../types'
 import { resourceAccessCache } from '../../accessCache'
 import { loadResourcePaneMenuItems } from '../../resourceActionItems'
@@ -476,11 +477,10 @@ export default class FolderPaneContainer extends WebComponent {
 
   private openAccessControls (resource: Resource) {
     resourceAccessCache.delete(resource.subject.uri)
-    this.dispatchEvent(new CustomEvent('resource-open-pane', {
-      detail: { resource: resource.subject, paneName: 'sharing' },
-      bubbles: true,
-      composed: true
-    }))
+    showDialog(AccessControlModal, {
+      props: { subjectUri: resource.subject.uri },
+      onClose: () => { void this.refresh(false) }
+    })
   }
 
   private setResourceActionMenuItems (resource: Resource, items: ResourceActionMenuItem[]) {

@@ -3,7 +3,8 @@ import { property, state } from 'lit/decorators.js'
 import type { PropertyValues } from 'lit'
 import type { DataBrowserContext, PaneDefinition } from 'pane-registry'
 import { authSession } from 'solid-logic'
-import { customElement, login, WebComponent } from 'solid-ui'
+import { customElement, login, showDialog, WebComponent } from 'solid-ui'
+import AccessControlModal from 'solid-ui/components/access-control-modal'
 import type { PaneMenuItem } from 'solid-ui'
 import type { NamedNode } from 'rdflib'
 import type { ResourceMetadata } from 'solid-logic'
@@ -164,11 +165,10 @@ export default class FolderPaneStorageHeader extends WebComponent {
     const resource = this.displayedResource
     if (!resource) return
     resourceAccessCache.delete(resource.uri)
-    this.dispatchEvent(new CustomEvent('resource-open-pane', {
-      detail: { resource, paneName: 'sharing' },
-      bubbles: true,
-      composed: true
-    }))
+    showDialog(AccessControlModal, {
+      props: { subjectUri: resource.uri },
+      onClose: () => { void this.loadResourceActions() }
+    })
   }
 
   private get breadcrumbResources () {
