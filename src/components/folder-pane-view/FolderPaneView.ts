@@ -1341,6 +1341,7 @@ export default class FolderPaneView extends WebComponent {
         .subject=${this.subject}
         .breadcrumbRoot=${this.standaloneBreadcrumbRoot}
         .selectedResource=${this.getActiveContainer()}
+        .breadcrumbResource=${this.displayedResource}
         .browserContext=${this.browserContext}
         .paneList=${this.browserContext?.session.paneRegistry.list ?? []}
         .view=${this.containerView}

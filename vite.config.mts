@@ -11,5 +11,9 @@ export default defineConfig({
   resolve: {
     tsconfigPaths: true,
   },
+  test: {
+    environment: 'jsdom',
+    setupFiles: ['test/helpers/setup.ts']
+  },
   build: buildConfig({ entry: "src/index.ts" })
 });

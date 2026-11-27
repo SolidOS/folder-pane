@@ -308,7 +308,9 @@ solid-ui-file-explorer-provider > solid-ui-file-explorer-header {
   background: var(--solid-ui-color-white, #ffffff);
 }
 
-solid-ui-file-explorer-provider > .paneDiv,
+/* Framed iframe panes own their overflow so their document can scroll inside
+   the preview instead of inside the pane shell. */
+solid-ui-file-explorer-provider > .paneDiv:not(.human-readable-pane--iframe),
 solid-ui-file-explorer-provider > .exceptionPane {
   display: block;
   flex: 1 1 auto;
