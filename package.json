@@ -78,7 +78,7 @@
     "pane-registry": "5.1.3-0",
     "rdflib": "2.4.1",
     "solid-logic": "6.2.2-0",
-    "solid-ui": "5.1.1-0"
+    "solid-ui": "5.1.2-0"
   },
   "solidosDependencies": [
     "rdflib",
