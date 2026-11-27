@@ -60,7 +60,7 @@ describe('Folder-pane accessibility', () => {
       cancelable: true
     }))
     await sidebar.updateComplete
-    expect(sidebar.renderRoot.activeElement?.getAttribute('role')).toBe('treeitem')
+    expect(sidebar.renderRoot.activeElement).toBe(items[1])
     await expectAxeClean(sidebar)
   })
 
@@ -84,6 +84,14 @@ describe('Folder-pane accessibility', () => {
     const view = document.createElement('folder-pane-view') as any
     document.body.append(view)
     await view.updateComplete
+
+    const viewSidebar = view.querySelector('folder-pane-sidebar') as any
+    viewSidebar.subject = home
+    viewSidebar.store = sidebar.store
+    viewSidebar.resourceLogic = sidebar.resourceLogic
+    await viewSidebar.updateComplete
+    expect(viewSidebar.renderRoot.querySelectorAll('[role="treeitem"]')).toHaveLength(3)
+    sidebar.remove()
 
     const toggle = view.querySelector('button.folder-pane-sidebar-toggle') as HTMLElement
     expect(toggle.getAttribute('aria-expanded')).toBe('true')
