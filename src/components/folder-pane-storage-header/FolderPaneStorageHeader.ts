@@ -40,6 +40,9 @@ export default class FolderPaneStorageHeader extends WebComponent {
   accessor selectedResource: NamedNode | undefined = undefined
 
   @property({ attribute: false })
+  accessor breadcrumbResource: NamedNode | undefined = undefined
+
+  @property({ attribute: false })
   accessor browserContext: DataBrowserContext | undefined = undefined
 
   @property({ attribute: false })
@@ -173,7 +176,7 @@ export default class FolderPaneStorageHeader extends WebComponent {
 
   private get breadcrumbResources () {
     const root = this.breadcrumbRoot ?? this.subject
-    const selected = this.selectedResource
+    const selected = this.breadcrumbResource ?? this.selectedResource
     if (!root || !selected) return root ? [root] : []
 
     const resources = [selected]

@@ -116,7 +116,31 @@ describe('folder pane layout state', () => {
     expect(root.querySelector('.folder-pane-storage-header-breadcrumbs .separator')).toBeNull()
   })
 
-  it('labels a non-root breadcrumb root by its container name', async () => {
+  it('keeps the breadcrumb resource separate from the storage action target', async () => {
+    const header = document.createElement('folder-pane-storage-header') as
+      HTMLElement & {
+        subject: ReturnType<typeof namedNode>
+        breadcrumbRoot: ReturnType<typeof namedNode>
+        selectedResource: ReturnType<typeof namedNode>
+        breadcrumbResource: ReturnType<typeof namedNode>
+        updateComplete: Promise<void>
+        renderRoot: ParentNode
+      }
+    const rootResource = namedNode('https://pod.example/data/sharon/human-readable/')
+    const fileResource = namedNode(`${rootResource.value}notes.html`)
+    header.subject = rootResource
+    header.breadcrumbRoot = rootResource
+    header.selectedResource = rootResource
+    header.breadcrumbResource = fileResource
+    document.body.append(header)
+    await header.updateComplete
+
+    const breadcrumbs = Array.from(header.renderRoot.querySelectorAll('.folder-pane-storage-header-breadcrumbs li'))
+    expect(breadcrumbs.at(-1)?.querySelector('[aria-current="page"]')?.textContent?.trim()).toBe('notes.html')
+    expect(header.selectedResource.sameTerm(rootResource)).toBe(true)
+  })
+
+  it('labels a named subject breadcrumb root by its container name', async () => {
     const header = document.createElement('folder-pane-storage-header') as
       HTMLElement & {
         subject: ReturnType<typeof namedNode>

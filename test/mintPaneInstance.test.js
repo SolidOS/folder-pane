@@ -43,7 +43,14 @@ function createDom () {
 }
 
 const container = sym('https://pod.example/storage/')
-const context = { session: { store: { sym } } }
+const context = {
+  session: {
+    store: {
+      sym,
+      fetcher: { webOperation: vi.fn(async () => new Response(null, { status: 201 })) }
+    }
+  }
+}
 
 function setup () {
   const dom = createDom()
@@ -112,6 +119,73 @@ describe('mintPaneInstance', () => {
     expect(created.newInstance.uri).toBe('https://pod.example/storage/projects/My%20Tracker/index.ttl#this')
     expect(created.containedResource.uri).toBe('https://pod.example/storage/projects/My%20Tracker/')
     expect(statusArea.children).toHaveLength(0)
+  })
+
+  it('creates a BasicContainer before a pane writes nested resources', async () => {
+    const { dom, statusArea } = setup()
+    const mintNew = vi.fn(async (_context, options) => ({ ...options, newInstance: sym(`${options.newBase}index.ttl#this`) }))
+
+    await mintPaneInstance({ context, container, pane: { name: 'issue', mintNew }, name: 'Tracker', noun: 'tracker', statusArea, dom })
+
+    expect(context.session.store.fetcher.webOperation).toHaveBeenCalledWith(
+      'POST',
+      'https://pod.example/storage/',
+      {
+        data: ' ',
+        contentType: 'text/turtle',
+        headers: {
+          Link: '<http://www.w3.org/ns/ldp#BasicContainer>; rel="type"',
+          Slug: 'Tracker/'
+        }
+      }
+    )
+  })
+
+  it('uses the server-assigned container location when the requested name collides', async () => {
+    const { dom, statusArea } = setup()
+    const fetcher = {
+      webOperation: vi.fn(async () => new Response(null, {
+        status: 201,
+        headers: { Location: 'https://pod.example/storage/Tracker-1/' }
+      }))
+    }
+    const assignedContext = { session: { store: { sym, fetcher } } }
+    const mintNew = vi.fn(async (_context, options) => ({ ...options, newInstance: sym(`${options.newBase}index.ttl#this`) }))
+
+    const created = await mintPaneInstance({
+      context: assignedContext,
+      container,
+      pane: { name: 'issue', mintNew },
+      name: 'Tracker',
+      noun: 'tracker',
+      statusArea,
+      dom
+    })
+
+    expect(mintNew.mock.calls[0][1].newBase).toBe('https://pod.example/storage/Tracker-1/')
+    expect(created.newBase).toBe('https://pod.example/storage/Tracker-1/')
+    expect(created.containedResource.uri).toBe('https://pod.example/storage/Tracker-1/')
+  })
+
+  it('encodes Unicode creation names in the container Slug header', async () => {
+    const { dom, statusArea } = setup()
+    const fetcher = {
+      webOperation: vi.fn(async () => new Response(null, { status: 201 }))
+    }
+    const unicodeContext = { session: { store: { sym, fetcher } } }
+    const mintNew = vi.fn(async (_context, options) => ({ ...options, newInstance: sym(`${options.newBase}index.ttl#this`) }))
+
+    await mintPaneInstance({
+      context: unicodeContext,
+      container,
+      pane: { name: 'issue', mintNew },
+      name: '計画',
+      noun: 'tracker',
+      statusArea,
+      dom
+    })
+
+    expect(fetcher.webOperation.mock.calls[0][2].headers.Slug).toBe('%E8%A8%88%E7%94%BB/')
   })
 
   it('clears pane-rendered success content after creation', async () => {
